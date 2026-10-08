@@ -1,0 +1,35 @@
+# colcon workspace output
+build/
+install/
+log/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+.venv/
+
+# Run output (results, rosbags) — never committed (AGENTS.md §4)
+runs/
+*.db3
+*.mcap
+
+# Local runtime state (locks, pid files)
+.run/
+
+# Local environment overrides (e.g. SWARMFLOW_GUI)
+.env
+
+# Node (v2 web panel)
+node_modules/
+web/dist/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Claude Code worktrees
+.claude/worktrees/

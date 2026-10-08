@@ -7,7 +7,8 @@
 | **Status** | Approved for v1 implementation (5-day MVP) |
 | **Supersedes** | v1.1 ([`docs/source/swarmflow_v1.1_original.md`](source/swarmflow_v1.1_original.md)) |
 | **Change basis** | [`docs/source/handoff.md`](source/handoff.md) — approved changes C1–C28 (traceability in [Appendix A](#appendix-a--approved-change-traceability-c1c28)) |
-| **Stack** | ROS 2 Jazzy · Gazebo Harmonic · Nav2 · Open-RMF (v1) · Docker Compose · Python · Foxglove |
+| **Stack** | ROS 2 Jazzy · Gazebo Harmonic · Nav2 · Docker Compose · Python · Foxglove · Open-RMF (v2 Baseline C only) |
+| **Decisions after handoff** | **D1 (2026-10-08, user):** v1 uses SwarmFlow's own lightweight FCFS orchestrator + robot agent instead of Open-RMF; RMF moves to v2 as Baseline C. Supersedes the v1 parts of C3 and the RMF items of the handoff's 5-day plan. **D2 (2026-10-08, user):** the Gazebo GUI runs in a container and must be startable on Windows (§8.4). |
 | **Host** | Windows 11 + Docker Desktop (WSL2 backend); CPU has a thermal limit (one Gazebo sim at a time) |
 | **Agent rules** | [`AGENTS.md`](../AGENTS.md) |
 
@@ -34,10 +35,10 @@ The project ships in two versions:
 | | **v1 — 5-day MVP** | **v2 — research extension** |
 |---|---|---|
 | Purpose | A working, one-command Docker + ROS 2 + Gazebo + Nav2 multi-robot demo | Answer the central question with measured results |
-| Fleet layer | **Open-RMF** (task dispatch, traffic schedule/negotiation, dashboard) via free_fleet. Fallback: own FCFS orchestrator | **Own orchestrator + own robot agent** replace RMF's fleet layer; RMF kept as **Baseline C** |
+| Fleet layer | **Own lightweight orchestrator** (FCFS assignment + FCFS exclusive zone reservations) + **own robot agent** per robot (D1) | Same orchestrator, **predictive** policy; **Open-RMF** (via free_fleet) runnable as **Baseline C** |
 | Navigation | Nav2 per robot (both versions — SwarmFlow writes **no** custom navigation) | Nav2 + footprint-aware planning (Smac Hybrid-A* + MPPI) |
 | Scope | Standard layout, 3 robots, one small payload, no workers | 3 layouts, 4 payload types, workers, closures, stress tests, 2D benchmarks |
-| UI | Foxglove + RMF web dashboard | + custom React panel |
+| UI | Gazebo GUI (containerized) + Foxglove | + custom React panel, RMF dashboard for Baseline C |
 | Duration | 5 days (hard) | ~2–3 weeks with 24/7 agents, bounded by user review/integration |
 
 v1 is a complete, shippable project on its own (C1). v2 builds on it; nothing in v2 is required for v1.
@@ -46,18 +47,18 @@ v1 is a complete, shippable project on its own (C1). v2 builds on it; nothing in
 
 ## 2.1 v1 goals (all must hold on the v1 tag)
 
-1. `docker compose up` (one command, documented in `README.md`) starts Gazebo, 3 robots with Nav2,
-   the fleet layer, Foxglove bridge and (if RMF path) the RMF dashboard.
+1. `docker compose up` (one command from a Windows terminal, documented in `README.md`) starts Gazebo
+   (server + GUI, both in containers), 3 robots with Nav2, the orchestrator and the Foxglove bridge.
 2. Three custom robots complete pickup → delivery orders in the **standard** layout, with packages
    visibly riding on the robot.
-3. A narrow-corridor traffic scene shows coordinated passage (RMF traffic or FCFS fallback) versus
+3. A narrow-corridor traffic scene shows coordinated passage (FCFS reservations, Baseline B) versus
    Baseline A (independent Nav2 with stuck timeout), measured over a small *n*.
 4. Decision events are logged and visible in Foxglove (C22).
 5. CI builds and unit-tests every PR in the `dev` image.
 
 ## 2.2 v2 goals
 
-1. Own orchestrator with a fully specified reservation protocol (§6.5) replacing RMF's fleet layer.
+1. Predictive policy on the v1 orchestrator and reservation protocol (§6.5); Open-RMF integrated as Baseline C.
 2. Payload-dependent footprints and routes; "wide payload is infeasible in dense aisles" true by construction (§7.2).
 3. Predictive coordination: congestion forecasting, rolling-horizon replanning, deadline-aware assignment (§9).
 4. Workers, corridor closures (keepout filters), stress-test injection (§12).
@@ -83,7 +84,7 @@ These are the problems v2 measures; v1 demonstrates the first and (narrowly) the
 
 | Problem | Description | SwarmFlow response | Version |
 |---|---|---|---|
-| **Fleet congestion** | Robots independently choosing shortest routes create bottlenecks that cut throughput. | Conflict-zone reservations, coordinated waiting, direction-aware scheduling, traffic-aware assignment, predictive corridor utilization. | v1 (RMF / FCFS), v2 (predictive) |
+| **Fleet congestion** | Robots independently choosing shortest routes create bottlenecks that cut throughput. | Conflict-zone reservations, coordinated waiting, direction-aware scheduling, traffic-aware assignment, predictive corridor utilization. | v1 (FCFS), v2 (predictive) |
 | **Dynamic operations** | Workers crossing routes, temporary aisle blockages, slow robots, occupied loading stations, order bursts invalidate plans. | Detect and adapt without thrashing valid plans (replan hysteresis, §9.1). | v2 |
 | **Delivery deadlines** | Operations care about orders fulfilled on time, not per-robot distance. Orders have release time, pickup, destination, priority, deadline. | Assignment on estimated completion time incl. predicted congestion and commitments. | v2 |
 | **Dense layouts** | Tightly packed racks leave little manoeuvring space and create shared bottlenecks. | Test whether predictive coordination matters more as density and utilization rise. | v1 (standard), v2 (open/standard/dense) |
@@ -97,10 +98,11 @@ These are the problems v2 measures; v1 demonstrates the first and (narrowly) the
 - **3 custom robots** (§7.1), one shared robot image.
 - **One payload size — small (0.40 × 0.40 m)**, which fits inside the chassis outline, so the Nav2 footprint is **constant** in v1.
 - **No workers.**
-- **Fleet layer: Open-RMF** dispatching delivery tasks through free_fleet; fallback FCFS orchestrator (§15.3).
-- **Narrow-corridor traffic scene**: Baseline A vs RMF traffic (or Baseline B if fallback).
-- **Foxglove** (map, robots, paths, decision events, plots) **+ RMF web dashboard** (RMF path only).
-- **One-command `docker compose up`.**
+- **Fleet layer: SwarmFlow orchestrator** — FCFS assignment (nearest idle robot) + FCFS exclusive zone
+  reservations — and one **SwarmFlow robot agent** per robot (D1, §5.2). No Open-RMF in v1.
+- **Narrow-corridor traffic scene**: Baseline A (independent Nav2) vs Baseline B (FCFS reservations).
+- **Gazebo GUI in a container** (§8.4) **+ Foxglove** (map, robots, paths, zones, decision events, plots).
+- **One-command `docker compose up`**, runnable from Windows.
 - Decision logging (C22), CI (C26), small-*n* metrics script.
 
 ## 4.2 Cuts and honest reframings (C2)
@@ -114,9 +116,9 @@ These are the problems v2 measures; v1 demonstrates the first and (narrowly) the
 
 ## 4.3 v2 scope
 
-Own orchestrator replaces RMF's fleet layer; payload footprints + Smac Hybrid-A*/MPPI; workers and
-closures via keepout filters; forecasting, rolling horizon, deadlines; stress-test injection; 2D benchmarks
-across layouts and fleet sizes with RMF as Baseline C; React panel. Plan in §16.
+Predictive policy on the v1 orchestrator; Open-RMF integrated as Baseline C; payload footprints +
+Smac Hybrid-A*/MPPI; workers and closures via keepout filters; forecasting, rolling horizon, deadlines;
+stress-test injection; 2D benchmarks across layouts and fleet sizes; React panel. Plan in §16.
 
 # 5. Open-RMF and the Fleet Layer (C3)
 
@@ -127,26 +129,36 @@ conflict negotiation, lane closures, and a web dashboard, sitting on top of each
 RMF talks to robots through a **fleet adapter**. For Nav2 robots, **free_fleet** provides that adapter **[V]** [S4].
 
 ```
-            ┌──────────────────────── v1 ────────────────────────┐   ┌──────────────── v2 ────────────────┐
-fleet layer │ RMF core (task dispatcher, traffic schedule,       │   │ swarmflow orchestrator (pure-Python │
-            │ negotiation, lane closures) + rmf-web dashboard     │   │ lib + ROS adapter) — RMF = Baseline C│
-            ├─────────────────────────────────────────────────────┤   ├─────────────────────────────────────┤
-adapter     │ free_fleet (fleet adapter, zenoh bridge per robot)  │   │ swarmflow robot agent (one per robot)│
-            ├─────────────────────────────────────────────────────┤   ├─────────────────────────────────────┤
-navigation  │ Nav2 per robot (planner, controller, local avoidance, costmaps, keepout filter)  — same in v1/v2 │
+            ┌──── v1 and v2 (SwarmFlow path) ─────────────────┐   ┌──── v2 Baseline C only ─────────────┐
+fleet layer │ swarmflow orchestrator (pure-Python lib + ROS    │   │ RMF core (task dispatcher, traffic  │
+            │ adapter): FCFS in v1, predictive in v2           │   │ schedule, negotiation) + rmf-web     │
+            ├──────────────────────────────────────────────────┤   ├─────────────────────────────────────┤
+adapter     │ swarmflow robot agent (one per robot)            │   │ free_fleet (zenoh bridge per robot)  │
+            ├──────────────────────────────────────────────────┴───┴─────────────────────────────────────┤
+navigation  │ Nav2 per robot (planner, controller, local avoidance, costmaps, keepout filter) — always     │
             ├───────────────────────────────────────────────────────────────────────────────────────────────┤
-simulation  │ Gazebo Harmonic (headless server) + ros_gz bridges                                             │
+simulation  │ Gazebo Harmonic: headless server container + GUI container + ros_gz bridges                  │
             └───────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## 5.2 Why RMF in v1
+## 5.2 Why not RMF in v1 (decision D1)
 
-v1 must ship in 5 days. RMF gives dispatch, traffic control and a dashboard for free, so v1 spends its custom
-effort on the robot, the world, Nav2 configuration and integration.
+The handoff planned RMF for v1 to get dispatch, traffic control and a dashboard for free. The verification below
+showed the integration is not free: free_fleet is source-only, needs a separate zenoh bridge per robot plus a zenoh
+router, forces Cyclone DDS, and expects a non-namespaced robot layout that our 3-robots-in-one-Gazebo setup only
+matches in an upstream "testing-only" mode. RMF delivery tasks also assume workcell plugins we don't have.
 
-## 5.3 Why SwarmFlow replaces RMF's fleet layer in v2
+v1's fleet layer is small enough to own: nearest-idle-robot assignment, exclusive FCFS leases on one-way aisles, and a
+robot agent that turns a graph route into `NavigateThroughPoses` segments. That is pure-Python, agent-friendly work
+(lane B was building it from Day 1 as the fallback anyway), and it is exactly what v2 extends. So the user chose
+(2026-10-08) to make it the v1 path and remove the go/no-go RMF gate. What v1 gives up: RMF's web dashboard and traffic
+negotiation — neither is needed for the v1 demo.
 
-The v2 features are exactly what RMF cannot be extended with cheaply:
+## 5.3 RMF in v2: Baseline C
+
+RMF (with free_fleet) is integrated in v2 as **Baseline C** for Gazebo benchmarks (WS-D, §16). The findings in §5.5 are
+the starting point for that work. SwarmFlow does not *extend* RMF because the v2 features are exactly what RMF cannot
+be extended with cheaply:
 
 | v2 need | Why RMF does not fit cheaply |
 |---|---|
@@ -154,12 +166,13 @@ The v2 features are exactly what RMF cannot be extended with cheaply:
 | Payload-dependent footprints | RMF uses a fixed per-fleet footprint (vehicle profile) **[U — confirm in `rmf_fleet_adapter` config schema, WS-D]**. |
 | Fast, non-real-time 2D benchmarking (hundreds of runs) | RMF runs against ROS time with real nodes; not designed as a faster-than-real-time library. |
 
-v2 swaps **free_fleet → SwarmFlow robot agent** and **RMF core → SwarmFlow orchestrator**. Nav2 is untouched.
-RMF (with free_fleet) remains runnable as **Baseline C** in Gazebo benchmarks (§13.3).
+For Baseline C runs, free_fleet takes the robot agent's place and RMF core takes the orchestrator's place; Nav2,
+the world and the robots are unchanged (§13.3).
 
 ## 5.4 Shared nav graph
 
-The nav graph uses **RMF's nav-graph format from day one**, so both fleet layers read the same graph. RMF's
+The nav graph uses **RMF's nav-graph format from day one** (kept after D1), so Baseline C in v2 reads the same graph
+as SwarmFlow with no conversion. RMF's
 building-map tools (`rmf_building_map_tools`, released for Jazzy **[V]** [S7]) may generate the Gazebo world and the
 nav graph from a `.building.yaml` **[U — exact generator CLI and Gazebo Harmonic world output, WS-F Day 1]**.
 SwarmFlow-only data (conflict zones, payload feasibility) lives in a sidecar file keyed by nav-graph vertex/lane
@@ -182,18 +195,15 @@ names (§6.1), so the RMF graph file itself stays unmodified.
 | foxglove_bridge on Jazzy | Listed with a release in the Jazzy rosdistro. | **[V]** (version not pinned) | [S11] |
 | RMF delivery tasks with our robots | RMF "delivery" uses dispenser/ingestor workcells in `rmf_demos`; whether free_fleet supports the needed pickup/dropoff actions is **unknown**. | **[U]** | — |
 
-**What this means for the 5-day plan** (also in §17 Risks):
+**Consequences** — these drove decision D1 and now scope the v2 Baseline C work (also in §17 Risks):
 
-1. **Namespacing tension (highest RMF risk).** Our default is 3 namespaced Nav2 robots in one Gazebo (§7.6),
-   which matches free_fleet's *testing-only* multi-robot mode, not its intended per-robot layout. The tested
-   alternative is domain-isolated, non-namespaced robots (§7.6 Option D). WS-D must prove one of them by the Day-2 gate.
-2. **RMW is decided by free_fleet:** v1 uses **Cyclone DDS** (`RMW_IMPLEMENTATION=rmw_cyclonedds_cpp`) everywhere.
-   `rmw_zenoh` is not on the v1 critical path; it stays a v2 option.
-3. **Source builds inside Docker:** free_fleet + zenoh bridge binary download + pip deps belong in the `robot`/`fleet`
-   image Dockerfiles. Build time must be measured on Day 1.
-4. **Delivery semantics:** the gate accepts an RMF-dispatched *go-to-place* reaching our robot through free_fleet.
-   Pickup/drop-off (package attach/detach) is triggered by SwarmFlow's package node on arrival (§7.4), so v1 does
-   not depend on RMF workcells.
+1. **Namespacing tension.** Our layout is 3 namespaced Nav2 robots in one Gazebo (§7.6), which matches free_fleet's
+   *testing-only* multi-robot mode, not its intended per-robot layout. The tested alternative is domain-isolated,
+   non-namespaced robots (§7.6 Option D). WS-D must prove one of them before Baseline C runs.
+2. **free_fleet expects Cyclone DDS.** v1 picks Cyclone DDS anyway (§8.1), so Baseline C needs no RMW change.
+3. **Source builds inside Docker:** free_fleet + zenoh bridge binary download + pip deps go in the v2 `fleet` image.
+4. **Delivery semantics:** Baseline C can use RMF *go-to-place* tasks; pickup/drop-off stays with SwarmFlow's package
+   node (§7.4), so RMF workcells are not needed.
 
 # 6. Architecture
 
@@ -231,8 +241,9 @@ clear_width_m, bidirectional), `zones[]` (name, lanes[], vertices[], capacity), 
 
 | Component | v1 | v2 | Package / path |
 |---|---|---|---|
-| Fleet layer | RMF core + rmf-web (RMF path) **or** SwarmFlow FCFS orchestrator (fallback) | SwarmFlow orchestrator (predictive) | `src/swarmflow_core/`, `src/swarmflow_orchestrator/` |
-| Robot agent (fleet adapter) — one per robot | free_fleet **or** SwarmFlow robot agent (fallback) | SwarmFlow robot agent | `src/swarmflow_robot_agent/`, `src/swarmflow_rmf/` |
+| Fleet layer | SwarmFlow orchestrator, FCFS policy | + predictive policy | `src/swarmflow_core/`, `src/swarmflow_orchestrator/` |
+| Robot agent (fleet adapter) — one per robot | SwarmFlow robot agent | same | `src/swarmflow_robot_agent/` |
+| Baseline C (RMF core + free_fleet + rmf-web + state bridge) | — | ✔ | `src/swarmflow_rmf/`, `config/rmf/` |
 | Navigation | Nav2 per robot | Nav2 + Smac Hybrid + MPPI + keepout | `src/swarmflow_nav/` |
 | Robot model | custom diff-drive xacro | same + payload footprints | `src/swarmflow_description/` |
 | World & sim bringup | Gazebo Harmonic + ros_gz bridges | + workers, closures | `src/swarmflow_gazebo/` |
@@ -246,10 +257,10 @@ navigation or safety decisions.
 
 ## 6.3 Robot agent per robot (C6)
 
-The robot agent is the **only** bridge from the fleet layer to Nav2. In v1 free_fleet plays this role (RMF path)
-or the SwarmFlow fallback agent does; in v2 it is always the SwarmFlow agent.
+The robot agent is the **only** bridge from the fleet layer to Nav2, in v1 and v2. (In v2 Baseline C runs,
+free_fleet plays this role for RMF.)
 
-Behaviour (SwarmFlow agent, `src/swarmflow_robot_agent/`):
+Behaviour (`src/swarmflow_robot_agent/`):
 
 1. Receives a task as a **graph route** (ordered vertex names) via the `DispatchTask` action (§6.6).
 2. Splits the route into **segments** that end at the next zone-entry vertex (or the goal) and sends each segment
@@ -263,13 +274,17 @@ Behaviour (SwarmFlow agent, `src/swarmflow_robot_agent/`):
 ## 6.4 Corridor closures (C7)
 
 A closed corridor must be closed for **both** the fleet layer and the local planner, otherwise Nav2 would happily
-replan through it. v1 (RMF): RMF lane closures **[U — WS-D: confirm lane-closure request API on Jazzy]**.
-v2: Nav2 **keepout costmap filter** per robot **[V]** [S10]; the closure node republishes the keepout mask
+replan through it. v1 has no closures. v2: Nav2 **keepout costmap filter** per robot **[V]** [S10]; the closure node republishes the keepout mask
 (`OccupancyGrid`) with the closed zone's polygon marked, and the orchestrator removes the zone's lanes from
 routing. Both happen from the same `ScenarioEvent` (§12.2). Exact runtime mask-update mechanism (map server
-`load_map` vs. a custom mask publisher) **[U — WS-A, v2]**.
+`load_map` vs. a custom mask publisher) **[U — WS-A, v2]**. (Baseline C maps closures to RMF lane closures
+**[U — WS-D, v2]**.)
 
-## 6.5 Reservation protocol (v2, fully specified) (C8)
+## 6.5 Reservation protocol (v1 with FCFS, fully specified) (C8)
+
+The handoff specified this protocol for v2; after D1 it is the **v1** traffic control, with the FCFS policy. The
+full rule set below (leases, heartbeats, orchestrator-down behaviour) is implemented in v1 — it is small, and the
+safety rules are not optional.
 
 Actors: **robot agent** (client), **orchestrator** (sole reservation authority). All times are **sim time**.
 
@@ -297,10 +312,10 @@ Rules:
    - an agent **inside** a zone continues to the exit vertex (Nav2 local avoidance still active) and then holds;
    - after `orchestrator_timeout = 10 s` the agent sets `mode = FAULT`, reports `fault_reason = ORCHESTRATOR_TIMEOUT`,
      and keeps holding until the orchestrator returns. It never enters a new zone without a grant.
-7. Policies: **Baseline B / v1 fallback = FCFS exclusive**; v2 predictive = deadline/congestion-aware with direction
+7. Policies: **v1 / Baseline B = FCFS exclusive**; v2 predictive = deadline/congestion-aware with direction
    batching (§9.2). The protocol is identical for both.
 
-In v1 with RMF, RMF's traffic schedule and negotiation replace this protocol entirely.
+In Baseline C runs (v2), RMF's traffic schedule and negotiation replace this protocol entirely.
 
 ## 6.6 `swarmflow_interfaces` — frozen on Day 1 (C9)
 
@@ -439,7 +454,7 @@ builtin_interfaces/Time eta
 | `/robot_N/payload_state` | `PayloadState` | payload node → agent, monitoring |
 | `/robot_N/navigate_through_poses` | `nav2_msgs/action/NavigateThroughPoses` | agent N → Nav2 N |
 
-In the RMF path, a small **RMF state bridge** (WS-D) publishes `/fleet/robot_states` and `/fleet/order_status`
+In Baseline C runs (v2), a small **RMF state bridge** (WS-D) publishes `/fleet/robot_states` and `/fleet/order_status`
 from RMF's fleet/task state so Foxglove and the metrics script work unchanged **[U — RMF topic and message names on Jazzy, WS-D]**.
 
 ## 6.7 Orchestrator = pure-Python library + thin adapters (C10)
@@ -535,9 +550,29 @@ Aisle clear widths per layout (between rack faces):
 | **Standard (v1)** | 2.20 | **1.30** | 2.20 | Main aisles two-way for unloaded/small/medium. Storage aisles **one-way for all loads** (unloaded needs 1.50) → each storage aisle is an exclusive conflict zone = the v1 narrow-corridor scene. Wide fits storage aisles (needs 1.20). Long cannot rotate in storage aisles. |
 | Dense (v2) | 1.60 | **1.00** | 1.60 | **Wide is infeasible in storage aisles** (needs 1.20 > 1.00). Medium/long/small fit one-way. Unloaded/small can rotate in place in storage aisles (0.92 < 1.00); medium, wide and long can rotate only in main/cross aisles (long: 1.48 ≤ 1.60), so loaded robots enter storage aisles already aligned. |
 
-All values are provisional until the WS-F generator tests assert every row of this table and WS-A confirms Nav2
-passes the 1.30 m standard storage aisle with the unloaded footprint and default inflation. If Nav2 needs more room,
-widen all aisles by the same delta and update this table — keep the inequalities, not the numbers.
+**Nav2 clearance check (analytical, 2026-10-08)** against the Jazzy `nav2_bringup` default params **[V]** [S12]:
+costmap resolution 0.05 m, inflation radius 0.70 m, cost scaling factor 3.0, NavFn planner, MPPI controller with
+`consider_footprint: false` and collision at cost ≥ 253. With our footprint polygon (0.70 × 0.60 m, + Nav2's
+default 0.01 m padding → inscribed radius 0.31 m, circumradius 0.47 m), using Nav2's inflation formula
+`cost = 252·exp(−3.0·(d − 0.31))` for a cell at distance *d* from the nearest rack:
+
+| Aisle | Centre-to-rack *d* | Centre-line cost | Free centre band (cost < 253) | Rotate in place (0.47 < *d*) |
+|---|---|---|---|---|
+| Standard storage 1.30 m | 0.65 m | ≈ 90 | 0.68 m | ✔ (0.18 m spare) |
+| Standard main 2.20 m | 1.10 m | 0 (beyond 0.70 m inflation) | 1.58 m | ✔ |
+| Dense storage 1.00 m (v2) | 0.50 m | ≈ 142 | 0.38 m | ✔ but only 0.03 m spare — tight at 0.05 m resolution |
+
+Result: **the 1.30 m standard storage aisle is passable with defaults** — the aisle centre sits well below the
+collision cost and the whole footprint (circumradius 0.47 m) stays clear of the racks even while rotating. Two
+unloaded robots *could* in theory squeeze past each other in 1.30 m (≈ 0.03 m margins), but only through cells at
+cost ≈ 245, which MPPI/NavFn will not plan through in practice — they block each other, which is the behaviour the
+Baseline A scene needs. Required settings: replace `robot_radius: 0.22` with our `footprint` polygon in both costmaps,
+and model racks as **solid collision boxes down to the floor** so the LiDAR cannot see through shelf legs.
+Still to confirm in simulation (WS-A Day 2 acceptance): real LiDAR noise and MPPI behaviour at the 1.30 m aisle.
+For the dense layout (v2), consider 1.05 m storage aisles if in-place rotation proves flaky.
+
+All values remain provisional until the WS-F generator tests assert every row of the tables above. If Nav2 needs more
+room, widen all aisles by the same delta and update the tables — keep the inequalities, not the numbers.
 
 ## 7.3 Nav2 configuration (C12, C15)
 
@@ -583,15 +618,14 @@ Start from Nav2's multi-robot example (`unique_multi_tb3_simulation_launch.py` *
 - All robots localize in the same `map` (same static map, AMCL with launch-supplied initial pose).
   Fallback if AMCL costs time: ground-truth localization (static `map→odom` identity + Gazebo odometry).
 - Global views (Foxglove, orchestrator) use `/fleet/robot_states` poses (map frame), not a merged TF tree.
-- free_fleet in this mode = its "pre-namespaced robots, one non-namespaced bridge" example (testing-only per
-  upstream) **[V]** [S4].
+- v1 uses **Option N**; the SwarmFlow robot agent works with it directly. For Baseline C (v2), free_fleet with
+  Option N means its "pre-namespaced robots, one non-namespaced bridge" example, which upstream marks testing-only
+  **[V]** [S4].
 
-**Alternative — Option D (domain-isolated, non-namespaced):** each robot container uses its own `ROS_DOMAIN_ID`
-with non-namespaced Nav2 and its own `ros_gz_bridge` (gz-transport topics `robot_N/...` mapped to plain ROS names,
-`/clock` bridged per domain); one namespaced zenoh bridge per robot. This matches free_fleet's intended design.
-WS-D switches to Option D only if Option N fails the Day-2 gate; Option D costs more bridge configuration.
-
-The chosen option is recorded in `docs/decisions/` by the lead at the end of Day 2 **[decision pending gate]**.
+**Alternative — Option D (domain-isolated, non-namespaced), v2 Baseline C only:** each robot container uses its own
+`ROS_DOMAIN_ID` with non-namespaced Nav2 and its own `ros_gz_bridge` (gz-transport topics `robot_N/...` mapped to plain
+ROS names, `/clock` bridged per domain); one namespaced zenoh bridge per robot. This matches free_fleet's intended
+design. WS-D tries Option N with free_fleet first and switches to Option D only if it fails.
 
 # 8. Docker and Environment (C16, C17)
 
@@ -599,14 +633,16 @@ The chosen option is recorded in `docs/decisions/` by the lead at the end of Day
 
 The spike must pass before anything else depends on Docker networking. Owner: lead + WS-A.
 
-1. **Gazebo server headless** in the `sim` container (`gz sim -s -r <world>`); GUI on the host via **WSLg**
-   (Windows 11 + Docker Desktop/WSL2) or `gz sim -g` in a container with WSLg display mounts **[U — which works on
-   the user's machine is the spike's output]**.
+1. **Gazebo server headless** in the `gazebo` container (`gz sim -s -r <world>`); **GUI in its own container**
+   (`gz sim -g`), displayed on Windows (§8.4). The spike proves which display route works on the user's machine.
 2. **`/clock`** bridged from Gazebo once; **`use_sim_time: true`** on every node (launch files pass it; a test
    greps launch files for it).
-3. **RMW:** `rmw_cyclonedds_cpp` (required by free_fleet, §5.5), all ROS containers on one user-defined Docker
-   network. If Fast DDS is ever used, **shared-memory transport must be disabled** (containers do not share `/dev/shm`).
-   `rmw_zenoh` is not used in v1.
+3. **RMW (ROS middleware): Cyclone DDS** — `RMW_IMPLEMENTATION=rmw_cyclonedds_cpp` in every container, all ROS
+   containers on one user-defined Docker network. Why: Nav2 is widely run on it, it needs no extra router process,
+   and it avoids Fast DDS's shared-memory transport, which breaks between containers that don't share `/dev/shm`
+   (if Fast DDS is ever used, disable shared memory). It is also what free_fleet expects, so Baseline C (v2) needs no
+   change. `rmw_zenoh` (released for Jazzy **[V]** [S6]) is the alternative if DDS discovery between containers
+   fails on Docker Desktop: it needs one `rmw_zenohd` router container and routes all traffic through it.
 4. **"Hello multi-container" test** (`tests/integration/test_multi_container.sh`): container A publishes a counter at
    10 Hz; container B must **receive ≥ 50 messages in 10 s**. Fails if the topic is merely listed (`ros2 topic list`)
    but no data flows — the classic cross-container DDS failure.
@@ -618,10 +654,10 @@ The spike must pass before anything else depends on Docker networking. Owner: le
 | Image | Dockerfile | Contents | Used by |
 |---|---|---|---|
 | `swarmflow/dev` | `docker/dev.Dockerfile` | ROS 2 Jazzy base, build tools, `colcon`, `pytest`, our source deps. **No Gazebo GUI, no GPU.** | agents, CI, unit tests, 2D sim |
-| `swarmflow/sim` | `docker/sim.Dockerfile` | `dev` + Gazebo Harmonic + `ros_gz` | `gazebo` service |
-| `swarmflow/robot` | `docker/robot.Dockerfile` | `dev` + Nav2 + our robot packages + free_fleet client side (zenoh bridge binary) | `robot_1..robot_3` — **one image, configured by env vars** (`ROBOT_ID`, `ROBOT_NAMESPACE`, `SPAWN_VERTEX`, `ROS_DOMAIN_ID`) |
-| `swarmflow/fleet` | `docker/fleet.Dockerfile` | `dev` + Open-RMF (`ros-jazzy-rmf-dev`) + free_fleet adapter (source) + `zenohd` | `rmf`, `fleet_adapter` services |
-| upstream | — | `ghcr.io/open-rmf/rmf-web/api-server:jazzy-nightly`, `…/demo-dashboard:jazzy-nightly` (pinned by digest) **[V]** [S8] | `rmf_api`, `rmf_dashboard` |
+| `swarmflow/sim` | `docker/sim.Dockerfile` | `dev` + Gazebo Harmonic + `ros_gz` (+ noVNC stack for the browser GUI fallback, §8.4) | `gazebo`, `gazebo_gui` services |
+| `swarmflow/robot` | `docker/robot.Dockerfile` | `dev` + Nav2 + our robot packages + robot agent | `robot_1..robot_3` — **one image, configured by env vars** (`ROBOT_ID`, `ROBOT_NAMESPACE`, `SPAWN_VERTEX`, `ROS_DOMAIN_ID`) |
+| `swarmflow/fleet` (v2) | `docker/fleet.Dockerfile` | `dev` + Open-RMF (`ros-jazzy-rmf-dev`) + free_fleet (source) + zenoh bridge + `zenohd` | Baseline C: `rmf`, `fleet_adapter` |
+| upstream (v2) | — | `ghcr.io/open-rmf/rmf-web/api-server:jazzy-nightly`, `…/demo-dashboard:jazzy-nightly` (pinned by digest) **[V]** [S8] | Baseline C: `rmf_api`, `rmf_dashboard` |
 
 Software installs happen **only** in these Dockerfiles. Versions (apt package versions where practical, image
 digests, pip pins) are recorded in `docker/versions.lock.md`.
@@ -631,25 +667,38 @@ digests, pip pins) are recorded in `docker/versions.lock.md`.
 | Service | Image | v1 | Notes |
 |---|---|---|---|
 | `gazebo` | sim | ✔ | headless server, `/clock` bridge, spawns robots and packages; label `swarmflow.sim=1` |
-| `robot_1..robot_3` | robot | ✔ | Nav2 (composed) + bridges (+ SwarmFlow agent in fallback) |
-| `rmf` | fleet | ✔ (RMF path) | RMF core: dispatcher, traffic schedule, building map server |
-| `fleet_adapter` | fleet | ✔ (RMF path) | free_fleet adapter + `zenohd` |
-| `orchestrator` | dev | ✔ (fallback) / v2 | `swarmflow_orchestrator` |
+| `gazebo_gui` | sim | ✔ | `gz sim -g` client, shown on Windows (§8.4); can be stopped alone to save CPU; label `swarmflow.sim=1` |
+| `robot_1..robot_3` | robot | ✔ | Nav2 (composed) + bridges + SwarmFlow robot agent |
+| `orchestrator` | dev | ✔ | `swarmflow_orchestrator` (FCFS in v1) |
 | `scenario_engine` | dev | ✔ | order generator; stress events in v2 |
 | `payload` | dev | ✔ | pose-follower + payload state |
 | `foxglove_bridge` | robot | ✔ | `foxglove_bridge`, port 8765 |
-| `rmf_api`, `rmf_dashboard` | upstream | ✔ (RMF path) | ports 8000 / 3000 |
+| `rmf`, `fleet_adapter`, `rmf_api`, `rmf_dashboard` | fleet / upstream | v2 (profile `baseline-c`) | RMF core, free_fleet + `zenohd`, dashboard ports 8000 / 3000 |
 | `telemetry_api`, `web` | dev / node | v2 | FastAPI + React panel |
 
-Compose **profiles**: `rmf` (default in v1 if the gate passes) and `fallback`. `docker compose up` with the
-default profile must work with no other arguments. A `docker compose --profile ...` variant is documented, not required.
-Host networking on Docker Desktop for Windows is **not assumed**; if the RMF dashboard needs it (as upstream
-suggests [S8]), WS-D documents the workaround **[U]**.
+`docker compose up` with no other arguments starts the full v1 stack including the GUI. Host networking on Docker
+Desktop for Windows is **not assumed**; if the RMF dashboard needs it in v2 (as upstream suggests [S8]), WS-D documents
+the workaround **[U]**.
+
+## 8.4 Gazebo GUI in a container, on Windows (decision D2)
+
+Requirement: the Gazebo GUI runs **in a container** and the user can start everything **from Windows** with
+`docker compose up`. The GUI is a separate `gazebo_gui` container (`gz sim -g`) that connects to the headless server
+over gz-transport on the shared Docker network (same `GZ_PARTITION` in both containers; discovery across containers
+**[U — spike step 1]**). Two display routes, chosen by `SWARMFLOW_GUI=wslg|vnc` in `.env`:
+
+| Route | How it works | Status | Trade-off |
+|---|---|---|---|
+| **WSLg** (preferred) | Windows 11's built-in Linux GUI support. The container mounts the WSLg X11 socket and gets `DISPLAY=:0`, `QT_QPA_PLATFORM=xcb`; the Gazebo window appears as a normal Windows window. Optional GPU: `/dev/dxg` + `/usr/lib/wsl` mounts. | Documented to work for Gazebo containers when `docker` is run **from a WSL Ubuntu terminal** (mount `/mnt/wslg/.X11-unix` → `/tmp/.X11-unix`) **[V]** [S13], [S14]. Running the same compose file **from PowerShell** needs Docker Desktop's path to WSLg (reported as `/run/desktop/mnt/host/wslg/...`) **[U — spike must test]**. | Native window, can use the GPU, low CPU. |
+| **noVNC** (guaranteed fallback) | The GUI renders into a virtual display (Xvfb) inside the container; a VNC + noVNC server shows it in the browser at `http://localhost:6080`. | Works from any Windows terminal with only Docker Desktop **[U — standard technique, not yet tested here]**. | Software rendering: more CPU, so watch the thermal limit; browser tab instead of a window. |
+
+Day-1 spike outcome required: from **PowerShell**, `docker compose up` shows the Gazebo GUI via WSLg; if not, `vnc`
+becomes the default and the README says so. Foxglove (browser, `ws://localhost:8765`) works either way.
 
 # 9. Coordination Algorithms (v2)
 
-v1 uses RMF's algorithms (RMF path) or FCFS + nearest-idle-robot assignment (fallback / Baseline B). Everything
-below is the v2 **predictive policy**, implemented in `swarmflow_core.policies.predictive`.
+v1 uses FCFS: nearest-idle-robot assignment (`swarmflow_core.policies.fcfs`) plus FCFS exclusive reservations
+(= Baseline B). Everything below is the v2 **predictive policy**, implemented in `swarmflow_core.policies.predictive`.
 
 ## 9.1 Rolling-horizon replanning
 
@@ -709,10 +758,9 @@ feasibility or reservation invariants.
 Every significant fleet decision emits a `DecisionEvent` (§6.6) on `/fleet/decisions`, also appended to
 `runs/<run_id>/decisions.jsonl`. This is a **v1 feature** because it is the primary debugging tool.
 
-- v1 fallback/FCFS: `ASSIGN`, `RESERVATION_GRANT`, `RESERVATION_DENY`, `STUCK_FAIL`.
-- v1 RMF path: the RMF state bridge emits `ASSIGN` (task → robot) and `STUCK_FAIL` from observed state; RMF's internal
-  negotiation is not explained (documented limitation).
-- v2: all decision types.
+- v1 (FCFS): `ASSIGN`, `RESERVATION_GRANT`, `RESERVATION_DENY`, `STUCK_FAIL`.
+- v2: all decision types. Baseline C: the RMF state bridge emits `ASSIGN` and `STUCK_FAIL` from observed state; RMF's
+  internal negotiation is not explained (documented limitation).
 
 Event data: timestamp, robot/order id, decision type, previous decision, new decision, cost estimates
 (`cost_keys`/`cost_values`), trigger, predicted improvement. The `explanation` string is **rendered by a template from
@@ -728,7 +776,7 @@ Uses: debugging, algorithm evaluation, reproducibility, dashboard explanations, 
 
 # 11. Visualization and Dashboard (C21)
 
-## 11.1 v1: Foxglove (+ RMF web dashboard)
+## 11.1 v1: Gazebo GUI + Foxglove
 
 `foxglove_bridge` (WebSocket, port 8765) exposes ROS topics to Foxglove. Layout file `viz/foxglove/swarmflow_v1.json`
 (WS-E) contains:
@@ -740,8 +788,8 @@ Uses: debugging, algorithm evaluation, reproducibility, dashboard explanations, 
 - **Plots:** deliveries completed, robot speeds, waiting time.
 - **Order table** from `/fleet/order_status`.
 
-Gazebo GUI remains the 3D showcase; Foxglove is the operational view. The RMF web dashboard (RMF path) shows RMF
-tasks and fleet state.
+The Gazebo GUI (containerized, §8.4) is the 3D showcase; Foxglove is the operational view. The RMF web dashboard
+is used only for Baseline C runs in v2.
 
 ## 11.2 v2: custom React panel
 
@@ -814,8 +862,8 @@ pair, the distance between their effective padded footprint polygons (incl. payl
 | Policy | Description | Backends |
 |---|---|---|
 | **Baseline A — independent Nav2** | Robots get routes/goals with no traffic coordination; local avoidance only. **Stuck-timeout rule (C18):** if a robot makes < 0.2 m progress toward its goal in 60 s (sim), the order is scored **failed** (`STUCK_TIMEOUT`) and the robot is sent to park. | Gazebo, 2D |
-| **Baseline B — reactive FCFS reservations** | §6.5 protocol, FCFS exclusive policy, nearest-idle assignment. (= v1 fallback.) | Gazebo, 2D |
-| **Baseline C — Open-RMF** | RMF dispatch + traffic schedule via free_fleet (= v1 RMF path). | Gazebo only |
+| **Baseline B — reactive FCFS reservations** | §6.5 protocol, FCFS exclusive policy, nearest-idle assignment. (= the v1 fleet layer.) | Gazebo, 2D |
+| **Baseline C — Open-RMF** | RMF dispatch + traffic schedule via free_fleet (v2 integration, §5.3). | Gazebo only |
 | **Proposed — predictive orchestration** | §9 forecasting, adaptive reservations, rolling horizon, deadline-aware priorities. | Gazebo, 2D |
 
 ## 13.4 Environments
@@ -844,14 +892,15 @@ Day 1 freezes four contracts. Everything else can be built in parallel against t
 | WS | Scope | Owned paths | Needs sim? | Acceptance (v1) |
 |---|---|---|---|---|
 | **A** | Docker, Gazebo world bringup, custom chassis, Nav2 bringup | `docker/`, `src/swarmflow_description/`, `src/swarmflow_gazebo/`, `src/swarmflow_nav/`, `scripts/` | **Yes — human watching** | 3 namespaced robots each reach 5 random goals in the standard world; hello-multi-container test passes |
-| **B** | Orchestrator library (FCFS v1, predictive v2), ROS adapter, fallback robot agent (v1) | `src/swarmflow_core/`, `src/swarmflow_orchestrator/`, `src/swarmflow_robot_agent/` (v1) | No (unit tests, fake backend) | FCFS + reservation property tests pass; fake-backend end-to-end of 10 orders × 3 robots |
+| **B** | Orchestrator library (FCFS v1, predictive v2) + ROS adapter | `src/swarmflow_core/`, `src/swarmflow_orchestrator/` | No (unit tests, fake backend) | FCFS + reservation property tests pass; fake-backend end-to-end of 10 orders × 3 robots |
 | **C** | 2D kinematic sim + benchmark harness | `sim2d/`, `tools/bench/` | No | v1: skeleton runs the FCFS policy on the standard layout from `sim2d.json` deterministically |
-| **D** | RMF + free_fleet integration, RMF state bridge; robot agent in v2 | `src/swarmflow_rmf/`, `config/rmf/`; `src/swarmflow_robot_agent/` from v2 | Yes (integration with A) | Day-2 gate (§15.2) |
+| **D** | Robot agent (v1, integration with A); RMF + free_fleet Baseline C and RMF state bridge (v2) | `src/swarmflow_robot_agent/`; `src/swarmflow_rmf/`, `config/rmf/` (v2) | Agent: unit tests against a fake Nav2 action server first, then sim | Agent drives a fake `NavigateThroughPoses` server through a route with a zone hold (unit test); Day-2 gate (§15.2) in sim |
 | **E** | Foxglove layouts, viz node; v2 web panel + telemetry API on mock data | `viz/`, `src/swarmflow_viz/`, `web/`, `src/swarmflow_telemetry/` | No (mock data) | Foxglove layout shows robots, plans, zones, decisions from fixtures |
 | **F** | Layout generator, scenario/order generator, package pose-follower | `layouts/`, `tools/layoutgen/`, `tools/scenarios/`, `scenarios/`, `src/swarmflow_scenarios/`, `src/swarmflow_payload/` | Layoutgen: no; pose-follower: yes | Generator emits all §6.1 artefacts for `standard`; §7.2 invariants asserted in tests |
 | **Lead** | Contracts, integration, merges prep, CI, docs | `src/swarmflow_interfaces/`, `layouts/schema/`, `src/swarmflow_core/swarmflow_core/api.py`, `tests/fixtures/`, `.github/`, `docs/`, `README.md`, `AGENTS.md` | Yes | — |
 
-`src/swarmflow_robot_agent/` moves from WS-B (v1 fallback) to WS-D in v2 by an explicit ownership note in `AGENTS.md`.
+After D1 the robot agent belongs to WS-D from Day 1 (it is the robot-side half of the integration with WS-A), so no
+ownership hand-over is needed in v2.
 
 ## 14.3 CI is the referee (C26)
 
@@ -868,7 +917,8 @@ No Gazebo in CI. The user merges; agents never merge.
 ## 14.4 Integration is the bottleneck (C27)
 
 The user plus a lead agent own merges and all Gazebo/Nav2 debugging. Agents take everything that runs without the
-simulator (WS-B, C, E, F-layoutgen). Agents that need the simulator (WS-A, D, F-pose-follower) take the sim lock (§14.5).
+simulator (WS-B, C, E, F-layoutgen, D's unit-tested agent logic). Agents that need the simulator (WS-A, D in
+integration, F-pose-follower) take the sim lock (§14.5).
 
 ## 14.5 24/7 guardrails (C28)
 
@@ -886,37 +936,45 @@ simulator (WS-B, C, E, F-layoutgen). Agents that need the simulator (WS-A, D, F-
 
 | Day | Critical path (user + lead agent) | Parallel agent lanes |
 |---|---|---|
-| **1** | Docker/RMW spike (§8.1); **freeze contracts** (interfaces, graph schema, orchestrator API, fixtures) | **A:** chassis URDF/xacro + single robot Nav2 in world · **D:** RMF + free_fleet stock Nav2 example running in Docker · **B:** interfaces pkg + FCFS orchestrator lib + tests · **F:** layout → world + nav graph generator, order generator |
-| **2** | 3 namespaced Nav2 robots navigating in Gazebo. **Go/no-go at end of day** (§15.2) | **E:** Foxglove layout · **B:** own robot-agent adapter (fallback) · **F:** package pose-follower node |
-| **3** | End-to-end deliveries with 3 robots, packages visible (RMF or fallback) | **C:** 2D sim skeleton on orchestrator lib (v2 seed) · **E:** decision-event log → Foxglove |
-| **4** | Narrow-corridor scene: Baseline A (independent Nav2 + stuck timeout) vs RMF traffic (or Baseline B); one-command compose | CI pipeline · small-*n* metrics script (deliveries, wait time, stuck events) · README draft |
+Revised after D1 (no RMF in v1). The structure of the handoff plan is kept; the RMF lane is replaced by the robot agent.
+
+| Day | Critical path (user + lead agent) | Parallel agent lanes |
+|---|---|---|
+| **1** | Docker/RMW + GUI spike (§8.1, §8.4); **freeze contracts** (interfaces, graph schema, orchestrator API, fixtures) | **A:** chassis URDF/xacro + single robot Nav2 in world · **B:** interfaces pkg + FCFS orchestrator lib + reservation property tests · **D:** robot agent against a fake `NavigateThroughPoses` server (unit tests) · **F:** layout → world + nav graph generator, order generator |
+| **2** | 3 namespaced Nav2 robots navigating in Gazebo. **Go/no-go at end of day** (§15.2) | **B:** orchestrator ROS adapter · **D:** robot agent on robot_1 in sim · **E:** Foxglove layout · **F:** package pose-follower node |
+| **3** | End-to-end deliveries with 3 robots, packages visible | **C:** 2D sim skeleton on orchestrator lib (v2 seed) · **E:** decision-event log → Foxglove |
+| **4** | Narrow-corridor scene: Baseline A (independent Nav2 + stuck timeout) vs Baseline B (FCFS reservations); one-command compose | CI pipeline · small-*n* metrics script (deliveries, wait time, stuck events) · README draft |
 | **5** | Buffer + hardening; record demo video; freeze `v1.0.0` tag | docs, architecture diagram, cleanup |
 
 **Realism notes.** Day 2 (multi-robot Nav2 namespacing) is the highest schedule risk. **Day 5 is buffer, not feature
-time.** If the RMF gate fails, the fallback keeps the 5-day target only because lane B was built in parallel from Day 1.
+time.** Removing RMF from v1 removes the biggest integration unknown, but the robot agent is now custom code on the
+critical path — which is why it starts on Day 1 against a fake Nav2 server instead of waiting for the sim.
 
 ## 15.2 Go/no-go gate (end of Day 2)
 
-**GO (RMF path)** if all hold, demonstrated live with the user watching:
+**GO** if all hold, demonstrated live with the user watching:
 
-1. 3 namespaced Nav2 robots navigate in the standard world (or Option D, §7.6).
-2. RMF (Jazzy binaries) + free_fleet run in the `fleet` image, with our graph loaded.
-3. **RMF dispatches one task to one of our robots through free_fleet, and the robot reaches the destination via Nav2.**
-   (A go-to-place task is sufficient; delivery semantics come from our payload node, §5.5 point 4.)
+1. 3 namespaced Nav2 robots each reach goals in the standard world (WS-A acceptance, §14.2).
+2. The orchestrator dispatches **one order to one robot**; the robot agent drives it through Nav2 from pickup to
+   dropoff, **holding at one zone-entry vertex until granted**, and the order reaches `DELIVERED`.
 
-**NO-GO → fallback** if any fails by end of Day 2. No extensions: the decision is made at the gate.
+**NO-GO → fallback** if either fails by end of Day 2. No extensions: the decision is made at the gate.
 
-## 15.3 Fallback
+## 15.3 Fallback (scope cuts, in this order)
 
-- Fleet layer = `swarmflow_orchestrator` with FCFS assignment and FCFS exclusive reservations (Baseline B).
-- Robot agent = `swarmflow_robot_agent` (WS-B, Day 2).
-- Dashboard = Foxglove only. Day-4 scene = Baseline A vs Baseline B.
-- RMF work stops for v1 and resumes in v2 as Baseline C. The RMF result (what failed, logs) is written to
-  `docs/decisions/` so v2 starts informed.
+Cut until the gate's chain works, then continue the plan:
+
+1. **Ground-truth localization** instead of AMCL (static `map→odom` + Gazebo odometry, §7.6).
+2. **2 robots** instead of 3 (the corridor scene still works with 2).
+3. **Single-goal dispatch:** agent sends `NavigateToPose` per vertex instead of `NavigateThroughPoses` segments.
+4. **GUI via noVNC** if WSLg is still not working (§8.4); Foxglove-only video as the last resort.
+
+Each cut is logged in `docs/decisions/` and listed in the README's "known limitations".
 
 ## 15.4 v1 definition of done
 
-- `git clone` + `docker compose up` → Gazebo, 3 robots, fleet layer, Foxglove bridge running; README states exact steps.
+- `git clone` + `docker compose up` (from a Windows terminal) → Gazebo server + GUI, 3 robots, orchestrator,
+  Foxglove bridge running; README states exact steps.
 - ≥ 10 deliveries completed by 3 robots in a 10-minute run without manual intervention, packages visible.
 - Corridor scene metrics (n = 3) for Baseline A vs coordinated policy in `runs/` and summarized in README.
 - CI green on `main`; `v1.0.0` tag; demo video linked from README.
@@ -925,15 +983,17 @@ time.** If the RMF gate fails, the fallback keeps the 5-day target only because 
 
 Order of work (each a milestone with its own acceptance test):
 
-1. **Own robot agent + reservation protocol** (§6.3, §6.5) in Gazebo, replacing free_fleet; Baseline B reproducible.
+1. **Baseline B reproducible** in Gazebo (n ≥ 5) — the v1 fleet layer, unchanged.
 2. **2D backend** calibrated against Gazebo at 3 robots (§13.2).
-3. **Predictive policy**: forecasting, rolling horizon, deadlines, weight presets (§9).
-4. **Payload footprints**: 4 payload types, runtime footprint updates, Smac Hybrid + MPPI, feasibility routing (§7.2–7.3).
-5. **Workers + closures** via keepout filters (§6.4, §7.5).
-6. **Stress-test injection** and scenario timelines (§12).
-7. **Benchmarks** across layouts/fleet sizes with Baselines A, B, C (§13).
-8. **React panel** + telemetry API (§11.2).
-9. Final presentation (§19).
+3. **Baseline C:** RMF + free_fleet in the `fleet` image, our nav graph loaded, RMF go-to-place tasks driving our
+   robots (§5.3, §5.5 consequences, §7.6 Option N/D). Can run in parallel with items 4–6.
+4. **Predictive policy**: forecasting, rolling horizon, deadlines, weight presets (§9).
+5. **Payload footprints**: 4 payload types, runtime footprint updates, Smac Hybrid + MPPI, feasibility routing (§7.2–7.3).
+6. **Workers + closures** via keepout filters (§6.4, §7.5).
+7. **Stress-test injection** and scenario timelines (§12).
+8. **Benchmarks** across layouts/fleet sizes with Baselines A, B, C (§13).
+9. **React panel** + telemetry API (§11.2).
+10. Final presentation (§19).
 
 v2 duration is bounded by user review and Gazebo integration time, not by agent throughput.
 
@@ -941,13 +1001,13 @@ v2 duration is bounded by user review and Gazebo integration time, not by agent 
 
 | # | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|---|
-| R1 | Multi-robot Nav2 namespacing/TF in Gazebo Harmonic eats Day 2 | High | High | Start from the Nav2 multi-robot example; Option D as alternative; Day 5 buffer |
-| R2 | free_fleet does not work with namespaced robots in one domain (testing-only mode upstream) | Medium | High | Option D; go/no-go gate; fallback lane B from Day 1 |
-| R3 | Cross-container DDS on Docker Desktop/WSL2: topics listed but no data | Medium | High | Day-1 hello-multi-container test; Cyclone DDS; one Docker network |
-| R4 | free_fleet source build + zenoh binaries slow/brittle in Docker | Medium | Medium | WS-D builds the image on Day 1; pin versions (zenoh 1.5.0) |
-| R5 | RMF delivery tasks need workcells we don't have | Medium | Low | Gate uses go-to-place; payload node handles load/unload |
-| R6 | CPU thermal limit throttles Gazebo with 3 robots | Medium | Medium | Headless server, composition, one sim at a time, 2D backend for scale |
-| R7 | Gazebo GUI on WSLg does not work from a container | Medium | Low | GUI on host or skip GUI; Foxglove is the fallback view |
+| R1 | Multi-robot Nav2 namespacing/TF in Gazebo Harmonic eats Day 2 | High | High | Start from the Nav2 multi-robot example; scope cuts §15.3; Day 5 buffer |
+| R2 | Custom robot agent is now on the v1 critical path | Medium | High | Starts Day 1 against a fake Nav2 action server; small scope (§6.3); fallback cut 3 (§15.3) |
+| R3 | Cross-container DDS on Docker Desktop/WSL2: topics listed but no data | Medium | High | Day-1 hello-multi-container test; Cyclone DDS; one Docker network; `rmw_zenoh` as alternative |
+| R4 | (v2) free_fleet does not work with namespaced robots in one domain; source build + zenoh binaries brittle | Medium | Medium (v2 only) | Option D; pin zenoh 1.5.0; Baseline C is not needed for v1 |
+| R5 | (v2) RMF delivery tasks need workcells we don't have | Medium | Low | Baseline C uses go-to-place; payload node handles load/unload |
+| R6 | CPU thermal limit throttles Gazebo with 3 robots (+ GUI) | Medium | Medium | Headless server, composition, GUI container can be stopped, one sim at a time, 2D backend for scale |
+| R7 | Containerized Gazebo GUI via WSLg does not work when started from PowerShell | Medium | Medium | Spike on Day 1; noVNC route (§8.4); Foxglove as last resort |
 | R8 | Setting model pose from ROS in Harmonic needs a plugin | Low | Medium | Verify Day 2; small system plugin fallback |
 | R9 | Agents edit contracts or overlap files | Medium | Medium | Owned paths, CI interface-diff check, user merges |
 | R10 | 2D backend disagrees with Gazebo | Medium | Medium (v2) | Calibration step; tipping-point claim gated on agreement |
@@ -973,9 +1033,9 @@ runtime footprint updates (v2) · reservations never grant conflicts (property t
 heterogeneous fleets · battery-aware scheduling · ML-based congestion prediction · reinforcement learning ·
 decentralized coordination · cooperative transport · physical robot deployment.
 
-**v1 demo:** `docker compose up` → three robots pick up and deliver packages in the standard warehouse → RMF (or FCFS)
-dispatches orders → robots meet at a one-way storage aisle: under Baseline A they jam and time out, under coordinated
-traffic they wait and pass → Foxglove shows positions, plans, zones and decision events; RMF dashboard shows tasks.
+**v1 demo:** `docker compose up` → three robots pick up and deliver packages in the standard warehouse → the SwarmFlow
+orchestrator dispatches orders → robots meet at a one-way storage aisle: under Baseline A they jam and time out, under
+FCFS reservations they wait and pass → Foxglove shows positions, plans, zones and decision events.
 
 **v2 demo (final):** normal demand → rising demand congests shared corridors under a baseline → predictive orchestration
 enabled, routes and reservations adjust → urgent order reprioritized → a worker blocks a corridor, robots stop/reroute
@@ -994,12 +1054,12 @@ fleet congestion universally; it provides an extensible, measurable implementati
 |---|---|---|
 | C1 | Replace 9 phases with v1 (5-day MVP) and v2 | §1, §4, §15, §16 |
 | C2 | Cuts: fleet expansion cut; descend animation stretch; modes as weight presets; deterministic replay 2D only | §2.3, §4.2, §9.5, §12.3 |
-| C3 | Open-RMF section (role, no custom nav, v1 use, v2 replacement, Baseline C, RMF nav-graph format, gate, verification) | §5, §15.2 |
+| C3 | Open-RMF section (role, no custom nav, v1 use, v2 replacement, Baseline C, RMF nav-graph format, gate, verification) — **amended by D1**: RMF moved from v1 to v2 Baseline C; gate redefined for the SwarmFlow fleet layer | §5, §15.2 |
 | C4 | Non-goals list | §2.3 |
 | C5 | Warehouse topology graph as core abstraction; one layout → world, map, graph, 2D layout | §6.1 |
 | C6 | Robot agent per robot as only fleet→Nav2 bridge; route → `NavigateThroughPoses`; hold at zone entry | §6.3 |
-| C7 | Corridor closures via Nav2 keepout filters (v1: RMF lane closures) | §6.4 |
-| C8 | Reservation protocol: request/grant/deny/release, leases + heartbeats, release on exit, orchestrator-down behaviour | §6.5 |
+| C7 | Corridor closures via Nav2 keepout filters (handoff's "v1: RMF lane closures" → Baseline C only after D1; v1 has no closures) | §6.4 |
+| C8 | Reservation protocol: request/grant/deny/release, leases + heartbeats, release on exit, orchestrator-down behaviour (implemented in v1 after D1) | §6.5 |
 | C9 | `swarmflow_interfaces` frozen Day 1 with concrete definitions | §6.6 |
 | C10 | Orchestrator = pure-Python library + thin ROS and 2D adapters | §6.7 |
 | C11 | Custom chassis first; robot → payload → aisle table; wide infeasible in dense by construction | §7.1, §7.2 |
@@ -1037,3 +1097,6 @@ Accessed 2026-10-08.
 - [S9] `nav2_bringup` README, `jazzy` branch (multi-robot launch files, composition default) — <https://github.com/ros-navigation/navigation2/blob/jazzy/nav2_bringup/README.md>
 - [S10] Nav2 docs, "Navigating with Keepout Zones" and Keepout Filter parameters — <https://docs.nav2.org/tutorials/docs/navigation2_with_keepout_filter.html>, <https://docs.nav2.org/configuration/packages/costmap-plugins/keepout_filter.html>
 - [S11] ROS 2 Jazzy `distribution.yaml` (foxglove_bridge release entry) — <https://github.com/ros/rosdistro/blob/master/jazzy/distribution.yaml>
+- [S12] Nav2 `nav2_bringup` default parameters, `jazzy` branch (MPPI, NavFn, inflation 0.70 / scaling 3.0, resolution 0.05) — <https://github.com/ros-navigation/navigation2/blob/jazzy/nav2_bringup/params/nav2_params.yaml>
+- [S13] PX4 docs, "Gazebo container GUI" (Windows/WSLg section: mount `/mnt/wslg/.X11-unix`, `DISPLAY=:0`, run from the Ubuntu terminal) — <https://docs.px4.io/main/en/simulation/gazebo_container_gui.html>
+- [S14] "WSLg with Docker" (WSLg mounts, env vars, `/dev/dxg` + `/usr/lib/wsl` for GPU, compose example; run from a WSL distro) — <https://nes.is-a.dev/out/2025/wslgdocker.html>; Microsoft WSLg container sample — <https://github.com/microsoft/wslg/blob/main/samples/container/Containers.md>
