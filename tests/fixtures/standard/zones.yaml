@@ -7,32 +7,32 @@ vertices:
   D2: {x: 20.7, y: 6.15, yaw: 0.0, kind: delivery}
   D3: {x: 20.7, y: 8.45, yaw: 0.0, kind: delivery}
   H_1_1:
-    x: 4.8
+    x: 4.4
     y: 2.7
     kind: hold
     hold_for: [Z_aisle_1]
   H_1_3:
-    x: 17.2
+    x: 17.6
     y: 5.0
     kind: hold
     hold_for: [Z_aisle_1]
   H_2_1:
-    x: 4.8
+    x: 4.4
     y: 5.0
     kind: hold
     hold_for: [Z_aisle_2]
   H_2_3:
-    x: 17.2
+    x: 17.6
     y: 7.3
     kind: hold
     hold_for: [Z_aisle_2]
   H_3_1:
-    x: 4.8
+    x: 4.4
     y: 7.3
     kind: hold
     hold_for: [Z_aisle_3]
   H_3_3:
-    x: 17.2
+    x: 17.6
     y: 9.6
     kind: hold
     hold_for: [Z_aisle_3]
@@ -112,7 +112,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: true, long: true}
 - from: H_1_1
   to: X_1_0
-  length_m: 1.812
+  length_m: 1.524
   clear_width_m: 3.4
   bidirectional: true
   zone: null
@@ -120,7 +120,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: true, long: true}
 - from: H_1_1
   to: X_1_1
-  length_m: 1.662
+  length_m: 1.97
   clear_width_m: 3.4
   bidirectional: false
   zone: null
@@ -128,7 +128,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: true, long: true}
 - from: H_1_3
   to: X_1_3
-  length_m: 1.662
+  length_m: 1.97
   clear_width_m: 3.4
   bidirectional: false
   zone: null
@@ -136,7 +136,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: true, long: true}
 - from: H_1_3
   to: X_1_4
-  length_m: 1.812
+  length_m: 1.524
   clear_width_m: 3.4
   bidirectional: true
   zone: null
@@ -144,7 +144,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: true, long: true}
 - from: H_2_1
   to: X_2_0
-  length_m: 1.812
+  length_m: 1.524
   clear_width_m: 3.4
   bidirectional: true
   zone: null
@@ -152,7 +152,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: true, long: true}
 - from: H_2_1
   to: X_2_1
-  length_m: 1.662
+  length_m: 1.97
   clear_width_m: 3.4
   bidirectional: false
   zone: null
@@ -160,7 +160,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: true, long: true}
 - from: H_2_3
   to: X_2_3
-  length_m: 1.662
+  length_m: 1.97
   clear_width_m: 3.4
   bidirectional: false
   zone: null
@@ -168,7 +168,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: true, long: true}
 - from: H_2_3
   to: X_2_4
-  length_m: 1.812
+  length_m: 1.524
   clear_width_m: 3.4
   bidirectional: true
   zone: null
@@ -176,7 +176,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: true, long: true}
 - from: H_3_1
   to: X_3_0
-  length_m: 1.812
+  length_m: 1.524
   clear_width_m: 3.4
   bidirectional: true
   zone: null
@@ -184,7 +184,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: true, long: true}
 - from: H_3_1
   to: X_3_1
-  length_m: 1.662
+  length_m: 1.97
   clear_width_m: 3.4
   bidirectional: false
   zone: null
@@ -192,7 +192,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: true, long: true}
 - from: H_3_3
   to: X_3_3
-  length_m: 1.662
+  length_m: 1.97
   clear_width_m: 3.4
   bidirectional: false
   zone: null
@@ -200,7 +200,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: true, long: true}
 - from: H_3_3
   to: X_3_4
-  length_m: 1.812
+  length_m: 1.524
   clear_width_m: 3.4
   bidirectional: true
   zone: null
@@ -328,7 +328,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: true, long: true}
 - from: X_1_0
   to: H_1_1
-  length_m: 1.812
+  length_m: 1.524
   clear_width_m: 3.4
   bidirectional: true
   zone: null
@@ -400,7 +400,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: true, long: true}
 - from: X_1_4
   to: H_1_3
-  length_m: 1.812
+  length_m: 1.524
   clear_width_m: 3.4
   bidirectional: true
   zone: null
@@ -424,7 +424,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: true, long: true}
 - from: X_2_0
   to: H_2_1
-  length_m: 1.812
+  length_m: 1.524
   clear_width_m: 3.4
   bidirectional: true
   zone: null
@@ -496,7 +496,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: true, long: true}
 - from: X_2_4
   to: H_2_3
-  length_m: 1.812
+  length_m: 1.524
   clear_width_m: 3.4
   bidirectional: true
   zone: null
@@ -520,7 +520,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: true, long: true}
 - from: X_3_0
   to: H_3_1
-  length_m: 1.812
+  length_m: 1.524
   clear_width_m: 3.4
   bidirectional: true
   zone: null
@@ -592,7 +592,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: true, long: true}
 - from: X_3_4
   to: H_3_3
-  length_m: 1.812
+  length_m: 1.524
   clear_width_m: 3.4
   bidirectional: true
   zone: null

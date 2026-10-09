@@ -595,6 +595,8 @@ and model racks as **solid collision boxes down to the floor** so the LiDAR cann
 Still to confirm in simulation (WS-A Day 2 acceptance): real LiDAR noise and MPPI behaviour at the 1.30 m aisle.
 For the dense layout (v2), consider 1.05 m storage aisles if in-place rotation proves flaky.
 
+**Standard layout as built (M2, `layouts/standard/layout.yaml`):** storage aisles 1.30 m (zones `Z_aisle_1..3`, racks run west–east, 10 m long), south/north cross aisles 2.20 m, west/east main (staging) aisles **3.40 m** (room for hold vertices beside the aisle mouths, off the exit path), station spurs 2.60 m. Hold vertices sit 1.6 m back from the aisle mouth and 1.15 m beside the aisle centreline; every lane clears racks and walls by ≥ 0.47 m (footprint circumradius), asserted in `tests/unit/test_layout_schema.py`. The agent releases a lease once it is ≥ 1.0 m outside the zone polygon (`api.RELEASE_MARGIN_M`), so the next robot never meets the rear of the leaving one.
+
 All values remain provisional until the WS-F generator tests assert every row of the tables above. If Nav2 needs more
 room, widen all aisles by the same delta and update the tables — keep the inequalities, not the numbers.
 

@@ -89,22 +89,22 @@ levels:
     - - 18.6
       - 11.2
       - {name: X_4_4}
-    - - 4.8
+    - - 4.4
       - 2.7
       - {name: H_1_1, is_holding_point: true}
-    - - 17.2
+    - - 17.6
       - 5.0
       - {name: H_1_3, is_holding_point: true}
-    - - 4.8
+    - - 4.4
       - 5.0
       - {name: H_2_1, is_holding_point: true}
-    - - 17.2
+    - - 17.6
       - 7.3
       - {name: H_2_3, is_holding_point: true}
-    - - 4.8
+    - - 4.4
       - 7.3
       - {name: H_3_1, is_holding_point: true}
-    - - 17.2
+    - - 17.6
       - 9.6
       - {name: H_3_3, is_holding_point: true}
     lanes:

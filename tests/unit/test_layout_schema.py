@@ -188,3 +188,65 @@ def test_fixture_nav_graph_format():
     side = load(FIX / "zones.yaml")
     assert len(lvl["lanes"]) == len(side["edges"])
     assert set(names) == set(side["vertices"])
+
+
+# ---- geometric clearance (G2 review findings 8, 9b) ------------------------------------------------------------
+
+CIRCUMRADIUS = 0.47   # padded 0.70 x 0.60 footprint (design §7.2)
+
+
+def seg_dist_to_rect(p, q, r):
+    """Min distance between segment p-q and an axis-aligned rectangle (x_min, y_min, x_max, y_max)."""
+    import itertools
+    x0, y0, x1, y1 = r
+    def inside(pt):
+        return x0 <= pt[0] <= x1 and y0 <= pt[1] <= y1
+    if inside(p) or inside(q):
+        return 0.0
+    corners = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+    edges = list(zip(corners, corners[1:] + corners[:1]))
+    def pt_seg(pt, a, b):
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        L = dx * dx + dy * dy
+        t = 0.0 if L == 0 else max(0.0, min(1.0, ((pt[0] - a[0]) * dx + (pt[1] - a[1]) * dy) / L))
+        return math.hypot(pt[0] - a[0] - t * dx, pt[1] - a[1] - t * dy)
+    def cross(a, b, c, d):
+        def o(p1, p2, p3):
+            return (p2[0] - p1[0]) * (p3[1] - p1[1]) - (p2[1] - p1[1]) * (p3[0] - p1[0])
+        return o(a, b, c) * o(a, b, d) < 0 and o(c, d, a) * o(c, d, b) < 0
+    if any(cross(p, q, a, b) for a, b in edges):
+        return 0.0
+    return min([pt_seg(c, p, q) for c in corners] + [pt_seg(p, a, b) for a, b in edges] + [pt_seg(q, a, b) for a, b in edges])
+
+
+def _poses(lay):
+    d = {s["name"]: (s["pose"]["x"], s["pose"]["y"]) for s in lay["stations"]}
+    d.update({i["name"]: (i["pose"]["x"], i["pose"]["y"]) for i in lay["intersections"]})
+    d.update({h["name"]: (h["pose"]["x"], h["pose"]["y"]) for h in lay["holds"]})
+    return d
+
+
+def test_lanes_clear_racks_and_walls_by_circumradius(layout):
+    poses = _poses(layout)
+    b = layout["bounds"]
+    for ln in layout["lanes"]:
+        p, q = poses[ln["from"]], poses[ln["to"]]
+        for r in layout["racks"]:
+            d = seg_dist_to_rect(p, q, (r["x_min"], r["y_min"], r["x_max"], r["y_max"]))
+            assert d >= CIRCUMRADIUS, f"{ln['from']}->{ln['to']} {d:.3f} m from {r['name']}"
+        for x, y in (p, q):
+            assert min(x - b["x_min"], b["x_max"] - x, y - b["y_min"], b["y_max"] - y) >= CIRCUMRADIUS
+
+
+def test_holds_off_exit_paths(layout):
+    """A robot waiting at a hold is >= 2 circumradii from every lane leaving a zone (review finding: exit path)."""
+    poses = _poses(layout)
+    zone_v = {v for z in layout["zones"] for v in z["vertices"]}
+    exits = [(ln["from"], ln["to"]) for ln in layout["lanes"]
+             if ln["from"] in zone_v and ln["to"] not in zone_v and not ln["bidirectional"]]
+    assert exits
+    for h in layout["holds"]:
+        for a, b in exits:
+            p, q = poses[a], poses[b]
+            d = seg_dist_to_rect(p, q, (poses[h["name"]][0], poses[h["name"]][1]) * 2)
+            assert d >= 2 * CIRCUMRADIUS, f"{h['name']} {d:.3f} m from exit lane {a}->{b}"
