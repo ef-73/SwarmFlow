@@ -21,7 +21,7 @@ case "$cmd" in
     age="$("$here/lock.sh" age sim)"
     if [ "$age" -ge 30 ]; then
       echo "sim_lock: STALE lock (${age} min, no sim container running) removed:" >&2
-      "$here/lock.sh" status sim >&2; "$here/lock.sh" release sim >/dev/null
+      "$here/lock.sh" status sim >&2; "$here/lock.sh" release sim --force >/dev/null
     fi
     "$here/lock.sh" acquire sim "$task" "$minutes" ;;
   release)
