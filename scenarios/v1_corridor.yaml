@@ -1,24 +1,33 @@
-# v1 corridor stress (design 13.5): two robots meet head-on in storage aisle Z_aisle_2 every ~60 s.
+# v1 corridor stress (design 13.5): two robots meet head-on in storage aisle Z_aisle_2 (M7: tuned for Gazebo timing).
 #
-# Choreography (timing found with swarmflow_core.backends.fake.run_fake under the T014 station claims; the lead
-# re-tunes it in Gazebo, M7): robot_1 spawns at P1 (south-west) and robot_3 at P3 (south-east); robot_2 is not used.
-# Station claims stop two orders sharing a dropoff (until it is delivered) or a pickup (until it is picked up), so
-# the two orders of each 60 s cycle use the SAME pickup but DIFFERENT dropoffs: L2 -> D2 at t=4 s and L2 -> D1 at
-# t=24 s. L2 is only claimed until the load dwell ends, so the second order starts as soon as the first robot has
-# left L2. The loaded robot crosses Z_aisle_2 west -> east (X_2_1 -> X_2_3); the robot that just delivered at D1/D2
-# (east side) must come back west through the same aisle (east -> west, empty) to reach L2, so the two directions
-# overlap. With FCFS reservations one robot is denied and holds at H_2_1 / H_2_3; with `independent` both drive
-# into the 1.3 m aisle (max 2 robots in the zone). In the fake backend FCFS denies occur in sim-minutes 1, 2, 3
-# and 4 (about 52 denies in 300 s).
+# Choreography (found with the 2D backend + real AgentCore at 0.45 m/s, 0.8 rad/s, orders shifted +10 s):
+# robot_1 and robot_2 spawn at P1 / P2 (west). A backlog of eight orders is released within 8 s, alternating
+# L2 -> D2 and L2 -> D1. Every order picks up at L2, and every L2 -> D* route runs east through Z_aisle_2.
+# The robot that delivers at D2 takes the next queued order straight from D2 (no idle gap, so the park rule never
+# fires); its way back to L2 is D2 -> X_2_4 -> Z_aisle_2 west -> L2, i.e. WESTBOUND in the same aisle where the
+# other robot is by then loaded and EASTBOUND. The robot that delivers at D1 returns through aisle 1, so the head-on
+# pairs come from the D2 returns. With FCFS one robot is denied and holds at H_2_1 / H_2_3; with `independent`
+# both drive into the 1.3 m aisle (max 2 robots in the zone).
+# Why the station claims never block it: pickup L2 is claimed only from assignment until the load dwell ends, and
+# orders are admitted in FIFO order, so the second order starts as soon as the first robot has left L2; the two
+# in-flight orders always use DIFFERENT dropoffs (D2 and D1 alternate, and a dropoff is only claimed until its
+# delivery), so a queued order whose dropoff is busy is skipped and the next one is admitted instead. Nothing waits
+# for a station the other robot holds for long. 2D result: denies in sim-minutes 1, 3 and 4 (33 in 300 s),
+# max 1 robot in a zone under FCFS, 2 under independent.
 name: v1_corridor
 seed: 1
 duration_s: 300
 layout: standard
 policy: fcfs
-robots: [robot_1, robot_3]
+robots: [robot_1, robot_2]
 orders:
   mode: explicit
-  repeat_every_s: 60
   list:
+    - {t: 0.0, pickup: L2, dropoff: D2}
+    - {t: 1.0, pickup: L2, dropoff: D1}
+    - {t: 2.0, pickup: L2, dropoff: D2}
+    - {t: 3.0, pickup: L2, dropoff: D1}
     - {t: 4.0, pickup: L2, dropoff: D2}
-    - {t: 24.0, pickup: L2, dropoff: D1}
+    - {t: 5.0, pickup: L2, dropoff: D1}
+    - {t: 6.0, pickup: L2, dropoff: D2}
+    - {t: 7.0, pickup: L2, dropoff: D1}
