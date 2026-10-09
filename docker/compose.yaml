@@ -38,8 +38,14 @@ services:
       swarmflow.sim: "1"
     environment:
       <<: *ros-env
-      SWARMFLOW_WORLD: ${SWARMFLOW_WORLD:-empty.sdf}
-    command: ["bash", "-c", "gz sim -s -r -v 2 \"$$SWARMFLOW_WORLD\""]
+    command: ["ros2", "launch", "swarmflow_gazebo", "sim.launch.py", "layout:=${SWARMFLOW_LAYOUT:-standard}",
+              "robots:=${SWARMFLOW_ROBOTS:-robot_1,robot_2,robot_3}", "rtf:=${SWARMFLOW_RTF:-1.0}"]
+    healthcheck:   # world loaded and sim time advancing
+      test: ["CMD", "/entrypoint.sh", "bash", "-c", "timeout 5 gz topic -e -n 1 -t /clock >/dev/null"]
+      interval: 5s
+      timeout: 8s
+      retries: 30
+      start_period: 10s
     networks: [swarmflow]
 
   gazebo_gui:
@@ -72,6 +78,34 @@ services:
       - "6080:6080"
     command: ["gui.sh"]
     networks: [swarmflow]
+
+  robot_1: &robot
+    image: swarmflow/robot:latest
+    build:
+      context: ..
+      dockerfile: docker/robot.Dockerfile
+      additional_contexts:
+        dev: service:dev
+    depends_on:
+      gazebo:
+        condition: service_healthy
+    environment:
+      <<: *ros-env
+      ROBOT_ID: robot_1
+    command: ["bash", "-c", "ros2 launch swarmflow_nav robot.launch.py robot_id:=$$ROBOT_ID layout:=${SWARMFLOW_LAYOUT:-standard} localization:=${SWARMFLOW_LOCALIZATION:-ground_truth} agent:=${SWARMFLOW_AGENT:-true} traffic_control:=${SWARMFLOW_TRAFFIC_CONTROL:-true}"]
+    networks: [swarmflow]
+
+  robot_2:
+    <<: *robot
+    environment:
+      <<: *ros-env
+      ROBOT_ID: robot_2
+
+  robot_3:
+    <<: *robot
+    environment:
+      <<: *ros-env
+      ROBOT_ID: robot_3
 
   foxglove_bridge:
     image: swarmflow/robot:latest
