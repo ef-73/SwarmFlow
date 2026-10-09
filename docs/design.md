@@ -552,6 +552,8 @@ A deliberately basic differential-drive robot, `src/swarmflow_description/urdf/s
 
 LiDAR mount height and any self-occlusion by payloads: **[U — WS-A verifies in sim]**.
 
+**As built (M4, 2026-10-09):** the LiDAR sits **front-centre at 0.20 m height with a 180° field of view**, just in front of the body. A 360° LiDAR above the cargo platform would not see other robots (their bodies end at 0.30 m) and would be occluded by its own package; at 0.20 m it sees racks, walls and other robots' bodies, and payloads never block it. Consequence: no rear sensing, so the MPPI reverse speed is limited to 0.15 m/s. Verified in sim: 10 Hz, 181 rays, frame `lidar_link`, obstacles in range. **Odometry:** the DiffDrive wheel odometry drifted by metres with wheel slip (M4 session 1: robot at (16.3, 2.67) against rack R1 while odom said L2), so the ground-truth localization mode (design §15.3 cut 1, used by default in v1) takes `odom → base_footprint` from Gazebo's `OdometryPublisher` (absolute world pose, so `map → odom` is the identity); wheel odometry stays on `/robot_N/wheel_odom` for comparison. Packages are moved with gz-transport `set_pose_vector` from Python (0.4 ms per call, verified).
+
 ## 7.2 Robot → payload → aisle dimensions (C11)
 
 Footprint rule: effective footprint = axis-wise max of chassis and payload, plus **0.05 m padding per side**.
