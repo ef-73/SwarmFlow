@@ -87,8 +87,9 @@ def test_stuck_agent_can_take_new_task():
     a.on_nav_result(False, t=1.0)
     a.on_nav_result(False, t=2.0)
     assert a.can_accept()
-    a.start_task("t2", "", ["X_3_1", "X_3_3"], t=3.0)
+    acts = a.start_task("t2", "", ["X_3_1", "X_3_3"], t=3.0)
     assert a.state().task_id == "t2"
+    assert not of(acts, Navigate) and of(acts, RequestReservation)     # starts at a zone entry: must request first
 
 
 def test_cancel_idle_is_noop_and_cancel_while_loading_has_no_cancelnav():

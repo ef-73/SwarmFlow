@@ -31,7 +31,8 @@ from swarmflow_interfaces.srv import RequestReservation as RequestReservationSrv
 
 from .agent_core import AgentCore, CancelNav, Navigate, Release, RequestReservation, TaskFinished
 
-_QOS10 = QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE)
+MAX_POSE_AGE_S = 1.0
+_QOS10 =QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE)
 _RELEASE_CODES = {api.ReleaseReason.EXITED: ReservationRelease.REASON_EXITED,
                   api.ReleaseReason.TASK_CANCELLED: ReservationRelease.REASON_TASK_CANCELLED,
                   api.ReleaseReason.FAULT: ReservationRelease.REASON_FAULT}
@@ -70,6 +71,7 @@ class AgentNode(Node):
         self._goal_reserved = False
         self._done = threading.Event()
         self._result: Optional[TaskFinished] = None
+        self._res_future = None
         self._last_xy = None
         self._last_pose_t = 0.0
         self._speed = 0.0
@@ -175,7 +177,10 @@ class AgentNode(Node):
         req.earliest_entry = _to_time_msg(r.earliest_entry_t)
         req.expected_exit = _to_time_msg(r.expected_exit_t)
         req.priority = r.priority
-        fut = self._res_client.call_async(req)
+        old = self._res_future
+        if old is not None and not old.done():
+            self._res_client.remove_pending_request(old)   # the core timed out on it and asks again
+        fut = self._res_future = self._res_client.call_async(req)
         fut.add_done_callback(lambda f, rid=r.request_id: self._on_reservation_done(f, rid))
 
     def _on_reservation_done(self, fut, rid: str) -> None:
@@ -196,9 +201,9 @@ class AgentNode(Node):
             self._run(self.core.on_reservation_response(rid, dec, self._now()))
 
     # -- subscriptions / timers ----------------------------------------------------------------------------------
-    def _on_orch_heartbeat(self, _msg: Header) -> None:
+    def _on_orch_heartbeat(self, msg: Header) -> None:
         with self._lock:
-            self._run(self.core.on_orchestrator_heartbeat(self._now()))
+            self._run(self.core.on_orchestrator_heartbeat(self._now(), epoch=msg.frame_id))
 
     def _on_tick(self) -> None:
         with self._lock:
@@ -207,6 +212,11 @@ class AgentNode(Node):
                 tf = self._tf_buffer.lookup_transform(self._map_frame, self._base_frame, rclpy.time.Time())
             except tf2_ros.TransformException:
                 tf = None
+            if tf is not None:
+                st = tf.header.stamp
+                stamp = st.sec + st.nanosec * 1e-9
+                if stamp > 0.0 and t - stamp > MAX_POSE_AGE_S:      # stale pose (0 = static transform): do not use
+                    tf = None
             if tf is not None:
                 x, y = tf.transform.translation.x, tf.transform.translation.y
                 if self._last_xy is not None and t > self._last_pose_t:
@@ -254,8 +264,12 @@ class AgentNode(Node):
             try:
                 self._run(self.core.start_task(goal.task_id, goal.order.order_id, list(goal.route), self._now(),
                                                pickup=goal.order.pickup_vertex, dropoff=goal.order.dropoff_vertex))
-            except (ValueError, RuntimeError) as exc:
+            except Exception as exc:  # noqa: BLE001 - any failure to start must free the agent again
                 self._goal_reserved = False
+                try:
+                    self._run(self.core.cancel(self._now()))   # undo a half-started task, release leases
+                except Exception:  # noqa: BLE001
+                    self.get_logger().error("cancel after failed start_task also failed")
                 goal_handle.abort()
                 result.success, result.failure_reason = False, f"INVALID_TASK: {exc}"
                 return result
@@ -282,7 +296,7 @@ class AgentNode(Node):
             return result
         result.success, result.failure_reason = fin.success, fin.failure_reason
         result.completion_time = self.get_clock().now().to_msg()
-        if cancelled:
+        if goal_handle.is_cancel_requested:
             goal_handle.canceled()
         elif fin.success:
             goal_handle.succeed()
