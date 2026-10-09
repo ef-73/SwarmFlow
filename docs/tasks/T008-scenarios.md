@@ -2,7 +2,7 @@
 id: T008
 title: Scenarios, seeded order generator, scenario_engine node
 workstream: F
-status: open
+status: review
 claimed_by: "sf-implementer"
 branch: ws-f/T008-scenarios
 model: sonnet

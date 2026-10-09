@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "swarmflow-scenarios"
+version = "0.1.0"
+description = "SwarmFlow scenario files and seeded order generator (design 12.3, 13.5)"
+requires-python = ">=3.8"
+dependencies = ["pyyaml"]
+
+[tool.setuptools]
+packages = ["scenarios"]

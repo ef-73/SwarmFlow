@@ -1,0 +1,12 @@
+# v1 steady demo: Poisson order stream over all loading/delivery stations (design 13.5).
+name: v1_demo
+seed: 1
+duration_s: 600
+layout: standard
+policy: fcfs
+robots: [robot_1, robot_2, robot_3]
+orders:
+  mode: rate
+  rate_per_min: 3.0
+  pickups: [L1, L2, L3]
+  dropoffs: [D1, D2, D3]
