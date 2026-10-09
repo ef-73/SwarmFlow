@@ -53,6 +53,12 @@ if [[ "$BRANCH" =~ ^ws-[a-f]/(T[0-9]{3})- ]]; then
   card="$(ls docs/tasks/"$task"-*.md 2>/dev/null | head -1)"
   if [ -z "$card" ]; then bad "owned-files: no task card docs/tasks/$task-*.md"
   else
+    # Lead base: the lead commits card + lead tests on the task branch before dispatch (so main stays green).
+    # If that commit is not on the base branch, owned-files and lead-tests diff from it instead of the merge-base.
+    TASK_BASE="$MERGE_BASE"
+    card_commit="$(git log --format=%H --diff-filter=A "$MERGE_BASE"..HEAD -- "$card" | tail -1)"
+    [ -n "$card_commit" ] && TASK_BASE="$card_commit"
+    changed_task="$(git diff --name-only "$TASK_BASE" HEAD)"
     mapfile -t owned < <(card_section "$card" "Owned files")
     mapfile -t ltests < <(card_section "$card" "Lead tests (do not edit)" | grep -v '^none' || true)
     outside=""
@@ -64,13 +70,15 @@ if [[ "$BRANCH" =~ ^ws-[a-f]/(T[0-9]{3})- ]]; then
       for g in "${owned[@]}"; do [ -n "$g" ] && glob_match "$f" "$g" && ok=1; done
       for t in "${ltests[@]}"; do [ "$f" = "$t" ] && ok=0; done
       [ $ok = 1 ] || outside+="$f"$'\n'
-    done <<< "$changed"
-    if [ -z "$outside" ]; then pass "owned-files ($card)"; else bad "owned-files: outside $card:"; echo -n "$outside" | sed 's/^/          /'; fi
+    done <<< "$changed_task"
+    if [ -z "$outside" ]; then pass "owned-files ($card, base ${TASK_BASE:0:10})"; else bad "owned-files: outside $card:"; echo -n "$outside" | sed 's/^/          /'; fi
     lt_bad=""
     for t in "${ltests[@]}"; do
       [ -z "$t" ] && continue
-      for f in $(git ls-tree -r --name-only "$MERGE_BASE" -- "$t"); do
-        git diff --quiet "$MERGE_BASE" HEAD -- "$f" || lt_bad+="$f "
+      present="$(git ls-tree -r --name-only "$TASK_BASE" -- "$t")"
+      [ -z "$present" ] && lt_bad+="$t(missing at lead base) "
+      for f in $present; do
+        git diff --quiet "$TASK_BASE" HEAD -- "$f" || lt_bad+="$f "
       done
     done
     if [ -z "$lt_bad" ]; then pass "lead-tests unchanged"; else bad "lead-tests modified: $lt_bad"; fi
