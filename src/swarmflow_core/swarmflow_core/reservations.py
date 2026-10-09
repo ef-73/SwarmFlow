@@ -2,6 +2,14 @@
 
 The lease state machine is specified in the ``api.ReservationAuthority`` docstring. Safety invariant: at most
 ``capacity`` GRANTED leases per zone, and never a grant while the zone holds a blocking (OCCUPIED_UNKNOWN) lease.
+
+Pose evidence on release: the robot's stored pose counts as evidence only if it is fresh, i.e. its stamp is >= the
+lease's ``granted_t`` (GRANTED lease) or ``blocking_since`` (blocking lease) AND >= ``t - POSE_FRESH_S``. Evidence
+inside the zone: a GRANTED lease becomes OCCUPIED_UNKNOWN (``RELEASED_INSIDE:<reason>``), a blocking lease stays
+blocking. Evidence outside: RELEASED (``<reason>`` / ``LATE_RELEASE``). A pose that exists but is not evidence is
+treated as possibly inside (GRANTED becomes OCCUPIED_UNKNOWN, blocking stays). If no pose was ever observed for the
+robot the release is trusted. ``observe_robot`` only clears blocking leases using the robot's newest pose; a sample
+older than the stored newest stamp never clears anything.
 """
 
 from __future__ import annotations
@@ -12,6 +20,9 @@ from typing import Dict, List, Optional, Sequence, Tuple
 from . import api
 from .api import (Lease, LeaseState, ReleaseReason, ReservationDecision, ReservationRequest, RobotSnapshot)
 from .graph import point_in_polygon
+
+
+POSE_FRESH_S = 1.0  #: max age of a pose (relative to the release time) to count as release evidence
 
 
 @dataclass
@@ -67,12 +78,16 @@ class FcfsReservationAuthority:
                 changed.append(rec.snapshot())
         return changed
 
-    def _inside(self, robot_id: str, zone_id: str) -> Optional[bool]:
-        """True/False for the robot's last observed pose vs the zone polygon, None if never observed."""
-        pose = self._poses.get(robot_id)
+    def _inside(self, rec: _Rec, t: float) -> bool:
+        """Is the lease owner possibly inside the zone at release time ``t``? A fresh pose is evidence; a stale pose
+        is treated as possibly inside; no pose ever observed = trusted outside."""
+        pose = self._poses.get(rec.robot_id)
         if pose is None:
-            return None
-        return point_in_polygon(pose[0], pose[1], self._graph.zones[zone_id].polygon)
+            return False
+        since = rec.granted_t if rec.state == LeaseState.GRANTED else rec.blocking_since
+        if pose[2] < since or pose[2] < t - POSE_FRESH_S:
+            return True
+        return point_in_polygon(pose[0], pose[1], self._graph.zones[rec.zone_id].polygon)
 
     def _zone_recs(self, zone_id: str) -> List[_Rec]:
         return [r for r in self._live.values() if r.zone_id == zone_id]
@@ -142,7 +157,7 @@ class FcfsReservationAuthority:
         rec = self._live.get(lease_id)
         if rec is None or rec.robot_id != robot_id:
             return
-        inside = self._inside(robot_id, rec.zone_id)
+        inside = self._inside(rec, t)
         if rec.state == LeaseState.GRANTED:
             if inside:
                 self._set(rec, LeaseState.OCCUPIED_UNKNOWN, f"RELEASED_INSIDE:{reason.value}", t)
@@ -157,8 +172,9 @@ class FcfsReservationAuthority:
     def observe_robot(self, robot_id: str, x: float, y: float, t: float) -> Sequence[Lease]:
         changed = self._expire(t)
         known = self._poses.get(robot_id)
-        if known is None or t >= known[2]:
-            self._poses[robot_id] = (x, y, t)
+        if known is not None and t < known[2]:
+            return changed  # out-of-order sample: never overwrites the newest pose, never clears
+        self._poses[robot_id] = (x, y, t)
         for rec in sorted(self._live.values(), key=lambda r: r.lease_id):
             if (rec.blocking and rec.robot_id == robot_id and t >= rec.blocking_since
                     and not point_in_polygon(x, y, self._graph.zones[rec.zone_id].polygon)):
