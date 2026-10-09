@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>swarmflow_robot_agent</name>
+  <version>0.1.0</version>
+  <description>SwarmFlow robot agent: pure-Python AgentCore state machine, rclpy AgentNode (fleet to Nav2 bridge) and a fake NavigateThroughPoses server (design 6.3).</description>
+  <maintainer email="lead@swarmflow.invalid">SwarmFlow WS-D</maintainer>
+  <license>Apache-2.0</license>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>swarmflow_interfaces</exec_depend>
+  <exec_depend>swarmflow_core</exec_depend>
+  <exec_depend>nav2_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>tf2_msgs</exec_depend>
+  <exec_depend>action_msgs</exec_depend>
+  <exec_depend>builtin_interfaces</exec_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
