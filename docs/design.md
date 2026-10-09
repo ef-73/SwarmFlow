@@ -988,6 +988,20 @@ fleet sizes 3 (Gazebo) and 2–30 (2D); worker activity off / low / high. Every 
 | Run record | `run_id = <scenario>-<policy>-s<seed>-<UTC yyyymmddThhmmss>`, created by `scenario_engine`, which also writes `runs/<run_id>/config.yaml` (resolved scenario + git SHA + image digests) and `events.jsonl`. The orchestrator writes `decisions.jsonl`, `orders.jsonl` (every `OrderStatus` change) and `robot_states.jsonl` (2 Hz). | WS-F, WS-B |
 | Metrics | `tools/metrics/compute.py runs/<run_id>/` → `metrics.csv` (deliveries, throughput, mean wait, stuck events, failed orders, clearance violations per §13.1); `tools/metrics/compare.py` → mean ± 95 % CI table across runs for the README. | Lead (delegated card) |
 
+**As built (M6–M7, 2026-10-09).**
+- **Station claims** (`FleetCore`, M6 finding): an order is planned only while its pickup station is not claimed by
+  another order that is still ASSIGNED / PICKING_UP and its dropoff station is not claimed by one that is not yet
+  DELIVERED — two robots sent to one loading station gridlocked there in the first 10-minute demo.
+- **Run id**: orchestrator and scenario engine both use `SWARMFLOW_RUN_ID`, default `<scenario>-<policy>-latest`;
+  measured runs set a unique id (`tests/integration/demo_run.sh <run_id> …`), which also stores `metrics.csv` and
+  per-container CPU.
+- **Corridor scenario** (`scenarios/v1_corridor.yaml`): 2 robots (P1, P2), a backlog of 8 orders L2 → D2 / L2 → D1;
+  a robot returning from D2 to L2 crosses `Z_aisle_2` westbound while the other is loaded eastbound. The first
+  fake-backend choreography produced no opposing traffic at Gazebo timing; the scenario is now checked with the 2D
+  backend (real AgentCore) slowed to Gazebo kinematics (`tools/scenarios/tests/test_corridor_sim2d.py`).
+- **Foxglove**: the Jazzy `foxglove_bridge` speaks subprotocol `foxglove.sdk.v1` (a current Foxglove app connects;
+  Foxglove Studio 1.x does not).
+
 # 14. Multi-Agent Development (C23–C28)
 
 The project is built by Claude and ChatGPT/Codex agents running 24/7 in parallel; the user reviews; the lead integrates into `main` after CI passes (decision D4).
