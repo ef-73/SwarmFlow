@@ -2,7 +2,7 @@
 id: T011
 title: Metrics — clearance metric, compute.py, compare.py
 workstream: B
-status: open
+status: review
 claimed_by: "sf-implementer"
 branch: ws-b/T011-metrics
 model: sonnet
