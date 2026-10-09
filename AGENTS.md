@@ -23,7 +23,7 @@ These contracts are **read-only** for every agent once frozen (milestone M2, gat
 | ROS interfaces (msg/srv/action, topic names) | `src/swarmflow_interfaces/**` |
 | Layout / graph schema (RMF nav-graph format + SwarmFlow sidecar) | `layouts/schema/**` |
 | Orchestrator library API (Python protocols) | `src/swarmflow_core/swarmflow_core/api.py` |
-| Mock fixtures (recorded robot-state streams, sample orders/graphs) | `tests/fixtures/**` |
+| Mock fixtures (synthetic robot-state streams, sample orders/graphs) | `tests/fixtures/**` (recordings from Gazebo go to `tests/fixtures_gz/`, Lead-owned, not frozen) |
 
 Build against the contracts; never around them. If a contract is wrong or missing something:
 
@@ -35,8 +35,10 @@ Build against the contracts; never around them. If a contract is wrong or missin
 
 ## 3. Workstreams and owned paths
 
-Each workstream owns the listed paths. **You may only create or edit files your task card lists as owned**, which are
-always inside your workstream's paths, plus your own log entry file (§8). Anything else: ask in your log entry.
+Each workstream owns the listed paths. **You may only create or edit files your task card lists as owned**, plus the
+card's `status` line and your own log entry files (§8). Owned files are inside the card's workstream paths, except
+for Lead-delegated cards, where the lead hands out files in Lead paths (e.g. `tools/metrics/`, `README.md`).
+Anything else: ask in your log entry.
 
 | WS | Scope | Owned paths | Branch prefix |
 |---|---|---|---|
@@ -87,26 +89,29 @@ The lead still uses the lock (`scripts/sim_lock.sh`, WS-A, milestone M1), so a f
 3. Every Gazebo-starting compose service (`gazebo`, `gazebo_gui`) carries the label `swarmflow.sim=1`.
 
 Rules: time-box ≤ 20 min per sim session, then `docker compose down` and release, even on failure. A lock older than
-30 min with no labelled container running is stale: log it, then remove it. Run headless (no `gazebo_gui`) unless the
-user is watching. If the CPU is hot, cap Gazebo's real-time factor (design §8.5) — metrics are in sim time.
+30 min with no labelled container running is stale: log it, then remove it. Run headless (`SWARMFLOW_GUI=none`) unless
+the user is watching. If the CPU is hot, cap Gazebo's real-time factor (design §8.5) — metrics are in sim time.
 
-Builds: `colcon build --parallel-workers 2` with `MAKEFLAGS=-j2`; at most one full-workspace build at a time.
+Builds: `colcon build --parallel-workers 2` with `MAKEFLAGS=-j2`; **one build at a time across all worktrees**
+(`scripts/lock.sh build`, same mechanism as the sim lock).
 
 ## 6. Commands and CI
 
-All commands run from the repo root **inside the `dev` image** (built by WS-A in milestone M1; until it exists only
-docs/static checks are possible):
+All commands run from the repo root **inside the `dev` image** (built in milestone M1; until it exists only
+docs/static checks are possible). Set a per-worktree compose project so each worktree has its own build volumes:
 
 ```bash
+export COMPOSE_PROJECT_NAME=swarmflow-$(basename "$(git rev-parse --show-toplevel)") SWARMFLOW_GUI=none
 docker compose run --rm dev colcon build --symlink-install --parallel-workers 2
 docker compose run --rm dev colcon test --packages-select <pkg>
 docker compose run --rm dev pytest src/swarmflow_core -q
 scripts/ci.sh
 ```
 
-**`scripts/ci.sh` is the referee** (Lead-owned). It runs in the `dev` image: full `colcon build`, all tests, the
-no-ROS-imports check for `swarmflow_core`, the contract-diff check against `main`, and the owned-files check for the
-current task card. GitHub Actions (`.github/workflows/ci.yml`) runs the same script on every push and PR.
+**`scripts/ci.sh` is the referee** (Lead-owned; full check list in design §14.3). Git-based checks (contract-diff,
+owned-files, lead-tests hash, hygiene, generated-layout freshness) run on the host; build and tests run in the `dev`
+container. When verifying a branch, the lead runs **`main`'s copy** of the script, and GitHub Actions checks it out
+from the base branch — a branch cannot change its own referee.
 
 **Keeping `main` green (lead):**
 
@@ -142,9 +147,9 @@ risk: safety-critical   # low | normal | safety-critical
 - Inputs / contracts used: <design.md sections, contract files, fixtures>
 ```
 
-**Claiming:** an agent claims a card by committing `status: claimed` + `claimed_by` as the first commit on the card's
-branch and pushing it; if that branch already exists on `origin`, the card is taken. If a card is missing any field,
-log it and do not start.
+**Assignment:** the lead assigns every card (sets `claimed_by` when dispatching), so there is no race. The assigned
+agent's first commit on the card's branch sets `status: claimed`; its last sets `status: review`. Agents never take
+an unassigned card. If a card is missing any field, log it and do not start.
 
 Definition of done always includes: tests for new behaviour, `scripts/ci.sh` green, a log entry listing what changed,
 how it was verified (commands + results), and anything unverified.

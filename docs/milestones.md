@@ -18,10 +18,10 @@ plan. **Blockers** stop work on this machine today.
 | # | Severity | Issue | Suggested fix |
 |---|---|---|---|
 | R1 | **Blocker** | **Docker is not installed** on this machine (`docker` not found; no Docker Desktop install). Every build, test and sim in AGENTS.md runs in Docker. | User installs Docker Desktop (WSL2 backend, Ubuntu integration on). The 5-day clock starts after that (M1). |
-| R2 | **Blocker** | **No git remote, no `gh`.** PRs and GitHub Actions CI (design §14.3, AGENTS §1) cannot exist. | Either (a) user creates a private GitHub repo + installs `gh`, or (b) run "local CI": `scripts/ci.sh` runs the same checks in the `dev` image; branches are reviewed and merged locally. Recommend (b) now, (a) whenever convenient. |
+| R2 | **Blocker** | **No git remote, no `gh`.** PRs and GitHub Actions CI (design §14.3, AGENTS §6) cannot exist. | Either (a) user creates a private GitHub repo + installs `gh`, or (b) run "local CI": `scripts/ci.sh` runs the same checks in the `dev` image; branches are reviewed and merged locally. Recommend (b) now, (a) whenever convenient. |
 | R3 | **Blocker** | `core.autocrlf=true`: git will check out shell scripts/launch files with CRLF, which break inside Linux containers (`/bin/bash^M`). Already warned on the last commits. | Add `.gitattributes` with `* text=auto eol=lf` (and `*.ps1 eol=crlf`) before any script lands. |
 | R4 | High | `docker compose up` "from the repo root" can't work: compose lives at `docker/compose.yaml`. And the `dev` service that AGENTS §6 commands use is not in the §8.3 service table. | Root `compose.yaml` that `include`s `docker/compose.yaml`; add a `dev` service under a `tools` profile so plain `up` never starts it. |
-| R5 | High | **Contradiction with D1:** §5.4/§6.1 use `rmf_building_map_tools` to make the world + nav graph, but AGENTS §10 bans RMF dependencies in v1. | v1 layoutgen writes the SDF world (racks are boxes) and the nav graph in RMF's nav-graph YAML format itself; RMF tools only in v2. Copy the format from an `rmf_demos` nav graph, mark [U] until Baseline C loads it. |
+| R5 | High | **Contradiction with D1:** §5.4/§6.1 use `rmf_building_map_tools` to make the world + nav graph, but AGENTS §11 bans RMF dependencies in v1. | v1 layoutgen writes the SDF world (racks are boxes) and the nav graph in RMF's nav-graph YAML format itself; RMF tools only in v2. Copy the format from an `rmf_demos` nav graph, mark [U] until Baseline C loads it. |
 | R6 | High | **`docs/agent_log.md` will conflict on every merge**: all branches append to the end of one file. | One file per entry: `docs/agent_log/<YYYY-MM-DD>T<HHMM>Z-<agent>-<task>.md`; `docs/agent_log.md` becomes the index/format doc. |
 | R7 | High | **No task queue.** 24/7 agents need a way to pick work without two taking the same task. | `docs/tasks/<id>.md` task cards (AGENTS §7 format) with `status: open/claimed/done` and `claimed_by`; claiming = a commit on your branch that flips the status. Lead writes cards; only the lead assigns contract-adjacent tasks. |
 | R8 | Medium | Sim lock path differs between Windows-host agents (`C:\Users\ethan\.swarmflow`) and WSL/Codex agents (`/home/<user>/.swarmflow`); `flock` doesn't exist in Git Bash. Two agents could race the `docker ps` check. | `SWARMFLOW_LOCK_DIR` = the Windows path for everyone (`/mnt/c/Users/ethan/.swarmflow` from WSL); use atomic `mkdir` as the lock. Simpler still: **only the lead runs Gazebo** (subagents never do — see §3). |
@@ -30,12 +30,36 @@ plan. **Blockers** stop work on this machine today.
 | R11 | Medium | Day 1 overloads the critical path: env spike **and** contract freeze **and** four lanes starting against unfrozen contracts. | Draft and freeze contracts *before* Day 1 (M2 can start now on paper and be build-checked as soon as Docker exists). |
 | R12 | Medium | Codex cloud agents can't reach the local Docker engine, and "no installs outside Docker" is ambiguous for their own sandboxes. | Clarify: the install ban is about *the user's machine*. Codex gets only sim-free tasks whose tests run with plain `pytest` (pure-Python `swarmflow_core`, layoutgen, 2D sim). |
 | R13 | Low | Pose-follower via `set_pose` service calls at 20 Hz may jitter or lag across the bridge. | Keep as planned (handoff C13), but list Gazebo's `DetachableJoint` system as the fallback **[U]** if jitter is visible on Day 3. |
-| R14 | Low | AGENTS says only the user merges `main`, but the lead fast-forwarded `main` twice on request. | Add: "the lead may fast-forward `main` only when the user explicitly asks in chat, and only after local CI passes." |
+| R14 | Low | AGENTS says only the user merges `main`, but the lead fast-forwarded `main` twice on request. | Superseded by decision D4: the user authorized the lead to fast-forward `main` after `scripts/ci.sh` passes. |
 | R15 | Low | User review is the real bottleneck for 6 lanes × 24/7. | WIP limit: ≤ 2 unmerged branches per workstream; the lead batches reviews with a one-paragraph summary per branch. |
 | R16 | Low | Subagent model use is not specified anywhere. | Adopt §3 of this file and reference it from AGENTS.md. |
 
 Nothing in the review changes the v1 scope or the user decisions D1/D2. **All of R1–R16 were applied on
 2026-10-09** (R1 as design §8.0 with decision D3 pending; R2 with the GitHub remote plus `scripts/ci.sh`).
+
+## 1.1 M0 verification round (2026-10-09)
+
+Two read-only subagents checked the edited documents, and I adjudicated every finding.
+
+| Reviewer | Findings | Accepted | Result |
+|---|---|---|---|
+| **Haiku 4.5**: mechanical sweep for stale RMF/log/merge/sim wording, § refs, tables, links | 9 | 9 | Stale "user merges" ×4, non-lead sim wording ×4, 2 wrong § refs fixed; tables and links clean |
+| **Sonnet 5.5**: independent review for contradictions, gaps and technical errors | 20 (1 blocker, 6 high) | 20 | All fixed in design.md / AGENTS.md (see below) |
+
+The Sonnet fixes that changed the design:
+- **Builds:** runtime images build the workspace at image build time, so a fresh clone runs.
+- **Interfaces:** orchestrator liveness topic; `/fleet/clear_zone` service; global `/map`; marker topics.
+- **Zones:** separate hold vertices outside each zone, so a waiting robot never blocks the exit; edges keyed by vertex-name pairs; generated layouts committed and checked for freshness.
+- **Packages:** fixed pool of 12, ground-truth pose, 3 s dwell; the `payload` service moves to the `sim` image.
+- **v1 evaluation (design §13.5):** Baseline A switch, stuck rule owner, corridor scenario, run-record layout.
+- **CI (design §14.3):** git checks run on the host; the lead runs `main`'s copy of `ci.sh`; hygiene and lead-test hash checks; per-worktree compose project and a build lock.
+- **Cards:** the lead assigns every card; Lead-delegated cards are allowed.
+- **Fixtures:** Gazebo recordings go to `tests/fixtures_gz/`.
+- **Sims:** Day-2 sim sessions are sequenced.
+- **GUI:** `SWARMFLOW_GUI=none` for agents.
+
+Takeaway for routing: the cheap sweep was exhaustive on mechanical checks. The judgment review needed Sonnet, and it
+was worth it: it found the one blocker.
 
 ## 2. Gates
 
@@ -46,7 +70,7 @@ decision afterwards.
 | Gate | When | Type | What happens |
 |---|---|---|---|
 | **G0** | before M0 | ✅ passed 2026-10-09 | R1–R16 approved, remote given, lead may fast-forward `main`. |
-| **G1** | before M1 | **blocking** | A Docker engine exists (design §8.0, decision D3). Option B can be set up by me after one "yes"; option A needs the user (admin installer, license). |
+| **G1** | before M1 | **blocking** | Docker Desktop installed and running (decision D3, design §8.0). The user runs the installer (admin rights + accepting Docker's license); I verify the result (`docker run hello-world`, WSL2 backend, `docker compose version`). |
 | **G2** | end of M2 | async | Contracts frozen when `scripts/ci.sh` passes and the independent Sonnet review has no unresolved blocker/high findings. |
 | **G3** | first GUI run (M4) | async | Verified by screenshot (noVNC route: captured in the built-in browser; WSLg route: window capture). User glances when convenient. |
 | **G4** | Day-2 go/no-go (M5) | async | GO if design §15.2 criteria pass 3 runs in a row (logged); otherwise I apply the §15.3 cuts in order and log each. |
@@ -131,8 +155,10 @@ Day numbers refer to design §15; the 5-day clock starts at M1 (Docker available
 ### M2 — Contract freeze *(Day 1; drafting can start in M0)*
 - **Goal:** the four contracts exist, build, and are frozen.
 - **Work:** `src/swarmflow_interfaces/` (msg/srv/action transcription → **Haiku**, field list and review → me);
-  `layouts/schema/layout.schema.json` + `layouts/standard/layout.yaml` (me); `src/swarmflow_core/swarmflow_core/api.py`
-  (me); synthetic fixtures (script by me, run by **Haiku**); contract-diff check in `scripts/ci.sh`.
+  `layouts/schema/` (`layout.schema.json`, `zones.schema.json`, nav-graph subset description — me, after checking an
+  `rmf_demos` jazzy nav graph); `layouts/standard/layout.yaml` (WS-F card, **Sonnet**, against the schema and the §7.2
+  tables); `src/swarmflow_core/swarmflow_core/api.py` (me); synthetic fixtures (script by me, run by **Haiku**);
+  `scripts/ci.sh` host-side checks (me).
 - **Verify:** `colcon build` of interfaces; `ros2 interface show` matches design §6.6 field-by-field; schema validates the
   standard layout and rejects 3 deliberately broken copies; `api.py` imports with no ROS; `ci.sh` flags an edit to a
   frozen path.
@@ -160,8 +186,9 @@ Each item = one task card + lead tests + one subagent (Sonnet unless noted), mec
 - **Exit:** G3 (user sees it in the GUI).
 
 ### M5 — Three robots + Day-2 gate *(Day 2; me)*
-- **Work:** Option N namespacing from the Nav2 multi-robot example, composition on; robot agent + orchestrator in the
-  loop for one order.
+- **Work, as sequenced sim sessions (≤ 20 min each):** ① robot agent + orchestrator driving robot_1 alone through one
+  order with a zone hold; ② Option N namespacing for 3 robots from the Nav2 multi-robot example, composition on, each
+  reaching goals; ③ the gate run with all 3 robots. Between sessions: fix offline, rebuild, re-run unit tests.
 - **Verify:** design §15.2 gate criteria, run 3× in a row.
 - **Exit:** G4 — GO, or apply §15.3 cuts in order.
 
@@ -184,7 +211,7 @@ Each item = one task card + lead tests + one subagent (Sonnet unless noted), mec
 
 | Milestone | Status |
 |---|---|
-| M0 | in progress — R1–R16 applied; Haiku sweep + Sonnet review being adjudicated |
-| M1 | blocked on G1 (no Docker engine; D3 open) |
+| M0 | ✅ done 2026-10-09 — R1–R16 applied; 29 review findings fixed (§1.1) |
+| M1 | blocked on G1 (user installs Docker Desktop) |
 | M2 | next — drafting can start now (build-check needs M1) |
 | M3–M8 | not started |
