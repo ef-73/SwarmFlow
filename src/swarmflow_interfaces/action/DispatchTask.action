@@ -1,0 +1,13 @@
+string task_id
+string robot_id
+swarmflow_interfaces/Order order
+string[] route                          # vertex names, pickup and dropoff included
+---
+bool success
+string failure_reason
+builtin_interfaces/Time completion_time
+---
+uint8 mode                              # RobotState MODE_* constants
+string current_vertex
+string waiting_for_zone
+builtin_interfaces/Time eta

@@ -1,0 +1,20 @@
+string request_id
+string robot_id
+string zone_id
+string entry_vertex                     # zone entry vertex the robot enters through
+string exit_vertex                      # zone entry vertex the robot leaves through
+uint8 DIRECTION_UNSPECIFIED=0
+uint8 DIRECTION_FORWARD=1               # from zone entries[0] towards entries[1]
+uint8 DIRECTION_REVERSE=2               # from zone entries[1] towards entries[0]
+uint8 direction
+builtin_interfaces/Time earliest_entry
+builtin_interfaces/Time expected_exit
+uint8 priority                          # 0 = normal, higher = more urgent
+---
+uint8 RESULT_GRANTED=0
+uint8 RESULT_DENIED=1
+uint8 result
+string lease_id                         # empty when denied
+builtin_interfaces/Time lease_expiry
+string reason                           # deny reason, e.g. "ZONE_LEASED", "OCCUPIED_UNKNOWN", "UNKNOWN_ZONE"
+float64 retry_after_s
