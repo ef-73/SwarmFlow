@@ -2,7 +2,7 @@
 id: T009
 title: Foxglove layout + swarmflow_viz marker node
 workstream: E
-status: open
+status: review
 claimed_by: "sf-implementer"
 branch: ws-e/T009-viz
 model: sonnet
