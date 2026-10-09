@@ -1,6 +1,10 @@
-# Agent log (append-only)
+# Agent log
 
-Rules and entry format: [`AGENTS.md` §8](../AGENTS.md). Append new entries at the end; never edit or delete earlier ones.
+**New entries go in [`docs/agent_log/`](agent_log/), one file per entry** (`<YYYY-MM-DD>T<HHMM>Z-<agent>-<task-id>.md`),
+so parallel branches never conflict. Rules and entry format: [`AGENTS.md` §8](../AGENTS.md).
+To read the log in order, list that folder by name (names sort by time).
+
+The entries below were written before the one-file-per-entry rule and are kept unchanged.
 
 ## 2026-10-08T00:00Z · claude · Lead · design-v2 · DONE
 - Branch / PR: claude/admiring-antonelli-e441ea, fast-forwarded to `main` at the user's request (no PR, no push)

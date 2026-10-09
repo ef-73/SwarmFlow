@@ -1,8 +1,8 @@
 # SwarmFlow — Lead milestones (autonomous execution plan)
 
-**Status:** proposed 2026-10-09 — waiting for the user to approve the review suggestions (R1–R16 below) and
-gates G0–G1. **Owner:** Claude lead agent (Opus 5.5). **Implements:** [`design.md`](design.md) v1 (§15) under
-[`AGENTS.md`](../AGENTS.md).
+**Status:** active 2026-10-09 — G0 passed (user approved all of R1–R16, gave the GitHub remote, authorized the lead
+to fast-forward `main`). Waiting on G1 (Docker engine). **Owner:** Claude lead agent (Opus 5.5).
+**Implements:** [`design.md`](design.md) v1 (§15) under [`AGENTS.md`](../AGENTS.md).
 
 This file is the lead's work plan: what I do on my own, what I hand to cheaper subagents, how every result is
 verified, and where I must stop for the user. Status of each milestone is updated here as work lands.
@@ -34,20 +34,41 @@ plan. **Blockers** stop work on this machine today.
 | R15 | Low | User review is the real bottleneck for 6 lanes × 24/7. | WIP limit: ≤ 2 unmerged branches per workstream; the lead batches reviews with a one-paragraph summary per branch. |
 | R16 | Low | Subagent model use is not specified anywhere. | Adopt §3 of this file and reference it from AGENTS.md. |
 
-Nothing in the review changes the v1 scope or the user decisions D1/D2.
+Nothing in the review changes the v1 scope or the user decisions D1/D2. **All of R1–R16 were applied on
+2026-10-09** (R1 as design §8.0 with decision D3 pending; R2 with the GitHub remote plus `scripts/ci.sh`).
 
-## 2. Gates (where I stop and wait for the user)
+## 2. Gates
 
-| Gate | Before | User does |
-|---|---|---|
-| **G0** | M0 edits land | Approves/rejects R1–R16; answers: GitHub remote yes/no; may the lead fast-forward `main` after local CI? |
-| **G1** | M1 | Installs Docker Desktop (WSL2 backend), starts it once. |
-| **G2** | contracts become frozen (end of M2) | Reviews the contract branch; approves the freeze. |
-| **G3** | first Gazebo run with GUI (M4) | Is present/watching; confirms the GUI shows on Windows. |
-| **G4** | Day-2 go/no-go (M5) | Watches the gate demo; decides GO or fallback cuts. |
-| **G5** | v1 tag (M8) | Records demo video, merges, tags `v1.0.0`. |
+Only two gates **block** me. The others are **async**: I decide using written criteria, record the evidence
+(screenshots, logs, numbers) in an agent-log entry, notify the user, and keep going. The user can overrule any async
+decision afterwards.
 
-Between gates I work without asking, inside AGENTS.md rules.
+| Gate | When | Type | What happens |
+|---|---|---|---|
+| **G0** | before M0 | ✅ passed 2026-10-09 | R1–R16 approved, remote given, lead may fast-forward `main`. |
+| **G1** | before M1 | **blocking** | A Docker engine exists (design §8.0, decision D3). Option B can be set up by me after one "yes"; option A needs the user (admin installer, license). |
+| **G2** | end of M2 | async | Contracts frozen when `scripts/ci.sh` passes and the independent Sonnet review has no unresolved blocker/high findings. |
+| **G3** | first GUI run (M4) | async | Verified by screenshot (noVNC route: captured in the built-in browser; WSLg route: window capture). User glances when convenient. |
+| **G4** | Day-2 go/no-go (M5) | async | GO if design §15.2 criteria pass 3 runs in a row (logged); otherwise I apply the §15.3 cuts in order and log each. |
+| **G5** | v1 release (M8) | **blocking** | User watches the demo, records/approves the video. I prepare everything incl. the `v1.0.0` tag command; tagging stays with the user (AGENTS.md §4). |
+
+Between gates I work without asking, inside AGENTS.md rules. I also stop and ask if: a fix would change a frozen
+contract, the v1 scope or a user decision; something needs a new install on the host; or the same failure survives
+three different fixes.
+
+## 2.1 Running autonomously
+
+Once G1 passes, one instruction — "run milestones M1–M8" — is enough. During the run:
+
+- **Progress:** each milestone ends with a commit to `main`, a push to `origin`, an updated §5 status table here, and an
+  agent-log entry. The user can follow everything on GitHub.
+- **Session length:** long runs are summarized automatically as context fills; this file plus the agent log are the
+  durable state, so a new session can continue from them ("continue the milestones in docs/milestones.md").
+- **Machine:** the laptop must stay on and awake (keep-awake can be requested); Docker must be running.
+- **Permissions:** Docker/WSL commands may trigger permission prompts depending on the session's permission mode; an
+  allowlist for `docker`, `wsl` and `scripts/*.sh` avoids stalls.
+- **Realistic pace:** the 5-day plan assumed a human watching the sim for parts of each day. Autonomously, the
+  Gazebo/Nav2 debugging (M4–M5) is the slowest part because only one sim runs at a time; sim-free lanes run in parallel.
 
 ## 3. Subagent model routing and quality control
 
@@ -96,7 +117,7 @@ Day numbers refer to design §15; the 5-day clock starts at M1 (Docker available
   under-specified items an implementing agent would hit").
 - **Verify:** Haiku sweep finds no stale RMF-in-v1 terms, no broken section references; Sonnet review findings each
   resolved or answered; `git diff` limited to Lead-owned paths.
-- **Exit:** G0 approved; plan marked "final" in design.md header.
+- **Exit:** G0 approved ✅; plan marked "final" in design.md header ✅; review findings resolved; pushed to `origin/main`.
 
 ### M1 — Environment bootstrap *(Day 1 morning; needs G1)*
 - **Goal:** `dev` and `sim` images build; containers really exchange ROS data; GUI route chosen.
@@ -104,8 +125,7 @@ Day numbers refer to design §15; the 5-day clock starts at M1 (Docker available
   service; named volumes (R9); `tests/integration/test_multi_container.sh`; GUI spike WSLg-from-PowerShell, then noVNC;
   `scripts/sim_lock.sh`; `scripts/ci.sh` (R2b). **Sonnet** drafts Dockerfiles from my spec; I own the networking/GUI spike.
 - **Verify:** image builds logged with time; hello-multi-container ≥ 50/100 messages received; headless `gz sim -s`
-  RTF and CPU measured idle; GUI visible (needs G3 for the user to confirm visually; until then I verify the client
-  connects and renders via a screenshot from the noVNC route).
+  RTF and CPU measured idle; GUI client connects and renders, proven by a screenshot (async G3).
 - **Exit:** numbers recorded in the agent log; `SWARMFLOW_GUI` default decided.
 
 ### M2 — Contract freeze *(Day 1; drafting can start in M0)*
@@ -164,7 +184,7 @@ Each item = one task card + lead tests + one subagent (Sonnet unless noted), mec
 
 | Milestone | Status |
 |---|---|
-| M0 | waiting for G0 |
-| M1 | blocked on G1 (Docker not installed) |
-| M2 | can start drafting after G0 |
+| M0 | in progress — R1–R16 applied; Haiku sweep + Sonnet review being adjudicated |
+| M1 | blocked on G1 (no Docker engine; D3 open) |
+| M2 | next — drafting can start now (build-check needs M1) |
 | M3–M8 | not started |
