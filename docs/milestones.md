@@ -74,7 +74,7 @@ decision afterwards.
 | **G2** | end of M2 | async | Contracts frozen when `scripts/ci.sh` passes and the independent Sonnet review has no unresolved blocker/high findings. |
 | **G3** | first GUI run (M4) | async | Verified by screenshot (noVNC route: captured in the built-in browser; WSLg route: window capture). User glances when convenient. |
 | **G4** | Day-2 go/no-go (M5) | async | GO if design §15.2 criteria pass 3 runs in a row (logged); otherwise I apply the §15.3 cuts in order and log each. |
-| **G5** | v1 release (M8) | **blocking** | User watches the demo, records/approves the video. I prepare everything incl. the `v1.0.0` tag command; tagging stays with the user (AGENTS.md §4). |
+| **G5** | v1 release (after M9) | **blocking** | User watches the demo, records/approves the video. I prepare everything incl. the `v1.0.0` tag command; tagging stays with the user (AGENTS.md §4). |
 
 Between gates I work without asking, inside AGENTS.md rules. I also stop and ask if: a fix would change a frozen
 contract, the v1 scope or a user decision; something needs a new install on the host; or the same failure survives
@@ -82,7 +82,7 @@ three different fixes.
 
 ## 2.1 Running autonomously
 
-Once G1 passes, one instruction — "run milestones M1–M8" — is enough. During the run:
+Once G1 passes, one instruction — "run milestones M1–M9" — is enough. During the run:
 
 - **Progress:** each milestone ends with a commit to `main`, a push to `origin`, an updated §5 status table here, and an
   agent-log entry. The user can follow everything on GitHub.
@@ -205,7 +205,26 @@ Each item = one task card + lead tests + one subagent (Sonnet unless noted), mec
 ### M8 — Hardening and v1 *(Day 5)*
 - **Work:** fix list from M6–M7, docs, architecture diagram, cleanup. No new features.
 - **Verify:** design §15.4 definition of done, item by item, in the agent log.
-- **Exit:** G5.
+- **Exit:** → M9.
+
+### M9 — Reflection and improvements *(after M8, before G5)*
+- **Goal:** v1 is as good as it can be without changing its scope, and the lessons are written down for v2.
+- **Work:**
+  1. **Reflect**, from evidence rather than memory: agent-log entries (failures, retries, escalations, model
+     outcomes), CI history, run metrics in `runs/`, design §17 risks vs what actually happened, open **[U]** tags,
+     README fresh-clone test. Independent second opinion: a **Sonnet** reviewer reads the repo and the log and lists
+     weaknesses; a **Haiku** sweep finds stale docs and TODOs.
+  2. **Write** `docs/retrospective_v1.md`: what worked, what didn't, model-routing results (where cheap models held
+     up, where they needed escalation), and a ranked improvement list with effort and risk.
+  3. **Implement autonomously** every improvement that stays inside the guardrails: bug fixes, flaky tests,
+     robustness (timeouts, healthchecks, retries), performance and thermal tuning, docs/README accuracy, test coverage,
+     CI hardening, cleanup. Each follows the normal card → tests → `ci.sh` → integrate path, and the v1 definition of
+     done (design §15.4) is re-run afterwards.
+  4. **Do not implement**, only list for the user: anything that changes a frozen contract, the v1 scope, a user
+     decision (D1–D4), or needs a host install; and anything that belongs to v2.
+- **Verify:** §15.4 definition of done still passes after the improvements; CI green; the retrospective lists every
+  improvement as done (with commit) or deferred (with reason).
+- **Exit:** G5 (the user reviews the retrospective together with the demo).
 
 ## 5. Status
 
@@ -214,4 +233,4 @@ Each item = one task card + lead tests + one subagent (Sonnet unless noted), mec
 | M0 | ✅ done 2026-10-09 — R1–R16 applied; 29 review findings fixed (§1.1) |
 | M1 | blocked on G1 (user installs Docker Desktop) |
 | M2 | next — drafting can start now (build-check needs M1) |
-| M3–M8 | not started |
+| M3–M9 | not started |
