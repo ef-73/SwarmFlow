@@ -131,7 +131,8 @@ else
   if [ -n "$(find src -name package.xml -print -quit)" ]; then
     if in_dev 'export MAKEFLAGS=-j2; colcon build --symlink-install --parallel-workers 2 --event-handlers console_cohesion+ 2>&1 | tail -40; exit ${PIPESTATUS[0]}'; then
       pass "colcon build"
-      if in_dev 'source install/setup.bash; colcon test --parallel-workers 2 --event-handlers console_direct- >/dev/null 2>&1; colcon test-result --verbose | tail -40; colcon test-result >/dev/null'; then
+      # ROS node tests share one DDS domain inside the container: run packages one at a time (parallel runs cross-talk on /fleet/*).
+      if in_dev 'source install/setup.bash; timeout 1200 colcon test --parallel-workers 1 --event-handlers console_direct- >/dev/null 2>&1; colcon test-result --verbose | tail -40; colcon test-result >/dev/null'; then
         pass "colcon test"
       else bad "colcon test"; fi
     else bad "colcon build"; fi
