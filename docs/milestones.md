@@ -233,6 +233,7 @@ Each item = one task card + lead tests + one subagent (Sonnet unless noted), mec
 | M0 | ✅ done 2026-10-09 — R1–R16 applied; 29 review findings fixed (§1.1) |
 | M1 | ✅ done 2026-10-09 — images build (dev 27 s, sim 241 s, robot 227 s); DDS 90/100 msgs across containers; GUI default `wslg` + NVIDIA d3d12 (G3 evidence pending robots, M4); colcon on named volume 4.3× faster than bind mount |
 | M2 | ✅ done 2026-10-09 — contracts frozen; G2 passed (Sonnet review: 3 high fixed, 0 open) |
-| M3 | in progress — T001–T010 integrated (graph, reservations, fleet core, agent, layoutgen, orchestrator, scenarios, viz, payload); remaining: metrics (T011), 2D sim (T012) |
+| M3 | ✅ done 2026-10-09 — T001–T012 integrated (all sim-free lanes incl. metrics and 2D sim skeleton) |
 | M4 | ✅ done 2026-10-09 — 7/7 goals incl. 1.30 m aisle, 3 cm final error; G3 passed (docs/evidence/); decision 001 ground-truth localization |
-| M5–M9 | not started |
+| M5 | ✅ done 2026-10-09 — G4 GO: 3 robots 14/14 goals; gate run ×3 each 3/3 delivered through aisle holds |
+| M6–M9 | not started |
