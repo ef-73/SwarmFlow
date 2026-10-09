@@ -33,3 +33,6 @@ Thumbs.db
 
 # Claude Code worktrees
 .claude/worktrees/
+
+# Personal Claude Code settings (agent definitions in .claude/agents/ ARE committed)
+.claude/settings.local.json

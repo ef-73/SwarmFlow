@@ -1,7 +1,7 @@
 # SwarmFlow — Lead milestones (autonomous execution plan)
 
-**Status:** active 2026-10-09 — G0 passed (user approved all of R1–R16, gave the GitHub remote, authorized the lead
-to fast-forward `main`). Waiting on G1 (Docker engine). **Owner:** Claude lead agent (Opus 5.5).
+**Status:** active 2026-10-09 — G0 and G1 passed. Lead session instructions: [`lead_session.md`](lead_session.md). (G0: user approved all of R1–R16, gave the GitHub remote, authorized the lead
+to fast-forward `main`.) **Owner:** Claude lead agent (Opus 5.5).
 **Implements:** [`design.md`](design.md) v1 (§15) under [`AGENTS.md`](../AGENTS.md).
 
 This file is the lead's work plan: what I do on my own, what I hand to cheaper subagents, how every result is
@@ -70,7 +70,7 @@ decision afterwards.
 | Gate | When | Type | What happens |
 |---|---|---|---|
 | **G0** | before M0 | ✅ passed 2026-10-09 | R1–R16 approved, remote given, lead may fast-forward `main`. |
-| **G1** | before M1 | **blocking** | Docker Desktop installed and running (decision D3, design §8.0). The user runs the installer (admin rights + accepting Docker's license); I verify the result (`docker run hello-world`, WSL2 backend, `docker compose version`). |
+| **G1** | before M1 | ✅ passed 2026-10-09 | Docker Desktop installed and running (decision D3, design §8.0). The user runs the installer (admin rights + accepting Docker's license); I verify the result (`docker run hello-world`, WSL2 backend, `docker compose version`). |
 | **G2** | end of M2 | async | Contracts frozen when `scripts/ci.sh` passes and the independent Sonnet review has no unresolved blocker/high findings. |
 | **G3** | first GUI run (M4) | async | Verified by screenshot (noVNC route: captured in the built-in browser; WSLg route: window capture). User glances when convenient. |
 | **G4** | Day-2 go/no-go (M5) | async | GO if design §15.2 criteria pass 3 runs in a row (logged); otherwise I apply the §15.3 cuts in order and log each. |
@@ -231,6 +231,6 @@ Each item = one task card + lead tests + one subagent (Sonnet unless noted), mec
 | Milestone | Status |
 |---|---|
 | M0 | ✅ done 2026-10-09 — R1–R16 applied; 29 review findings fixed (§1.1) |
-| M1 | blocked on G1 (user installs Docker Desktop) |
+| M1 | next — G1 passed 2026-10-09 (Docker Desktop 29.8.2 running, hello-world OK) |
 | M2 | next — drafting can start now (build-check needs M1) |
 | M3–M9 | not started |
