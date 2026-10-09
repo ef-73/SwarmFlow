@@ -231,6 +231,6 @@ Each item = one task card + lead tests + one subagent (Sonnet unless noted), mec
 | Milestone | Status |
 |---|---|
 | M0 | ✅ done 2026-10-09 — R1–R16 applied; 29 review findings fixed (§1.1) |
-| M1 | next — G1 passed 2026-10-09 (Docker Desktop 29.8.2 running, hello-world OK) |
-| M2 | next — drafting can start now (build-check needs M1) |
+| M1 | ✅ done 2026-10-09 — images build (dev 27 s, sim 241 s, robot 227 s); DDS 90/100 msgs across containers; GUI default `wslg` + NVIDIA d3d12 (G3 evidence pending robots, M4); colcon on named volume 4.3× faster than bind mount |
+| M2 | in progress — contract branch `lead/contract-freeze` |
 | M3–M9 | not started |
