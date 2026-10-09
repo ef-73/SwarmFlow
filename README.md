@@ -35,10 +35,10 @@ From PowerShell in the repository root:
 docker compose up
 ```
 
-The first run builds the images. Measured on the development laptop (M1 log,
-[`docs/agent_log/2026-10-09T0905Z-claude-M1.md`](docs/agent_log/2026-10-09T0905Z-claude-M1.md)): `dev` image 27 s,
-`sim` image 241 s, `robot` (Nav2) image 227 s. Expect roughly 8 to 10 minutes on a first run, less on later runs
-(estimate from those numbers, plus image pulls (unverified)).
+The first run builds the images. A cold, no-cache build from a fresh clone took about 10 minutes on the development
+laptop (M7: `dev` 23 s, `sim` 285 s, `robot` 307 s, plus the one-time pull of the ROS base image); later runs start in
+seconds. The fresh-clone path (`git clone` → `docker compose up` from PowerShell → stack healthy → deliveries) was
+verified in M7 ([`docs/evidence/m7_fresh_clone_compose_up.png`](docs/evidence/m7_fresh_clone_compose_up.png)).
 
 What appears:
 
@@ -106,11 +106,17 @@ Evidence from the build-up (screenshots in [`docs/evidence/`](docs/evidence/)):
 - [`m4_g3_warehouse.png`](docs/evidence/m4_g3_warehouse.png): the generated warehouse in Gazebo.
 - [`m4_g3_robot_with_package.png`](docs/evidence/m4_g3_robot_with_package.png): a robot carrying a package.
 - [`m1_wslg_gpu_shapes.png`](docs/evidence/m1_wslg_gpu_shapes.png): the WSLg GPU spike (test world).
+- [`m6_demo_oblique.png`](docs/evidence/m6_demo_oblique.png), [`m6_demo_topdown.png`](docs/evidence/m6_demo_topdown.png):
+  the 10-minute demo (robots at stations, a package on a robot, a delivered package at its drop pose).
+- [`m7_fresh_clone_compose_up.png`](docs/evidence/m7_fresh_clone_compose_up.png): the Gazebo window after a fresh clone
+  and `docker compose up` from PowerShell.
 
 ## Foxglove
 
 1. Start the stack (the `foxglove_bridge` and `viz` services are part of `docker compose up`).
-2. In Foxglove (desktop app or browser), open a connection: Foxglove WebSocket, `ws://localhost:8765`.
+2. In a current Foxglove app (desktop or <https://app.foxglove.dev>), open a connection: Foxglove WebSocket,
+   `ws://localhost:8765`. The bridge speaks the current Foxglove protocol (`foxglove.sdk.v1`, verified in M6); the old
+   Foxglove Studio 1.x protocol (`foxglove.websocket.v1`) is rejected.
 3. Layouts menu, Import from file, choose [`viz/foxglove/swarmflow_v1.json`](viz/foxglove/swarmflow_v1.json).
 
 Panels: a 3D view (map, robot, zone and station markers, Nav2 plans), a decision log (`/fleet/decisions`), an order
@@ -134,7 +140,7 @@ quick start.
 | `SWARMFLOW_TRAFFIC_CONTROL` | `true` | Robot agent honours zone reservations. `false` makes robots drive straight into aisles. |
 | `SWARMFLOW_POLICY` | `fcfs` | Orchestrator policy: `fcfs` (Baseline B) or `independent` (Baseline A). |
 | `SWARMFLOW_SCENARIO` | `v1_demo` | Scenario file name in `scenarios/` (`v1_demo`, `v1_corridor`). |
-| `SWARMFLOW_RUN_ID` | empty | Run directory name under `runs/`. Empty: the scenario engine and orchestrator derive one (`<scenario>-<policy>-s<seed>-<UTC timestamp>` by design section 13.5; the orchestrator falls back to `<scenario>-<policy>-latest` (`adhoc` without scenario) when the run id is empty). |
+| `SWARMFLOW_RUN_ID` | empty | Run directory name under `runs/`. Empty: both the orchestrator and the scenario engine use `<scenario>-<policy>-latest` (overwritten by the next run); set a unique id for measured runs, as `demo_run.sh` does. |
 | `SWARMFLOW_GIT_SHA` | empty | Recorded in `runs/<run_id>/config.yaml`. |
 | `SWARMFLOW_IMAGE_DIGESTS` | empty | Recorded in `runs/<run_id>/config.yaml`. |
 | `SWARMFLOW_LAYOUTS_ROOT` | `/ws/layouts` (viz service) | Where the viz node finds layouts; set inside the container, rarely changed. |
@@ -165,8 +171,8 @@ Scripts (lead-only, they take the sim lock and run Gazebo):
 - `tests/integration/gate_run.sh <run_id> [timeout_s]`: full stack, one order per robot through a storage aisle, PASS
   when all three are delivered. This is the M5 gate run.
 - `tests/integration/demo_run.sh <run_id> [minutes] [scenario] [policy] [screenshot]`: unattended scenario run
-  followed by metrics. This script lives on the `lead/M6-deliveries` branch and is not on `main` at the time of writing
-  (unverified on `main`).
+  (GUI screenshots near the end) followed by metrics and per-container CPU (`runs/<run_id>/cpu_end.txt`). Example:
+  `tests/integration/demo_run.sh v1_corridor-independent-s1-r1 7 v1_corridor independent`.
 
 Metrics, run on the host (needs Python with PyYAML; or use the `dev` container):
 
@@ -257,8 +263,13 @@ scripts/ci.sh        # the referee: contract diff, owned files, hygiene, build, 
 - **One payload size** (small).
 - **No workers or corridor closures** (v2).
 - **FCFS has no starvation guard** (v2).
-- The gate runs had no two robots contending for one aisle; contention is measured in the corridor scene (M7).
-- The Foxglove layout has not been verified by an import in this repository's logs (unverified).
+- **Station claims serialise same-station orders**: an order waits while another order still has its pickup station
+  (until picked up) or dropoff station (until delivered). This prevents station gridlock but lowers throughput.
+- **Hold vertices sit 1.0 m beside the main-aisle trunks**: a robot waiting at a hold narrows the trunk, so passing
+  robots come within the 0.05 m footprint padding (counted as clearance violations ≤ 0.10 m) and occasionally hit the
+  60 s stuck timeout. Moving the holds needs a change of the frozen layout fixtures (listed for the user, v1 G5).
+- The Foxglove layout file has been checked against the topics the bridge advertises, but not yet imported into a
+  Foxglove app (unverified).
 - **Open-RMF** appears only in v2 (Baseline C); v1 has no RMF or free_fleet dependency.
 
 ## Repository layout
