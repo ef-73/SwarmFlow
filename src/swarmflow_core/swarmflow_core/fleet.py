@@ -1,6 +1,11 @@
 """Fleet core: order book + assignment policy + stuck/park rules (design §6.7, §13.5).
 
 Pure Python, deterministic, time passed in. The order lifecycle follows the ``swarmflow_core.api`` module docstring.
+
+Station claims (M6 finding: two robots sent to one loading station met there and gridlocked): a QUEUED order is
+only planned if its pickup station is not claimed by another order that is ASSIGNED or PICKING_UP, and its dropoff
+station is not claimed by another order that is ASSIGNED, PICKING_UP or IN_TRANSIT. Orders admitted in a tick claim
+their stations for the rest of that tick (older order wins). Blocked orders are skipped, not blocking others.
 """
 
 from __future__ import annotations
@@ -131,6 +136,28 @@ class FleetCore:
         out.dispatches.append(Assignment(robot.robot_id, "", task_id, tuple(route)))
         return True
 
+    def _claim_filter(self) -> List[OrderSpec]:
+        """QUEUED orders (FIFO) whose stations are free; admitted orders claim their stations for the tick."""
+        pick: Set[str] = set()
+        drop: Set[str] = set()
+        for r in self._orders.values():
+            if r.state in (OrderState.ASSIGNED, OrderState.PICKING_UP):
+                pick.add(r.spec.pickup_vertex)
+                drop.add(r.spec.dropoff_vertex)
+            elif r.state == OrderState.IN_TRANSIT:
+                drop.add(r.spec.dropoff_vertex)
+        ok: List[OrderSpec] = []
+        for r in self._orders.values():
+            if r.state != OrderState.QUEUED:
+                continue
+            sp = r.spec
+            if sp.pickup_vertex in pick or sp.dropoff_vertex in drop:
+                continue
+            pick.add(sp.pickup_vertex)
+            drop.add(sp.dropoff_vertex)
+            ok.append(sp)
+        return ok
+
     # ---- tick -------------------------------------------------------------------------------------------------
 
     def tick(self, t: float) -> TickOutput:
@@ -201,7 +228,7 @@ class FleetCore:
                 self._issue_park(out, robot)
         # (4) plan
         avail = [s for rid, s in sorted(self._robots.items()) if rid not in forced_park and self._available(s)]
-        queued = [r.spec for r in self._orders.values() if r.state == OrderState.QUEUED]
+        queued = self._claim_filter()
         if avail and queued:
             idle = [dataclasses.replace(s, mode=RobotMode.IDLE, task_id="", order_id="",
                                         last_vertex=self._vertex(s)) for s in avail]
