@@ -233,10 +233,7 @@ global_costmap:
       robot_base_frame: base_footprint
       resolution: 0.05
       track_unknown_space: true
-      plugins:
-      - static_layer
-      - obstacle_layer
-      - inflation_layer
+      plugins: [static_layer, inflation_layer]   # M8: no obstacle layer — stale marks of other robots made NavFn detour (even into unreserved aisles); dynamic obstacles are the local costmap's job
       obstacle_layer:
         plugin: nav2_costmap_2d::ObstacleLayer
         enabled: true
