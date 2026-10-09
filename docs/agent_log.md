@@ -12,3 +12,12 @@ Rules and entry format: [`AGENTS.md` §8](../AGENTS.md). Append new entries at t
 - Unverified / assumptions: WSLg GUI when compose is started from PowerShell; gz-transport discovery between the
   `gazebo` and `gazebo_gui` containers; real LiDAR/MPPI behaviour in the 1.30 m aisle (WS-A Day 2)
 - Needs user: nothing
+
+## 2026-10-09T00:00Z · claude · Lead · plan-review · DONE
+- Branch / PR: claude/admiring-antonelli-e441ea (not merged to `main`)
+- Did: reviewed design.md + AGENTS.md (16 suggestions R1–R16); wrote `docs/milestones.md` (gates G0–G5, milestones M0–M8,
+  subagent model routing and quality control)
+- Verified: host checks — Docker not installed, no git remote, no `gh`, `core.autocrlf=true`; WSL2 Ubuntu present
+- Sim used: no
+- Unverified / assumptions: none beyond those listed in milestones.md
+- Needs user: G0 (approve R1–R16, GitHub remote?, may lead fast-forward `main`?), G1 (install Docker Desktop)
