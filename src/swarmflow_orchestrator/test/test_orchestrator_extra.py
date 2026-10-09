@@ -88,7 +88,11 @@ class _Harness:
         self.ex.add_node(self.t)
         threading.Thread(target=self.ex.spin, daemon=True).start()
 
+    publish = True
+
     def _publish_state(self):
+        if not self.publish:
+            return
         s = RobotState(robot_id="robot_1", x=self.pose[0], y=self.pose[1], mode=RobotState.MODE_IDLE,
                        last_vertex=self.start_vertex)
         s.header.stamp = self.t.get_clock().now().to_msg()
