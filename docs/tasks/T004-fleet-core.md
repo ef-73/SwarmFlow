@@ -2,7 +2,7 @@
 id: T004
 title: Fleet core — FCFS policy, order lifecycle, decisions, fake backend
 workstream: B
-status: open
+status: review
 claimed_by: "sf-implementer"
 branch: ws-b/T004-fleet-core
 model: sonnet
