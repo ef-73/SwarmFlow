@@ -2,7 +2,7 @@
 id: T006
 title: Layout generator (world.sdf, nav graph, map, sidecar, sim2d.json)
 workstream: F
-status: open
+status: review
 claimed_by: "sf-implementer"
 branch: ws-f/T006-layoutgen
 model: sonnet

@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "swarmflow-layoutgen"
+version = "0.1.0"
+description = "SwarmFlow layout generator (layout.yaml -> world.sdf, nav graph, map, sidecar, sim2d.json)"
+requires-python = ">=3.10"
+dependencies = ["PyYAML", "jsonschema"]
+
+[tool.setuptools]
+packages = ["layoutgen"]
