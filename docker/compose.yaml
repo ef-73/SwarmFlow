@@ -107,6 +107,39 @@ services:
       <<: *ros-env
       ROBOT_ID: robot_3
 
+  orchestrator:
+    image: swarmflow/robot:latest
+    depends_on:
+      gazebo:
+        condition: service_healthy
+    environment:
+      <<: *ros-env
+      SWARMFLOW_POLICY: ${SWARMFLOW_POLICY:-fcfs}
+      SWARMFLOW_ROBOTS: ${SWARMFLOW_ROBOTS:-robot_1,robot_2,robot_3}
+      SWARMFLOW_RUN_ID: ${SWARMFLOW_RUN_ID:-}
+      SWARMFLOW_SCENARIO: ${SWARMFLOW_SCENARIO:-v1_demo}
+    volumes:
+      - ../runs:/ws/runs
+    command: ["ros2", "launch", "swarmflow_orchestrator", "orchestrator.launch.py", "layout:=${SWARMFLOW_LAYOUT:-standard}"]
+    networks: [swarmflow]
+
+  scenario_engine:
+    image: swarmflow/robot:latest
+    depends_on:
+      orchestrator:
+        condition: service_started
+    environment:
+      <<: *ros-env
+      SWARMFLOW_POLICY: ${SWARMFLOW_POLICY:-fcfs}
+      SWARMFLOW_RUN_ID: ${SWARMFLOW_RUN_ID:-}
+      SWARMFLOW_SCENARIO: ${SWARMFLOW_SCENARIO:-v1_demo}
+      SWARMFLOW_GIT_SHA: ${SWARMFLOW_GIT_SHA:-}
+      SWARMFLOW_IMAGE_DIGESTS: ${SWARMFLOW_IMAGE_DIGESTS:-}
+    volumes:
+      - ../runs:/ws/runs
+    command: ["ros2", "launch", "swarmflow_scenarios", "scenario_engine.launch.py", "layout:=${SWARMFLOW_LAYOUT:-standard}"]
+    networks: [swarmflow]
+
   foxglove_bridge:
     image: swarmflow/robot:latest
     build:

@@ -13,5 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY src/ /ws/src/
 COPY layouts/ /ws/layouts/
+COPY tools/ /ws/tools/
+COPY scenarios/ /ws/scenarios/
 COPY docker/build_ws.sh /usr/local/bin/build_ws.sh
 RUN build_ws.sh
