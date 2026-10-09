@@ -13,6 +13,7 @@ import enum
 import json
 import os
 import threading
+import time
 from typing import Dict, List, Optional, Tuple
 
 import rclpy
@@ -37,6 +38,9 @@ from swarmflow_interfaces.msg import (DecisionEvent, Order, OrderStatus, Reserva
 from swarmflow_interfaces.srv import ClearZone, RequestReservation
 
 REJECTED = "REJECTED"
+CANCEL_HOLD_S = 5.0               #: hold dispatches to a robot this long while its cancelled goal finishes
+AGENT_LOST_S = 10.0               #: dispatched task, no RobotState from its robot this long -> AGENT_LOST
+RECOVERY_WARN_S = 5.0
 DISPATCH_SERVER_TIMEOUT_S = 10.0  #: action server of a robot not up this long after dispatch -> REJECTED
 
 _RELIABLE10 = QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE)
@@ -100,6 +104,8 @@ class OrchestratorNode(Node):
         self.declare_parameter("state_log_hz", 2.0)
         self.robots: List[str] = list(self.get_parameter("robots").value)
         self.policy_name: str = self.get_parameter("policy").value
+        if self.policy_name not in (api.POLICY_FCFS, api.POLICY_INDEPENDENT):
+            raise ValueError(f"policy must be 'fcfs' or 'independent', got {self.policy_name!r}")
         traffic_control = self.policy_name != api.POLICY_INDEPENDENT
 
         self.graph = load_layout(self.get_parameter("layout_dir").value)
@@ -118,9 +124,17 @@ class OrchestratorNode(Node):
         self._goal_handles: Dict[str, object] = {}                      # task_id -> accepted ClientGoalHandle
         self._cancel_requested = set()
 
-        self._start_t = self._now()
-        self.epoch = f"epoch:{self.get_clock().now().nanoseconds}-{os.getpid()}"
+        self._active: Dict[str, Tuple[str, float]] = {}            # task_id -> (robot_id, dispatch t)
+        self._cancelling: Dict[str, Tuple[str, float]] = {}        # robot_id -> (cancelled task_id, since t)
+        self._state_stamp: Dict[str, float] = {}                   # robot_id -> newest RobotState header stamp
+        self._last_seen: Dict[str, float] = {}                     # robot_id -> node time of last RobotState
+        self._reported = set()                                     # robots reported since the recovery window start
+        self._window_start: Optional[float] = None
+        self._last_warn_t = 0.0
         self._recovered = False
+        # Epoch is an identity, not a measurement: wall clock (not the possibly-frozen sim clock) guarantees that a
+        # restarted orchestrator never reuses an epoch, even if sim time restarts at the same value.
+        self.epoch = f"epoch:{time.time_ns()}-{os.getpid()}"
 
         cb = self._cb
         for rid in self.robots:
@@ -204,6 +218,8 @@ class OrchestratorNode(Node):
                          dropoff_vertex=msg.dropoff_vertex, payload_type=msg.payload_type or "small",
                          priority=int(msg.priority))
         with self._lock:
+            if spec.order_id in self._specs:
+                return
             self._specs[spec.order_id] = spec
             self.core.add_order(spec)
 
@@ -215,6 +231,12 @@ class OrchestratorNode(Node):
             next_vertex=msg.next_vertex, remaining_route=tuple(msg.remaining_route))
         stamp = time_msg_to_s(msg.header.stamp)
         with self._lock:
+            if stamp < self._state_stamp.get(msg.robot_id, -1.0):
+                return  # stale / out-of-order sample never overwrites a newer one
+            self._state_stamp[msg.robot_id] = stamp
+            self._last_seen[msg.robot_id] = self._now()
+            if self._window_start is not None and stamp >= self._window_start:
+                self._reported.add(msg.robot_id)
             self._snapshots[msg.robot_id] = snap
             self.core.update_robot(snap)
             self.authority.observe_robot(msg.robot_id, msg.x, msg.y, stamp)
@@ -266,21 +288,49 @@ class OrchestratorNode(Node):
     def _on_tick(self) -> None:
         with self._lock:
             t = self._now()
-            if not self._recovered and t - self._start_t >= api.RECOVERY_GRACE_S:
-                self.authority.recover(list(self._snapshots.values()), t)
-                self._recovered = True
+            self._check_recovery(t)
             self.authority.expire(t)
             out = self.core.tick(t)
             for task_id in out.cancels:
-                self._cancel_task(task_id)
+                self._cancel_task(task_id, t)
             for a in out.dispatches:
                 self._pending.append((a, t))
+                self._active[a.task_id] = (a.robot_id, t)
             for c in out.status_changes:
                 self._publish_status(c)
             for d in out.decisions:
                 self._publish_decision(d)
             self._flush_leases()
             self._send_pending(t)
+            self._watchdog(t)
+
+    def _check_recovery(self, t: float) -> None:
+        """Recovery window starts at the first tick with a running clock (sim clock is 0 until /clock arrives);
+        recover once every configured robot has reported since then and RECOVERY_GRACE_S has passed. Until then the
+        authority denies RECOVERING. Caller holds the lock."""
+        if self._recovered or t <= 0.0:
+            return
+        if self._window_start is None:
+            self._window_start = t
+            self._last_warn_t = t
+            return
+        missing = [r for r in self.robots if r not in self._reported]
+        if not missing and t - self._window_start >= api.RECOVERY_GRACE_S:
+            self.authority.recover(list(self._snapshots.values()), t)
+            self._recovered = True
+        elif missing and t - self._last_warn_t >= RECOVERY_WARN_S:
+            self._last_warn_t = t
+            self.get_logger().warn(f"recovering: no RobotState yet from {', '.join(missing)}")
+
+    def _watchdog(self, t: float) -> None:
+        for task_id, (rid, t0) in list(self._active.items()):
+            if t - max(t0, self._last_seen.get(rid, 0.0)) > AGENT_LOST_S:
+                self._finish(task_id, False, "AGENT_LOST", t)
+
+    def _finish(self, task_id: str, ok: bool, reason: str, t: float) -> None:
+        """Report a task result to the core exactly once; ignored for tasks no longer active (cancelled)."""
+        if self._active.pop(task_id, None) is not None:
+            self.core.task_result(task_id, ok, reason, t)
 
     def _log_states(self) -> None:
         with self._lock:
@@ -307,19 +357,30 @@ class OrchestratorNode(Node):
         return goal
 
     def _send_pending(self, t: float) -> None:
-        """Send queued dispatches whose action server is up; time out the rest. Caller holds the lock."""
+        """Send queued dispatches whose action server is up and whose robot is not still finishing a cancelled goal
+        (the agent frees its goal slot only then); time out the rest. Caller holds the lock."""
+        for rid, (_tid, since) in list(self._cancelling.items()):
+            if t - since >= CANCEL_HOLD_S:
+                del self._cancelling[rid]
         still: List[Tuple[api.Assignment, float]] = []
         for a, t0 in self._pending:
             client = self._dispatch_clients.get(a.robot_id)
-            if client is not None and client.server_is_ready():
+            if a.robot_id in self._cancelling:
+                still.append((a, t0))
+            elif client is not None and client.server_is_ready():
                 fut = client.send_goal_async(self._goal_of(a))
                 self._inflight[a.task_id] = fut
                 fut.add_done_callback(lambda f, tid=a.task_id: self._on_goal_response(tid, f))
             elif t - t0 >= DISPATCH_SERVER_TIMEOUT_S:
-                self.core.task_result(a.task_id, False, REJECTED, t)
+                self._finish(a.task_id, False, REJECTED, t)
             else:
                 still.append((a, t0))
         self._pending = still
+
+    def _release_cancel_hold(self, task_id: str) -> None:
+        for rid, (tid, _since) in list(self._cancelling.items()):
+            if tid == task_id:
+                del self._cancelling[rid]
 
     def _on_goal_response(self, task_id: str, fut) -> None:
         with self._lock:
@@ -331,7 +392,8 @@ class OrchestratorNode(Node):
                 handle = None
             if handle is None or not handle.accepted:
                 self._cancel_requested.discard(task_id)
-                self.core.task_result(task_id, False, REJECTED, self._now())
+                self._release_cancel_hold(task_id)
+                self._finish(task_id, False, REJECTED, self._now())
                 return
             self._goal_handles[task_id] = handle
             if task_id in self._cancel_requested:
@@ -342,24 +404,31 @@ class OrchestratorNode(Node):
     def _on_goal_result(self, task_id: str, fut) -> None:
         with self._lock:
             self._goal_handles.pop(task_id, None)
+            self._cancel_requested.discard(task_id)
+            self._release_cancel_hold(task_id)
             try:
                 wrapper = fut.result()
             except Exception as exc:  # noqa: BLE001
-                self.core.task_result(task_id, False, f"RESULT_ERROR:{exc}", self._now())
+                self._finish(task_id, False, f"RESULT_ERROR:{exc}", self._now())
                 return
             ok = wrapper.status == GoalStatus.STATUS_SUCCEEDED and bool(wrapper.result.success)
             reason = "" if ok else (wrapper.result.failure_reason or
                                     ("CANCELLED" if wrapper.status == GoalStatus.STATUS_CANCELED else "ABORTED"))
-            self.core.task_result(task_id, ok, reason, self._now())
+            self._finish(task_id, ok, reason, self._now())
 
-    def _cancel_task(self, task_id: str) -> None:
+    def _cancel_task(self, task_id: str, t: float) -> None:
         """Cancel a (preempted park) task's goal wherever it is. Caller holds the lock."""
         self._pending = [(a, t0) for a, t0 in self._pending if a.task_id != task_id]
+        robot = self._active.pop(task_id, ("", 0.0))[0]
         handle = self._goal_handles.get(task_id)
         if handle is not None:
             handle.cancel_goal_async()
         elif task_id in self._inflight:
             self._cancel_requested.add(task_id)
+        else:
+            return  # never sent: nothing to wait for
+        if robot:
+            self._cancelling[robot] = (task_id, t)
 
     def close(self) -> None:
         self.record.close()
