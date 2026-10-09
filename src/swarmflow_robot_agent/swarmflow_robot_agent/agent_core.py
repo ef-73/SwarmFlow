@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import math
 import random
+from collections import deque
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Sequence, Set, Tuple
 
@@ -61,6 +62,7 @@ class _Lease:
     lease_id: str
     zone: str
     exit_idx: Optional[int]      #: route index of the zone exit while the issuing task is active
+    hold_idx: Optional[int] = None
     entered: bool = False
 
 
@@ -110,7 +112,8 @@ class AgentCore:
         self._pickup_idx: Optional[int] = None
         self._end_idx = 0
         self._holds: Dict[int, _Hold] = {}
-        self._handled: Set[int] = set()        #: route indices whose pickup dwell / hold grant is done
+        self._handled: Set[int] = set()        #: route indices whose pickup dwell is done
+        self._granted: Set[int] = set()        #: route indices whose hold has been granted
         self._has_order = False
         # segment
         self._seg_end = 0
@@ -121,7 +124,9 @@ class AgentCore:
         self._dwell_until = 0.0
         # reservations
         self._req_n = 0
-        self._pending: Optional[Tuple[str, float]] = None   #: (request_id, sent_t)
+        self._pending: Optional[Tuple[str, float, str]] = None   #: (request_id, sent_t, zone)
+        self._abandoned: deque = deque(maxlen=32)   #: request ids whose grant must be released on arrival
+        self._epoch = ""
         self._retry_at: Optional[float] = None
         self._wait_since = 0.0
         self._last_contact: Optional[float] = None
@@ -172,6 +177,7 @@ class AgentCore:
         self._task_id, self._order_id, self._route = task_id, order_id, route
         self._reach = 0
         self._handled = set()
+        self._granted = set()
         self._holds = {}
         self._has_order = bool(order_id)
         self._fault = ""
@@ -206,6 +212,7 @@ class AgentCore:
                     v = self.graph.vertices[self._route[k]]
                     if math.hypot(v.x - x, v.y - y) <= REACH_RADIUS_M:
                         self._reach = k
+                        self._ref_d = None        # passed a vertex: visible progress, restart the stuck window
                         break
         else:
             near = self.graph.nearest_vertex(x, y)
@@ -230,6 +237,10 @@ class AgentCore:
     def on_reservation_response(self, request_id: str, decision: Optional[api.ReservationDecision],
                                 t: float) -> List[object]:
         if self._pending is None or request_id != self._pending[0]:
+            if request_id in self._abandoned:           # orphaned request: nobody wants a grant any more
+                self._abandoned.remove(request_id)
+                if decision is not None and decision.granted and decision.lease_id:
+                    return [Release(decision.lease_id, ReleaseReason.TASK_CANCELLED)]
             return []
         self._pending = None
         if decision is None:                          # service call failed: no contact information
@@ -243,20 +254,53 @@ class AgentCore:
             hold = self._holds.get(self._reach)
             zone = hold.zone if hold else ""
             exit_idx = self._exit_index(self._reach) if hold else None
-            self._leases.append(_Lease(decision.lease_id, zone, exit_idx))
-            self._handled.add(self._reach)
+            self._leases.append(_Lease(decision.lease_id, zone, exit_idx, self._reach))
+            self._granted.add(self._reach)
             self._retry_at = None
             return self._arrive(t)
         self._retry_at = t + (decision.retry_after_s or api.RETRY_AFTER_S) * self._jitter()
         return []
 
-    def on_orchestrator_heartbeat(self, t: float) -> List[object]:
+    def on_orchestrator_heartbeat(self, t: float, epoch: str = "") -> List[object]:
+        """``epoch`` identifies the orchestrator instance ("" = unknown, treated as unchanged)."""
         self._last_contact = t
+        acts: List[object] = []
+        reissue = False
         if self._fault and self._mode == RobotMode.WAITING_RESERVATION:
             self._fault = ""
             self._wait_since = t
-            return self._issue_request(t)
-        return []
+            reissue = True
+        if epoch:
+            changed = bool(self._epoch) and epoch != self._epoch
+            self._epoch = epoch
+            if changed:
+                reissue |= self._on_new_epoch(acts, t)
+        if reissue and self._mode == RobotMode.WAITING_RESERVATION and self._reach in self._holds:
+            acts += self._issue_request(t)
+        return acts
+
+    def _on_new_epoch(self, acts: List[object], t: float) -> bool:
+        """New orchestrator instance: it does not know our leases. Leases of zones we are not inside are dropped
+        silently; inside ones are kept (it blocks that zone by recovery) and still released with EXITED later.
+        Returns True if the robot has to (re-)request a reservation."""
+        again = self._mode == RobotMode.WAITING_RESERVATION
+        for lease in list(self._leases):
+            zone = self.graph.zones.get(lease.zone)
+            if zone is not None and point_in_polygon(self._x, self._y, zone.polygon):
+                continue
+            self._leases.remove(lease)
+            if (self._mode == RobotMode.NAVIGATING and self._route and lease.exit_idx is not None
+                    and self._reach < lease.exit_idx):
+                acts.append(CancelNav())                  # was about to enter on a grant that no longer exists
+                self._mode = RobotMode.WAITING_RESERVATION
+                self._wait_since = t
+                self._retry_at = None
+                if self._reach not in self._holds and not self._ensure_zone_hold(self._reach):
+                    if lease.hold_idx is not None:
+                        self._reach = lease.hold_idx      # fall back to the hold the grant was issued for
+                self._granted.discard(self._reach)
+                again = True
+        return again
 
     def tick(self, t: float) -> List[object]:
         self._init_time(t)
@@ -311,17 +355,40 @@ class AgentCore:
             zone = g.zone_of_edge(entry, route[i + 2])
             if not zone or g.zone_entry(zone, entry) is None or route[i] in g.zones[zone].vertices:
                 continue
-            j = i + 1
-            while j + 1 < len(route) and g.zone_of_edge(route[j], route[j + 1]) == zone:
-                j += 1
-            entries = g.zones[zone].entries
-            if route[j] != entry and g.zone_entry(zone, route[j]) is not None:
-                exit_vertex = route[j]
-            else:
-                exit_vertex = next((e.entry for e in entries if e.entry != entry), entry)
-            direction = api.Direction.FORWARD if entries[0].entry == entry else api.Direction.REVERSE
-            holds[i] = _Hold(zone, entry, exit_vertex, direction, g.path_length(route[i + 1:j + 1]))
+            holds[i] = self._make_hold(route, i, i + 1, zone, entry)
         return holds
+
+    def _make_hold(self, route: List[str], at: int, run_start: int, zone: str, entry: str) -> _Hold:
+        """Hold at ``route[at]``; the in-zone run starts at ``route[run_start]``."""
+        g = self.graph
+        j = run_start
+        while j + 1 < len(route) and g.zone_of_edge(route[j], route[j + 1]) == zone:
+            j += 1
+        entries = g.zones[zone].entries
+        if route[j] != entry and g.zone_entry(zone, route[j]) is not None:
+            exit_vertex = route[j]
+        else:
+            exit_vertex = next((e.entry for e in entries if e.entry != entry), entry)
+        direction = api.Direction.FORWARD if entries[0].entry == entry else api.Direction.REVERSE
+        return _Hold(zone, entry, exit_vertex, direction, g.path_length(route[run_start:j + 1]))
+
+    def _ensure_zone_hold(self, i: int) -> bool:
+        """The next edge of ``route[i]`` is a zone edge and no lease covers that zone (route starts at an entry or
+        inside a zone, or a grant was lost): create a hold here so the robot requests before moving."""
+        if not self.traffic_control or i + 1 >= len(self._route) or i >= self._end_idx:
+            return False
+        g = self.graph
+        zone = g.zone_of_edge(self._route[i], self._route[i + 1])
+        if not zone or any(l.zone == zone for l in self._leases):
+            return False
+        if g.zone_entry(zone, self._route[i]) is not None:
+            entry = self._route[i]
+        else:                                             # interior start: nearest zone entry to the robot
+            ref = (self._x, self._y) if self._have_pose else (g.vertices[self._route[i]].x, g.vertices[self._route[i]].y)
+            entry = min((e.entry for e in g.zones[zone].entries),
+                        key=lambda n: math.hypot(g.vertices[n].x - ref[0], g.vertices[n].y - ref[1]))
+        self._holds[i] = self._make_hold(self._route, i, i, zone, entry)
+        return True
 
     def _exit_index(self, hold_idx: int) -> int:
         zone = self._holds[hold_idx].zone
@@ -347,7 +414,7 @@ class AgentCore:
         stops = [self._end_idx]
         if self._pickup_idx is not None and self._pickup_idx > self._reach and self._pickup_idx not in self._handled:
             stops.append(self._pickup_idx)
-        stops += [i for i in self._holds if i > self._reach and i not in self._handled]
+        stops += [i for i in self._holds if i > self._reach and i not in self._granted]
         return min(stops)
 
     def _send_segment(self, t: float) -> Navigate:
@@ -365,8 +432,11 @@ class AgentCore:
         return nav
 
     def _dist_to_target(self) -> float:
-        v = self.graph.vertices[self._route[self._seg_end]]
-        return math.hypot(v.x - self._x, v.y - self._y)
+        """Remaining route distance to the segment end: pose to the next unreached vertex plus the edges after it."""
+        nxt = min(self._reach + 1, self._seg_end)
+        v = self.graph.vertices[self._route[nxt]]
+        d = math.hypot(v.x - self._x, v.y - self._y)
+        return d + self.graph.path_length(self._route[nxt:self._seg_end + 1])
 
     def _arrive(self, t: float) -> List[object]:
         """The robot stands at ``route[self._reach]``: do whatever that vertex calls for."""
@@ -381,7 +451,7 @@ class AgentCore:
             self._mode = RobotMode.LOADING
             self._dwell_until = t + api.LOAD_DWELL_S
             return []
-        if i in self._holds and i not in self._handled:
+        if i not in self._granted and (i in self._holds or self._ensure_zone_hold(i)):
             self._mode = RobotMode.WAITING_RESERVATION
             self._wait_since = t
             self._retry_at = None
@@ -393,7 +463,9 @@ class AgentCore:
         hold = self._holds[self._reach]
         self._req_n += 1
         rid = f"{self.robot_id}-{self._req_n}"
-        self._pending = (rid, t)
+        if self._pending is not None and self._pending[2] != hold.zone:
+            self._abandoned.append(self._pending[0])   # superseded by a request for another zone
+        self._pending = (rid, t, hold.zone)
         self._retry_at = None
         req = api.ReservationRequest(
             request_id=rid, robot_id=self.robot_id, zone_id=hold.zone, entry_vertex=hold.entry,
@@ -414,6 +486,11 @@ class AgentCore:
                 acts.append(Release(lease.lease_id, ReleaseReason.EXITED))
                 self._leases.remove(lease)
         return acts
+
+    def _abandon_pending(self) -> None:
+        if self._pending is not None:
+            self._abandoned.append(self._pending[0])
+        self._pending = None
 
     def _release_all(self, reason: ReleaseReason) -> List[object]:
         acts = [Release(l.lease_id, reason) for l in self._leases]
@@ -453,8 +530,9 @@ class AgentCore:
         self._route = []
         self._holds = {}
         self._handled = set()
+        self._granted = set()
         self._task_id = self._order_id = ""
-        self._pending = None
+        self._abandon_pending()
         self._retry_at = None
         self._fault = ""
         self._fault_reason_stuck = ""
