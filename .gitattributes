@@ -1,0 +1,16 @@
+# Force LF everywhere: files are used inside Linux containers (AGENTS.md / design.md R3).
+* text=auto eol=lf
+
+# Windows-only scripts keep CRLF
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary assets
+*.png binary
+*.jpg binary
+*.pgm binary
+*.stl binary
+*.dae binary
+*.mcap binary
+*.db3 binary
