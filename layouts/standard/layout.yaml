@@ -43,12 +43,12 @@ intersections:
   - {name: X_4_2, pose: {x: 11.0, y: 11.2}}
   - {name: X_4_4, pose: {x: 18.6, y: 11.2}}
 holds:  # outside the zone, offset in front of a rack end so a waiting robot is off the exit path
-  - {name: H_1_1, pose: {x: 4.8, y: 2.7}}
-  - {name: H_1_3, pose: {x: 17.2, y: 5.0}}
-  - {name: H_2_1, pose: {x: 4.8, y: 5.0}}
-  - {name: H_2_3, pose: {x: 17.2, y: 7.3}}
-  - {name: H_3_1, pose: {x: 4.8, y: 7.3}}
-  - {name: H_3_3, pose: {x: 17.2, y: 9.6}}
+  - {name: H_1_1, pose: {x: 4.4, y: 2.7}}
+  - {name: H_1_3, pose: {x: 17.6, y: 5.0}}
+  - {name: H_2_1, pose: {x: 4.4, y: 5.0}}
+  - {name: H_2_3, pose: {x: 17.6, y: 7.3}}
+  - {name: H_3_1, pose: {x: 4.4, y: 7.3}}
+  - {name: H_3_3, pose: {x: 17.6, y: 9.6}}
 lanes:
   - {from: X_0_0, to: X_1_0, clear_width_m: 3.4, bidirectional: true}
   - {from: X_1_0, to: X_2_0, clear_width_m: 3.4, bidirectional: true}

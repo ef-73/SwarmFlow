@@ -31,3 +31,31 @@ def test_dataclasses_frozen():
         pass
     r = api.RobotSnapshot("robot_1", 0.0, 0.0, 0.0, api.RobotMode.IDLE)
     assert r.held_lease_ids == () and r.payload_type == ""
+
+
+def _msg_constants(rel):
+    import pathlib
+    import re
+    f = pathlib.Path(__file__).resolve().parents[2] / "swarmflow_interfaces" / rel
+    out = {}
+    for line in f.read_text(encoding="utf-8").splitlines():
+        m = re.match(r"^uint8 ([A-Z_]+)=(\d+)", line)
+        if m:
+            out[m.group(1)] = int(m.group(2))
+    return out
+
+
+def test_codes_parsed_from_interface_files():
+    """api *_CODES must equal the constants in the .msg/.srv files (review finding 9a)."""
+    rs = _msg_constants("msg/RobotState.msg")
+    assert {f"MODE_{m.value}": c for m, c in api.MODE_CODES.items()} == rs
+    os_ = _msg_constants("msg/OrderStatus.msg")
+    assert {f"STATE_{s.value}": c for s, c in api.ORDER_STATE_CODES.items()} == os_
+    zr = _msg_constants("msg/ZoneReservation.msg")
+    assert {f"STATE_{s.value}": c for s, c in api.LEASE_STATE_CODES.items()} == zr
+    rr = _msg_constants("msg/ReservationRelease.msg")
+    assert {f"REASON_{r.value}": c for r, c in api.RELEASE_REASON_CODES.items()} == rr
+    req = _msg_constants("srv/RequestReservation.srv")
+    assert {f"DIRECTION_{d.value}": c for d, c in api.DIRECTION_CODES.items()} == \
+        {k: v for k, v in req.items() if k.startswith("DIRECTION_")}
+    assert {k: v for k, v in req.items() if k.startswith("RESULT_")} == {"RESULT_GRANTED": 0, "RESULT_DENIED": 1}

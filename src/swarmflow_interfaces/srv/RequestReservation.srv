@@ -1,4 +1,4 @@
-string request_id
+string request_id                       # a robot already holding a live lease for zone_id gets that lease back (idempotent retry)
 string robot_id
 string zone_id
 string entry_vertex                     # zone entry vertex the robot enters through
@@ -16,5 +16,5 @@ uint8 RESULT_DENIED=1
 uint8 result
 string lease_id                         # empty when denied
 builtin_interfaces/Time lease_expiry
-string reason                           # deny reason, e.g. "ZONE_LEASED", "OCCUPIED_UNKNOWN", "UNKNOWN_ZONE"
+string reason                           # deny reason: "ZONE_LEASED", "OCCUPIED_UNKNOWN", "UNKNOWN_ZONE", "BAD_ENTRY", "RECOVERING"
 float64 retry_after_s
