@@ -140,6 +140,25 @@ services:
     command: ["ros2", "launch", "swarmflow_scenarios", "scenario_engine.launch.py", "layout:=${SWARMFLOW_LAYOUT:-standard}"]
     networks: [swarmflow]
 
+  payload:
+    image: swarmflow/sim:latest
+    depends_on:
+      gazebo:
+        condition: service_healthy
+    environment:
+      <<: *ros-env
+      SWARMFLOW_ROBOTS: ${SWARMFLOW_ROBOTS:-robot_1,robot_2,robot_3}
+    command: ["ros2", "launch", "swarmflow_payload", "payload.launch.py", "layout:=${SWARMFLOW_LAYOUT:-standard}"]
+    networks: [swarmflow]
+
+  viz:
+    image: swarmflow/robot:latest
+    environment:
+      <<: *ros-env
+      SWARMFLOW_LAYOUTS_ROOT: /ws/layouts
+    command: ["ros2", "launch", "swarmflow_viz", "viz.launch.py", "layout:=${SWARMFLOW_LAYOUT:-standard}"]
+    networks: [swarmflow]
+
   foxglove_bridge:
     image: swarmflow/robot:latest
     build:
