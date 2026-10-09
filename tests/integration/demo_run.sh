@@ -43,5 +43,6 @@ if [ "$shot" = 1 ]; then
 fi
 docker compose exec -T orchestrator /entrypoint.sh bash -c 'timeout 5 ros2 topic echo --once /fleet/robot_markers visualization_msgs/msg/MarkerArray --field markers 2>/dev/null | grep -c "ns: robots"' 2>/dev/null | head -1 | sed 's/^/robot markers seen: /'
 docker compose logs > "runs/$run_id/compose.log" 2>&1
+docker stats --no-stream --format '{{.Name}} {{.CPUPerc}} {{.MemUsage}}' | sed "s/$COMPOSE_PROJECT_NAME-//" > "runs/$run_id/cpu_end.txt"
 docker compose run --rm --no-deps -T dev python3 tools/metrics/compute.py "runs/$run_id" >/dev/null 2>&1
 cat "runs/$run_id/metrics.csv" 2>/dev/null
