@@ -1,7 +1,7 @@
 #!/bin/bash
 # Atomic mkdir lock shared by every worktree and shell (AGENTS.md §5, design §14.5).
 #   scripts/lock.sh acquire <name> [task-id] [expected-minutes]
-#   scripts/lock.sh release <name>
+#   scripts/lock.sh release <name> [--force]   (only the worktree that acquired it, unless --force)
 #   scripts/lock.sh status  <name>
 # Lock dir: $SWARMFLOW_LOCK_DIR/<name>.lock with owner.txt. Default lock root = the Windows user's
 # ~/.swarmflow (C:\Users\<user>\.swarmflow; /mnt/c/Users/<user>/.swarmflow from WSL).
@@ -23,6 +23,7 @@ lock_root() {
 cmd="${1:-}"; name="${2:-}"
 [ -n "$cmd" ] && [ -n "$name" ] || { echo "usage: $0 acquire|release|status <name> [task] [minutes]" >&2; exit 2; }
 root="$(lock_root)"; dir="$root/$name.lock"
+tokdir="$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.run"   # per-worktree ownership token (.run/ is gitignored)
 mkdir -p "$root"
 
 age_min() { # minutes since lock creation
@@ -41,13 +42,24 @@ case "$cmd" in
         echo "start_utc: $(date -u +%Y-%m-%dT%H:%MZ)"
         echo "expected_end_utc: $(date -u -d "+$minutes min" +%Y-%m-%dT%H:%MZ 2>/dev/null || echo "+${minutes}min")"
       } > "$dir/owner.txt"
+      token="$(date +%s%N)-$$-${RANDOM}"
+      echo "token: $token" >> "$dir/owner.txt"
+      mkdir -p "$tokdir" && echo "$token" > "$tokdir/$name.token"
       echo "lock $name acquired ($dir)"
     else
       echo "lock $name is held ($(age_min) min):" >&2; cat "$dir/owner.txt" >&2 2>/dev/null || true
       exit 1
     fi ;;
   release)
-    rm -rf "$dir"; echo "lock $name released" ;;
+    if [ -d "$dir" ] && [ "${3:-}" != "--force" ]; then
+      held="$(sed -n 's/^token: //p' "$dir/owner.txt" 2>/dev/null)"
+      mine="$(cat "$tokdir/$name.token" 2>/dev/null)"
+      if [ -n "$held" ] && [ "$held" != "$mine" ]; then
+        echo "lock $name is held by someone else; not released (use --force only for a stale lock):" >&2
+        cat "$dir/owner.txt" >&2; exit 1
+      fi
+    fi
+    rm -rf "$dir"; rm -f "$tokdir/$name.token"; echo "lock $name released" ;;
   status)
     if [ -d "$dir" ]; then echo "held ($(age_min) min)"; cat "$dir/owner.txt" 2>/dev/null || true; else echo "free"; fi ;;
   age)
