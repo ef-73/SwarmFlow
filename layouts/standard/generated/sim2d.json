@@ -1,0 +1,775 @@
+{
+  "bounds": {
+    "wall_height_m": 2.5,
+    "wall_thickness_m": 0.2,
+    "x_max": 22.0,
+    "x_min": 0.0,
+    "y_max": 12.3,
+    "y_min": 0.0
+  },
+  "edges": [
+    {
+      "from": "D1",
+      "length_m": 2.1,
+      "to": "X_1_4",
+      "zone": null
+    },
+    {
+      "from": "D2",
+      "length_m": 2.1,
+      "to": "X_2_4",
+      "zone": null
+    },
+    {
+      "from": "D3",
+      "length_m": 2.1,
+      "to": "X_3_4",
+      "zone": null
+    },
+    {
+      "from": "H_1_1",
+      "length_m": 1.524,
+      "to": "X_1_0",
+      "zone": null
+    },
+    {
+      "from": "H_1_1",
+      "length_m": 1.97,
+      "to": "X_1_1",
+      "zone": null
+    },
+    {
+      "from": "H_1_3",
+      "length_m": 1.97,
+      "to": "X_1_3",
+      "zone": null
+    },
+    {
+      "from": "H_1_3",
+      "length_m": 1.524,
+      "to": "X_1_4",
+      "zone": null
+    },
+    {
+      "from": "H_2_1",
+      "length_m": 1.524,
+      "to": "X_2_0",
+      "zone": null
+    },
+    {
+      "from": "H_2_1",
+      "length_m": 1.97,
+      "to": "X_2_1",
+      "zone": null
+    },
+    {
+      "from": "H_2_3",
+      "length_m": 1.97,
+      "to": "X_2_3",
+      "zone": null
+    },
+    {
+      "from": "H_2_3",
+      "length_m": 1.524,
+      "to": "X_2_4",
+      "zone": null
+    },
+    {
+      "from": "H_3_1",
+      "length_m": 1.524,
+      "to": "X_3_0",
+      "zone": null
+    },
+    {
+      "from": "H_3_1",
+      "length_m": 1.97,
+      "to": "X_3_1",
+      "zone": null
+    },
+    {
+      "from": "H_3_3",
+      "length_m": 1.97,
+      "to": "X_3_3",
+      "zone": null
+    },
+    {
+      "from": "H_3_3",
+      "length_m": 1.524,
+      "to": "X_3_4",
+      "zone": null
+    },
+    {
+      "from": "L1",
+      "length_m": 2.1,
+      "to": "X_1_0",
+      "zone": null
+    },
+    {
+      "from": "L2",
+      "length_m": 2.1,
+      "to": "X_2_0",
+      "zone": null
+    },
+    {
+      "from": "L3",
+      "length_m": 2.1,
+      "to": "X_3_0",
+      "zone": null
+    },
+    {
+      "from": "P1",
+      "length_m": 2.1,
+      "to": "X_0_0",
+      "zone": null
+    },
+    {
+      "from": "P2",
+      "length_m": 2.1,
+      "to": "X_4_0",
+      "zone": null
+    },
+    {
+      "from": "P3",
+      "length_m": 2.1,
+      "to": "X_0_4",
+      "zone": null
+    },
+    {
+      "from": "P4",
+      "length_m": 2.1,
+      "to": "X_4_4",
+      "zone": null
+    },
+    {
+      "from": "X_0_0",
+      "length_m": 2.1,
+      "to": "P1",
+      "zone": null
+    },
+    {
+      "from": "X_0_0",
+      "length_m": 7.6,
+      "to": "X_0_2",
+      "zone": null
+    },
+    {
+      "from": "X_0_0",
+      "length_m": 2.75,
+      "to": "X_1_0",
+      "zone": null
+    },
+    {
+      "from": "X_0_2",
+      "length_m": 7.6,
+      "to": "X_0_0",
+      "zone": null
+    },
+    {
+      "from": "X_0_2",
+      "length_m": 7.6,
+      "to": "X_0_4",
+      "zone": null
+    },
+    {
+      "from": "X_0_4",
+      "length_m": 2.1,
+      "to": "P3",
+      "zone": null
+    },
+    {
+      "from": "X_0_4",
+      "length_m": 7.6,
+      "to": "X_0_2",
+      "zone": null
+    },
+    {
+      "from": "X_0_4",
+      "length_m": 2.75,
+      "to": "X_1_4",
+      "zone": null
+    },
+    {
+      "from": "X_1_0",
+      "length_m": 1.524,
+      "to": "H_1_1",
+      "zone": null
+    },
+    {
+      "from": "X_1_0",
+      "length_m": 2.1,
+      "to": "L1",
+      "zone": null
+    },
+    {
+      "from": "X_1_0",
+      "length_m": 2.75,
+      "to": "X_0_0",
+      "zone": null
+    },
+    {
+      "from": "X_1_0",
+      "length_m": 2.3,
+      "to": "X_2_0",
+      "zone": null
+    },
+    {
+      "from": "X_1_1",
+      "length_m": 2.6,
+      "to": "X_1_0",
+      "zone": null
+    },
+    {
+      "from": "X_1_1",
+      "length_m": 10.0,
+      "to": "X_1_3",
+      "zone": "Z_aisle_1"
+    },
+    {
+      "from": "X_1_3",
+      "length_m": 10.0,
+      "to": "X_1_1",
+      "zone": "Z_aisle_1"
+    },
+    {
+      "from": "X_1_3",
+      "length_m": 2.6,
+      "to": "X_1_4",
+      "zone": null
+    },
+    {
+      "from": "X_1_4",
+      "length_m": 2.1,
+      "to": "D1",
+      "zone": null
+    },
+    {
+      "from": "X_1_4",
+      "length_m": 1.524,
+      "to": "H_1_3",
+      "zone": null
+    },
+    {
+      "from": "X_1_4",
+      "length_m": 2.75,
+      "to": "X_0_4",
+      "zone": null
+    },
+    {
+      "from": "X_1_4",
+      "length_m": 2.3,
+      "to": "X_2_4",
+      "zone": null
+    },
+    {
+      "from": "X_2_0",
+      "length_m": 1.524,
+      "to": "H_2_1",
+      "zone": null
+    },
+    {
+      "from": "X_2_0",
+      "length_m": 2.1,
+      "to": "L2",
+      "zone": null
+    },
+    {
+      "from": "X_2_0",
+      "length_m": 2.3,
+      "to": "X_1_0",
+      "zone": null
+    },
+    {
+      "from": "X_2_0",
+      "length_m": 2.3,
+      "to": "X_3_0",
+      "zone": null
+    },
+    {
+      "from": "X_2_1",
+      "length_m": 2.6,
+      "to": "X_2_0",
+      "zone": null
+    },
+    {
+      "from": "X_2_1",
+      "length_m": 10.0,
+      "to": "X_2_3",
+      "zone": "Z_aisle_2"
+    },
+    {
+      "from": "X_2_3",
+      "length_m": 10.0,
+      "to": "X_2_1",
+      "zone": "Z_aisle_2"
+    },
+    {
+      "from": "X_2_3",
+      "length_m": 2.6,
+      "to": "X_2_4",
+      "zone": null
+    },
+    {
+      "from": "X_2_4",
+      "length_m": 2.1,
+      "to": "D2",
+      "zone": null
+    },
+    {
+      "from": "X_2_4",
+      "length_m": 1.524,
+      "to": "H_2_3",
+      "zone": null
+    },
+    {
+      "from": "X_2_4",
+      "length_m": 2.3,
+      "to": "X_1_4",
+      "zone": null
+    },
+    {
+      "from": "X_2_4",
+      "length_m": 2.3,
+      "to": "X_3_4",
+      "zone": null
+    },
+    {
+      "from": "X_3_0",
+      "length_m": 1.524,
+      "to": "H_3_1",
+      "zone": null
+    },
+    {
+      "from": "X_3_0",
+      "length_m": 2.1,
+      "to": "L3",
+      "zone": null
+    },
+    {
+      "from": "X_3_0",
+      "length_m": 2.3,
+      "to": "X_2_0",
+      "zone": null
+    },
+    {
+      "from": "X_3_0",
+      "length_m": 2.75,
+      "to": "X_4_0",
+      "zone": null
+    },
+    {
+      "from": "X_3_1",
+      "length_m": 2.6,
+      "to": "X_3_0",
+      "zone": null
+    },
+    {
+      "from": "X_3_1",
+      "length_m": 10.0,
+      "to": "X_3_3",
+      "zone": "Z_aisle_3"
+    },
+    {
+      "from": "X_3_3",
+      "length_m": 10.0,
+      "to": "X_3_1",
+      "zone": "Z_aisle_3"
+    },
+    {
+      "from": "X_3_3",
+      "length_m": 2.6,
+      "to": "X_3_4",
+      "zone": null
+    },
+    {
+      "from": "X_3_4",
+      "length_m": 2.1,
+      "to": "D3",
+      "zone": null
+    },
+    {
+      "from": "X_3_4",
+      "length_m": 1.524,
+      "to": "H_3_3",
+      "zone": null
+    },
+    {
+      "from": "X_3_4",
+      "length_m": 2.3,
+      "to": "X_2_4",
+      "zone": null
+    },
+    {
+      "from": "X_3_4",
+      "length_m": 2.75,
+      "to": "X_4_4",
+      "zone": null
+    },
+    {
+      "from": "X_4_0",
+      "length_m": 2.1,
+      "to": "P2",
+      "zone": null
+    },
+    {
+      "from": "X_4_0",
+      "length_m": 2.75,
+      "to": "X_3_0",
+      "zone": null
+    },
+    {
+      "from": "X_4_0",
+      "length_m": 7.6,
+      "to": "X_4_2",
+      "zone": null
+    },
+    {
+      "from": "X_4_2",
+      "length_m": 7.6,
+      "to": "X_4_0",
+      "zone": null
+    },
+    {
+      "from": "X_4_2",
+      "length_m": 7.6,
+      "to": "X_4_4",
+      "zone": null
+    },
+    {
+      "from": "X_4_4",
+      "length_m": 2.1,
+      "to": "P4",
+      "zone": null
+    },
+    {
+      "from": "X_4_4",
+      "length_m": 2.75,
+      "to": "X_3_4",
+      "zone": null
+    },
+    {
+      "from": "X_4_4",
+      "length_m": 7.6,
+      "to": "X_4_2",
+      "zone": null
+    }
+  ],
+  "name": "standard",
+  "racks": [
+    {
+      "height_m": 2.0,
+      "name": "R1",
+      "x_max": 16.0,
+      "x_min": 6.0,
+      "y_max": 3.2,
+      "y_min": 2.2
+    },
+    {
+      "height_m": 2.0,
+      "name": "R2",
+      "x_max": 16.0,
+      "x_min": 6.0,
+      "y_max": 5.5,
+      "y_min": 4.5
+    },
+    {
+      "height_m": 2.0,
+      "name": "R3",
+      "x_max": 16.0,
+      "x_min": 6.0,
+      "y_max": 7.8,
+      "y_min": 6.8
+    },
+    {
+      "height_m": 2.0,
+      "name": "R4",
+      "x_max": 16.0,
+      "x_min": 6.0,
+      "y_max": 10.1,
+      "y_min": 9.1
+    }
+  ],
+  "spawn": [
+    {
+      "robot_id": "robot_1",
+      "vertex": "P1",
+      "yaw": 0.0
+    },
+    {
+      "robot_id": "robot_2",
+      "vertex": "P2",
+      "yaw": 0.0
+    },
+    {
+      "robot_id": "robot_3",
+      "vertex": "P3",
+      "yaw": 0.0
+    }
+  ],
+  "vertices": {
+    "D1": {
+      "kind": "delivery",
+      "x": 20.7,
+      "y": 3.85
+    },
+    "D2": {
+      "kind": "delivery",
+      "x": 20.7,
+      "y": 6.15
+    },
+    "D3": {
+      "kind": "delivery",
+      "x": 20.7,
+      "y": 8.45
+    },
+    "H_1_1": {
+      "kind": "hold",
+      "x": 4.4,
+      "y": 2.7
+    },
+    "H_1_3": {
+      "kind": "hold",
+      "x": 17.6,
+      "y": 5.0
+    },
+    "H_2_1": {
+      "kind": "hold",
+      "x": 4.4,
+      "y": 5.0
+    },
+    "H_2_3": {
+      "kind": "hold",
+      "x": 17.6,
+      "y": 7.3
+    },
+    "H_3_1": {
+      "kind": "hold",
+      "x": 4.4,
+      "y": 7.3
+    },
+    "H_3_3": {
+      "kind": "hold",
+      "x": 17.6,
+      "y": 9.6
+    },
+    "L1": {
+      "kind": "loading",
+      "x": 1.3,
+      "y": 3.85
+    },
+    "L2": {
+      "kind": "loading",
+      "x": 1.3,
+      "y": 6.15
+    },
+    "L3": {
+      "kind": "loading",
+      "x": 1.3,
+      "y": 8.45
+    },
+    "P1": {
+      "kind": "park",
+      "x": 1.3,
+      "y": 1.1
+    },
+    "P2": {
+      "kind": "park",
+      "x": 1.3,
+      "y": 11.2
+    },
+    "P3": {
+      "kind": "park",
+      "x": 20.7,
+      "y": 1.1
+    },
+    "P4": {
+      "kind": "park",
+      "x": 20.7,
+      "y": 11.2
+    },
+    "X_0_0": {
+      "kind": "intersection",
+      "x": 3.4,
+      "y": 1.1
+    },
+    "X_0_2": {
+      "kind": "intersection",
+      "x": 11.0,
+      "y": 1.1
+    },
+    "X_0_4": {
+      "kind": "intersection",
+      "x": 18.6,
+      "y": 1.1
+    },
+    "X_1_0": {
+      "kind": "intersection",
+      "x": 3.4,
+      "y": 3.85
+    },
+    "X_1_1": {
+      "kind": "intersection",
+      "x": 6.0,
+      "y": 3.85
+    },
+    "X_1_3": {
+      "kind": "intersection",
+      "x": 16.0,
+      "y": 3.85
+    },
+    "X_1_4": {
+      "kind": "intersection",
+      "x": 18.6,
+      "y": 3.85
+    },
+    "X_2_0": {
+      "kind": "intersection",
+      "x": 3.4,
+      "y": 6.15
+    },
+    "X_2_1": {
+      "kind": "intersection",
+      "x": 6.0,
+      "y": 6.15
+    },
+    "X_2_3": {
+      "kind": "intersection",
+      "x": 16.0,
+      "y": 6.15
+    },
+    "X_2_4": {
+      "kind": "intersection",
+      "x": 18.6,
+      "y": 6.15
+    },
+    "X_3_0": {
+      "kind": "intersection",
+      "x": 3.4,
+      "y": 8.45
+    },
+    "X_3_1": {
+      "kind": "intersection",
+      "x": 6.0,
+      "y": 8.45
+    },
+    "X_3_3": {
+      "kind": "intersection",
+      "x": 16.0,
+      "y": 8.45
+    },
+    "X_3_4": {
+      "kind": "intersection",
+      "x": 18.6,
+      "y": 8.45
+    },
+    "X_4_0": {
+      "kind": "intersection",
+      "x": 3.4,
+      "y": 11.2
+    },
+    "X_4_2": {
+      "kind": "intersection",
+      "x": 11.0,
+      "y": 11.2
+    },
+    "X_4_4": {
+      "kind": "intersection",
+      "x": 18.6,
+      "y": 11.2
+    }
+  },
+  "zones": [
+    {
+      "entries": [
+        {
+          "entry": "X_1_1",
+          "hold": "H_1_1"
+        },
+        {
+          "entry": "X_1_3",
+          "hold": "H_1_3"
+        }
+      ],
+      "name": "Z_aisle_1",
+      "polygon": [
+        [
+          6.0,
+          3.2
+        ],
+        [
+          16.0,
+          3.2
+        ],
+        [
+          16.0,
+          4.5
+        ],
+        [
+          6.0,
+          4.5
+        ]
+      ]
+    },
+    {
+      "entries": [
+        {
+          "entry": "X_2_1",
+          "hold": "H_2_1"
+        },
+        {
+          "entry": "X_2_3",
+          "hold": "H_2_3"
+        }
+      ],
+      "name": "Z_aisle_2",
+      "polygon": [
+        [
+          6.0,
+          5.5
+        ],
+        [
+          16.0,
+          5.5
+        ],
+        [
+          16.0,
+          6.8
+        ],
+        [
+          6.0,
+          6.8
+        ]
+      ]
+    },
+    {
+      "entries": [
+        {
+          "entry": "X_3_1",
+          "hold": "H_3_1"
+        },
+        {
+          "entry": "X_3_3",
+          "hold": "H_3_3"
+        }
+      ],
+      "name": "Z_aisle_3",
+      "polygon": [
+        [
+          6.0,
+          7.8
+        ],
+        [
+          16.0,
+          7.8
+        ],
+        [
+          16.0,
+          9.1
+        ],
+        [
+          6.0,
+          9.1
+        ]
+      ]
+    }
+  ]
+}
