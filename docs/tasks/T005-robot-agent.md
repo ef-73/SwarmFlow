@@ -2,7 +2,7 @@
 id: T005
 title: Robot agent (core state machine + ROS node + fake Nav2 server)
 workstream: D
-status: review
+status: done
 claimed_by: "sf-implementer"
 branch: ws-d/T005-robot-agent
 model: sonnet

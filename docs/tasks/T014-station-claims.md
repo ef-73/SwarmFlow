@@ -2,7 +2,7 @@
 id: T014
 title: Station claims in FleetCore (no two robots sent to one station)
 workstream: B
-status: review
+status: done
 claimed_by: "sf-implementer"
 branch: ws-b/T014-station-claims
 model: sonnet

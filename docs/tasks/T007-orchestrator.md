@@ -2,7 +2,7 @@
 id: T007
 title: Orchestrator ROS adapter (swarmflow_orchestrator)
 workstream: B
-status: review
+status: done
 claimed_by: "sf-implementer"
 branch: ws-b/T007-orchestrator
 model: sonnet

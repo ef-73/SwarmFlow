@@ -2,7 +2,7 @@
 id: T016
 title: Retune v1_corridor (and check v1_demo) under station claims
 workstream: F
-status: review
+status: done
 claimed_by: "sf-implementer"
 branch: ws-f/T016-corridor-retune
 model: sonnet

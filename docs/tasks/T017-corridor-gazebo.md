@@ -2,7 +2,7 @@
 id: T017
 title: Corridor choreography that also works at Gazebo timing
 workstream: F
-status: review
+status: done
 claimed_by: "sf-implementer"
 branch: ws-f/T017-corridor-gazebo
 model: sonnet

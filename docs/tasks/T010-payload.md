@@ -2,7 +2,7 @@
 id: T010
 title: Package pose-follower (swarmflow_payload)
 workstream: F
-status: review
+status: done
 claimed_by: "sf-implementer"
 branch: ws-f/T010-payload
 model: sonnet

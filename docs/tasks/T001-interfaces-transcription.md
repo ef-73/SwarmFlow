@@ -2,7 +2,7 @@
 id: T001
 title: Transcribe swarmflow_interfaces from design §6.6 and this card
 workstream: Lead
-status: review
+status: done
 claimed_by: "sf-mechanical"
 branch: lead/contract-freeze
 model: haiku

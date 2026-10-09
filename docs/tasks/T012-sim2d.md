@@ -2,7 +2,7 @@
 id: T012
 title: 2D kinematic backend skeleton (sim2d)
 workstream: C
-status: review
+status: done
 claimed_by: "sf-implementer"
 branch: ws-c/T012-sim2d
 model: sonnet

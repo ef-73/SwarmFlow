@@ -2,7 +2,7 @@
 id: T003
 title: FCFS reservation authority (safety-critical)
 workstream: B
-status: review
+status: done
 claimed_by: "sf-implementer"
 branch: ws-b/T003-reservations
 model: sonnet
