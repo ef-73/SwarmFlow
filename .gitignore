@@ -36,3 +36,6 @@ Thumbs.db
 
 # Personal Claude Code settings (agent definitions in .claude/agents/ ARE committed)
 .claude/settings.local.json
+
+# Hypothesis example database (property tests)
+.hypothesis/
