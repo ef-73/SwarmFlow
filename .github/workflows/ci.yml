@@ -23,11 +23,11 @@ jobs:
           CI_BASE: origin/main
           COMPOSE_PROJECT_NAME: swarmflow-ci
         run: |
-          set -o pipefail
-          bash "$RUNNER_TEMP/ci.sh" 2>&1 | tee "$RUNNER_TEMP/ci.log"
-          status=${PIPESTATUS[0]}
+          status=0
+          bash "$RUNNER_TEMP/ci.sh" 2>&1 | tee "$RUNNER_TEMP/ci.log" || status=$?
           # Logs need a GitHub sign-in; annotations are public, so surface the failing lines as annotations.
           if [ "$status" != 0 ]; then
-            grep -E "FAIL|RED|Error|error:|failed|FAILED|Traceback|assert" "$RUNNER_TEMP/ci.log" | head -30 |               while IFS= read -r l; do echo "::error::${l//%/%25}"; done
+            grep -E "FAIL|RED|Error|error:|failed|FAILED|Traceback|assert" "$RUNNER_TEMP/ci.log" | head -30 > "$RUNNER_TEMP/fail.txt" || true
+            while IFS= read -r l; do echo "::error::${l//%/%25}"; done < "$RUNNER_TEMP/fail.txt"
           fi
           exit $status
