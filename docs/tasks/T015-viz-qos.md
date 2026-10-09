@@ -2,7 +2,7 @@
 id: T015
 title: viz node — /fleet/robot_states subscription must be volatile
 workstream: E
-status: open
+status: review
 claimed_by: "sf-mechanical"
 branch: ws-e/T015-viz-qos
 model: haiku
