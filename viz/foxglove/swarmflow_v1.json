@@ -1,0 +1,122 @@
+{
+  "configById": {
+    "3D!swarmflow": {
+      "followTf": "map",
+      "layers": {},
+      "cameraState": {
+        "perspective": false,
+        "distance": 40,
+        "phi": 0,
+        "thetaOffset": 0,
+        "targetOffset": [
+          10,
+          6,
+          0
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "topics": {
+        "/map": {
+          "visible": true
+        },
+        "/fleet/robot_markers": {
+          "visible": true
+        },
+        "/fleet/zone_markers": {
+          "visible": true
+        },
+        "/robot_1/plan": {
+          "visible": true
+        },
+        "/robot_2/plan": {
+          "visible": true
+        },
+        "/robot_3/plan": {
+          "visible": true
+        }
+      },
+      "transforms": {},
+      "foxglovePanelTitle": "Warehouse",
+      "scene": {
+        "renderStats": false
+      },
+      "followMode": "follow-none",
+      "imageMode": {},
+      "fixedFrame": "map",
+      "frameId": "map"
+    },
+    "RawMessages!decisions": {
+      "topicPath": "/fleet/decisions",
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "foxglovePanelTitle": "Decision log"
+    },
+    "Table!orders": {
+      "topicPath": "/fleet/order_status",
+      "foxglovePanelTitle": "Orders"
+    },
+    "Plot!speeds": {
+      "paths": [
+        {
+          "value": "/fleet/robot_states{robot_id==\"robot_1\"}.linear_speed",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "color": "#4c6ef5"
+        },
+        {
+          "value": "/fleet/robot_states{robot_id==\"robot_2\"}.linear_speed",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "color": "#ff9f0d"
+        },
+        {
+          "value": "/fleet/robot_states{robot_id==\"robot_3\"}.linear_speed",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "color": "#26bf40"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "foxglovePanelTitle": "Robot speed (m/s)"
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1,
+    "timeDisplayMethod": "SYSTEM"
+  },
+  "layout": {
+    "first": "3D!swarmflow",
+    "second": {
+      "first": {
+        "first": "RawMessages!decisions",
+        "second": "Table!orders",
+        "direction": "column"
+      },
+      "second": "Plot!speeds",
+      "direction": "column"
+    },
+    "direction": "row",
+    "splitPercentage": 55
+  }
+}
