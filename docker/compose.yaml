@@ -1,0 +1,96 @@
+# SwarmFlow services (design Â§8.3). Paths are relative to this file (docker/).
+# Every Gazebo-starting service carries label swarmflow.sim=1 (AGENTS.md Â§5).
+
+x-ros-env: &ros-env
+  RMW_IMPLEMENTATION: rmw_cyclonedds_cpp
+  ROS_DOMAIN_ID: "0"
+  GZ_PARTITION: swarmflow
+  GZ_SIM_RESOURCE_PATH: /ws/install/swarmflow_description/share:/ws/install/swarmflow_gazebo/share
+
+services:
+  dev:
+    # Never started by `up` (replicas 0); used via `docker compose run --rm dev <cmd>`. Kept out of profiles so
+    # the sim/robot images can build FROM it (additional_contexts: service:dev).
+    deploy:
+      replicas: 0
+    image: swarmflow/dev:latest
+    build:
+      context: ..
+      dockerfile: docker/dev.Dockerfile
+    environment:
+      <<: *ros-env
+      SWARMFLOW_GUI: none
+    volumes:
+      - ..:/ws
+      - build:/ws/build
+      - install:/ws/install
+      - log:/ws/log
+    networks: [swarmflow]
+
+  gazebo:
+    image: swarmflow/sim:latest
+    build:
+      context: ..
+      dockerfile: docker/sim.Dockerfile
+      additional_contexts:
+        dev: service:dev
+    labels:
+      swarmflow.sim: "1"
+    environment:
+      <<: *ros-env
+      SWARMFLOW_WORLD: ${SWARMFLOW_WORLD:-empty.sdf}
+    command: ["bash", "-c", "gz sim -s -r -v 2 \"$$SWARMFLOW_WORLD\""]
+    networks: [swarmflow]
+
+  gazebo_gui:
+    image: swarmflow/sim:latest
+    labels:
+      swarmflow.sim: "1"
+    depends_on:
+      gazebo:
+        condition: service_started
+    environment:
+      <<: *ros-env
+      SWARMFLOW_GUI: ${SWARMFLOW_GUI:-wslg}
+      DISPLAY: ":0"
+      WAYLAND_DISPLAY: wayland-0
+      XDG_RUNTIME_DIR: /mnt/wslg/runtime-dir
+      PULSE_SERVER: /mnt/wslg/PulseServer
+      # WSL GPU (design §8.5 item 2): Mesa's d3d12 driver via /dev/dxg; without it the GUI software-renders (~5 cores).
+      LD_LIBRARY_PATH: /usr/lib/wsl/lib
+      GALLIUM_DRIVER: d3d12
+      # Intel Arc via d3d12 renders a black Ogre2 scene (M1 spike); the NVIDIA adapter renders correctly.
+      MESA_D3D12_DEFAULT_ADAPTER_NAME: ${SWARMFLOW_GPU_ADAPTER:-NVIDIA}
+    devices:
+      - /dev/dxg
+    volumes:
+      - /usr/lib/wsl:/usr/lib/wsl:ro
+      # Docker Desktop's path to the WSLg sockets (short syntax: a missing host path does not block startup).
+      - /run/desktop/mnt/host/wslg/.X11-unix:/tmp/.X11-unix
+      - /run/desktop/mnt/host/wslg:/mnt/wslg
+    ports:
+      - "6080:6080"
+    command: ["gui.sh"]
+    networks: [swarmflow]
+
+  foxglove_bridge:
+    image: swarmflow/robot:latest
+    build:
+      context: ..
+      dockerfile: docker/robot.Dockerfile
+      additional_contexts:
+        dev: service:dev
+    environment:
+      <<: *ros-env
+    command: ["ros2", "launch", "foxglove_bridge", "foxglove_bridge_launch.xml", "port:=8765", "use_sim_time:=true"]
+    ports:
+      - "8765:8765"
+    networks: [swarmflow]
+
+networks:
+  swarmflow: {}
+
+volumes:
+  build: {}
+  install: {}
+  log: {}

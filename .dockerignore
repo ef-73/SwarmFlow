@@ -1,0 +1,11 @@
+# Build context = repo root. Keep it small: images copy only what they build.
+.git
+.claude
+build
+install
+log
+runs
+docs
+**/__pycache__
+**/.pytest_cache
+node_modules
