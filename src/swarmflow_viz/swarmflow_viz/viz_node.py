@@ -21,6 +21,7 @@ _MODE_NAMES = {RobotState.MODE_IDLE: "IDLE", RobotState.MODE_NAVIGATING: "NAVIGA
                RobotState.MODE_FAULT: "FAULT"}
 _CODE_TO_LEASE = {code: st for st, code in LEASE_STATE_CODES.items()}
 _QOS = QoSProfile(depth=100, reliability=ReliabilityPolicy.RELIABLE, durability=DurabilityPolicy.TRANSIENT_LOCAL)
+_STATE_QOS = QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE, durability=DurabilityPolicy.VOLATILE)
 
 
 class VizNode(Node):
@@ -31,7 +32,7 @@ class VizNode(Node):
         self._graph = load_layout(layout_dir) if layout_dir else None
         self._states: Dict[str, dict] = {}
         self._leases: Dict[str, LeaseState] = {}
-        self.create_subscription(RobotState, "/fleet/robot_states", self._on_state, _QOS)
+        self.create_subscription(RobotState, "/fleet/robot_states", self._on_state, _STATE_QOS)
         self.create_subscription(ZoneReservation, "/fleet/reservations", self._on_lease, _QOS)
         self._robot_pub = self.create_publisher(MarkerArray, "/fleet/robot_markers", 10)
         self._zone_pub = self.create_publisher(MarkerArray, "/fleet/zone_markers", 10)
