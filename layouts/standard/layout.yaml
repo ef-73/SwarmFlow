@@ -1,0 +1,118 @@
+# SwarmFlow standard layout (v1). Source of truth for layoutgen (design §6.1, §7.2).
+# Map frame: x east, y north, origin = south-west inner wall corner. Units m / rad.
+# Racks run west-east; the three 1.30 m storage aisles between them are exclusive zones Z_aisle_1..3.
+# West/east main aisles (staging) are 3.40 m, south/north cross aisles 2.20 m.
+schema_version: 1
+name: standard
+description: Standard warehouse, 3 loading (west), 3 delivery (east), 4 park, 3 one-way storage aisles.
+resolution_m: 0.05
+bounds: {x_min: 0.0, y_min: 0.0, x_max: 22.0, y_max: 12.3, wall_height_m: 2.5, wall_thickness_m: 0.2}
+racks:
+  - {name: R1, x_min: 6.0, y_min: 2.2, x_max: 16.0, y_max: 3.2, height_m: 2.0}
+  - {name: R2, x_min: 6.0, y_min: 4.5, x_max: 16.0, y_max: 5.5, height_m: 2.0}
+  - {name: R3, x_min: 6.0, y_min: 6.8, x_max: 16.0, y_max: 7.8, height_m: 2.0}
+  - {name: R4, x_min: 6.0, y_min: 9.1, x_max: 16.0, y_max: 10.1, height_m: 2.0}
+stations:
+  - {name: L1, type: loading, pose: {x: 1.3, y: 3.85, yaw: 3.141593}}
+  - {name: L2, type: loading, pose: {x: 1.3, y: 6.15, yaw: 3.141593}}
+  - {name: L3, type: loading, pose: {x: 1.3, y: 8.45, yaw: 3.141593}}
+  - {name: D1, type: delivery, pose: {x: 20.7, y: 3.85, yaw: 0.0}, drop_offset_m: 0.9}
+  - {name: D2, type: delivery, pose: {x: 20.7, y: 6.15, yaw: 0.0}, drop_offset_m: 0.9}
+  - {name: D3, type: delivery, pose: {x: 20.7, y: 8.45, yaw: 0.0}, drop_offset_m: 0.9}
+  - {name: P1, type: park, pose: {x: 1.3, y: 1.1, yaw: 0.0}}
+  - {name: P2, type: park, pose: {x: 1.3, y: 11.2, yaw: 0.0}}
+  - {name: P3, type: park, pose: {x: 20.7, y: 1.1, yaw: 0.0}}
+  - {name: P4, type: park, pose: {x: 20.7, y: 11.2, yaw: 0.0}}
+intersections:
+  - {name: X_0_0, pose: {x: 3.4, y: 1.1}}
+  - {name: X_0_2, pose: {x: 11.0, y: 1.1}}
+  - {name: X_0_4, pose: {x: 18.6, y: 1.1}}
+  - {name: X_1_0, pose: {x: 3.4, y: 3.85}}
+  - {name: X_1_1, pose: {x: 6.0, y: 3.85}}
+  - {name: X_1_3, pose: {x: 16.0, y: 3.85}}
+  - {name: X_1_4, pose: {x: 18.6, y: 3.85}}
+  - {name: X_2_0, pose: {x: 3.4, y: 6.15}}
+  - {name: X_2_1, pose: {x: 6.0, y: 6.15}}
+  - {name: X_2_3, pose: {x: 16.0, y: 6.15}}
+  - {name: X_2_4, pose: {x: 18.6, y: 6.15}}
+  - {name: X_3_0, pose: {x: 3.4, y: 8.45}}
+  - {name: X_3_1, pose: {x: 6.0, y: 8.45}}
+  - {name: X_3_3, pose: {x: 16.0, y: 8.45}}
+  - {name: X_3_4, pose: {x: 18.6, y: 8.45}}
+  - {name: X_4_0, pose: {x: 3.4, y: 11.2}}
+  - {name: X_4_2, pose: {x: 11.0, y: 11.2}}
+  - {name: X_4_4, pose: {x: 18.6, y: 11.2}}
+holds:  # outside the zone, offset in front of a rack end so a waiting robot is off the exit path
+  - {name: H_1_1, pose: {x: 4.8, y: 2.7}}
+  - {name: H_1_3, pose: {x: 17.2, y: 5.0}}
+  - {name: H_2_1, pose: {x: 4.8, y: 5.0}}
+  - {name: H_2_3, pose: {x: 17.2, y: 7.3}}
+  - {name: H_3_1, pose: {x: 4.8, y: 7.3}}
+  - {name: H_3_3, pose: {x: 17.2, y: 9.6}}
+lanes:
+  - {from: X_0_0, to: X_1_0, clear_width_m: 3.4, bidirectional: true}
+  - {from: X_1_0, to: X_2_0, clear_width_m: 3.4, bidirectional: true}
+  - {from: X_2_0, to: X_3_0, clear_width_m: 3.4, bidirectional: true}
+  - {from: X_3_0, to: X_4_0, clear_width_m: 3.4, bidirectional: true}
+  - {from: X_0_4, to: X_1_4, clear_width_m: 3.4, bidirectional: true}
+  - {from: X_1_4, to: X_2_4, clear_width_m: 3.4, bidirectional: true}
+  - {from: X_2_4, to: X_3_4, clear_width_m: 3.4, bidirectional: true}
+  - {from: X_3_4, to: X_4_4, clear_width_m: 3.4, bidirectional: true}
+  - {from: X_0_0, to: X_0_2, clear_width_m: 2.2, bidirectional: true}
+  - {from: X_0_2, to: X_0_4, clear_width_m: 2.2, bidirectional: true}
+  - {from: X_4_0, to: X_4_2, clear_width_m: 2.2, bidirectional: true}
+  - {from: X_4_2, to: X_4_4, clear_width_m: 2.2, bidirectional: true}
+  - {from: X_1_0, to: H_1_1, clear_width_m: 3.4, bidirectional: true}
+  - {from: H_1_1, to: X_1_1, clear_width_m: 3.4, bidirectional: false}
+  - {from: X_1_1, to: X_1_0, clear_width_m: 3.4, bidirectional: false}
+  - {from: X_1_1, to: X_1_3, clear_width_m: 1.3, bidirectional: true}
+  - {from: X_1_4, to: H_1_3, clear_width_m: 3.4, bidirectional: true}
+  - {from: H_1_3, to: X_1_3, clear_width_m: 3.4, bidirectional: false}
+  - {from: X_1_3, to: X_1_4, clear_width_m: 3.4, bidirectional: false}
+  - {from: L1, to: X_1_0, clear_width_m: 2.6, bidirectional: true}
+  - {from: D1, to: X_1_4, clear_width_m: 2.6, bidirectional: true}
+  - {from: X_2_0, to: H_2_1, clear_width_m: 3.4, bidirectional: true}
+  - {from: H_2_1, to: X_2_1, clear_width_m: 3.4, bidirectional: false}
+  - {from: X_2_1, to: X_2_0, clear_width_m: 3.4, bidirectional: false}
+  - {from: X_2_1, to: X_2_3, clear_width_m: 1.3, bidirectional: true}
+  - {from: X_2_4, to: H_2_3, clear_width_m: 3.4, bidirectional: true}
+  - {from: H_2_3, to: X_2_3, clear_width_m: 3.4, bidirectional: false}
+  - {from: X_2_3, to: X_2_4, clear_width_m: 3.4, bidirectional: false}
+  - {from: L2, to: X_2_0, clear_width_m: 2.6, bidirectional: true}
+  - {from: D2, to: X_2_4, clear_width_m: 2.6, bidirectional: true}
+  - {from: X_3_0, to: H_3_1, clear_width_m: 3.4, bidirectional: true}
+  - {from: H_3_1, to: X_3_1, clear_width_m: 3.4, bidirectional: false}
+  - {from: X_3_1, to: X_3_0, clear_width_m: 3.4, bidirectional: false}
+  - {from: X_3_1, to: X_3_3, clear_width_m: 1.3, bidirectional: true}
+  - {from: X_3_4, to: H_3_3, clear_width_m: 3.4, bidirectional: true}
+  - {from: H_3_3, to: X_3_3, clear_width_m: 3.4, bidirectional: false}
+  - {from: X_3_3, to: X_3_4, clear_width_m: 3.4, bidirectional: false}
+  - {from: L3, to: X_3_0, clear_width_m: 2.6, bidirectional: true}
+  - {from: D3, to: X_3_4, clear_width_m: 2.6, bidirectional: true}
+  - {from: P1, to: X_0_0, clear_width_m: 2.6, bidirectional: true}
+  - {from: P2, to: X_4_0, clear_width_m: 2.6, bidirectional: true}
+  - {from: P3, to: X_0_4, clear_width_m: 2.6, bidirectional: true}
+  - {from: P4, to: X_4_4, clear_width_m: 2.6, bidirectional: true}
+zones:
+  - name: Z_aisle_1
+    capacity: 1
+    lanes: [{from: X_1_1, to: X_1_3}, {from: X_1_3, to: X_1_1}]
+    vertices: [X_1_1, X_1_3]
+    entries: [{entry: X_1_1, hold: H_1_1}, {entry: X_1_3, hold: H_1_3}]
+    polygon: [[6.0, 3.2], [16.0, 3.2], [16.0, 4.5], [6.0, 4.5]]
+  - name: Z_aisle_2
+    capacity: 1
+    lanes: [{from: X_2_1, to: X_2_3}, {from: X_2_3, to: X_2_1}]
+    vertices: [X_2_1, X_2_3]
+    entries: [{entry: X_2_1, hold: H_2_1}, {entry: X_2_3, hold: H_2_3}]
+    polygon: [[6.0, 5.5], [16.0, 5.5], [16.0, 6.8], [6.0, 6.8]]
+  - name: Z_aisle_3
+    capacity: 1
+    lanes: [{from: X_3_1, to: X_3_3}, {from: X_3_3, to: X_3_1}]
+    vertices: [X_3_1, X_3_3]
+    entries: [{entry: X_3_1, hold: H_3_1}, {entry: X_3_3, hold: H_3_3}]
+    polygon: [[6.0, 7.8], [16.0, 7.8], [16.0, 9.1], [6.0, 9.1]]
+spawn:
+  - {robot_id: robot_1, vertex: P1, yaw: 0.0}
+  - {robot_id: robot_2, vertex: P2, yaw: 0.0}
+  - {robot_id: robot_3, vertex: P3, yaw: 0.0}
