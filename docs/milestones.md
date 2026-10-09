@@ -237,4 +237,5 @@ Each item = one task card + lead tests + one subagent (Sonnet unless noted), mec
 | M4 | ✅ done 2026-10-09 — 7/7 goals incl. 1.30 m aisle, 3 cm final error; G3 passed (docs/evidence/); decision 001 ground-truth localization |
 | M5 | ✅ done 2026-10-09 — G4 GO: 3 robots 14/14 goals; gate run ×3 each 3/3 delivered through aisle holds |
 | M6 | ✅ done 2026-10-09 — 14 and 10 deliveries / 10 min unattended; packages visible; decisions consistent; contract change request (hold positions) for the user |
-| M7–M9 | not started |
+| M7 | ✅ done 2026-10-09 — corridor n=3: FCFS 6.0 vs independent 3.0 deliveries, wait 56 vs 118 s; fresh clone + one-command up verified; cold build 10 min |
+| M8–M9 | not started |

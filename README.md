@@ -183,7 +183,19 @@ python tools/metrics/compare.py runs/<a> runs/<b> ... [--out table.md]   # mean 
 
 ### Corridor scene results (n = 3)
 
-Filled in by the lead after M7.
+`scenarios/v1_corridor.yaml`: 2 robots, a backlog of 8 orders (L2 → D2 / L2 → D1), so a robot returning from D2 meets
+the other one, loaded, head-on in storage aisle `Z_aisle_2`. 300 s per run, Gazebo, n = 3 per policy, mean ± 95 % CI
+(t-distribution; `tools/metrics/compare.py`). Measured 2026-10-09 (M7, MPPI at 20 Hz):
+
+| policy | n | deliveries | throughput /min | mean latency s | mean wait s | stuck events | failed orders | clearance violations |
+|---|---|---|---|---|---|---|---|---|
+| FCFS reservations (Baseline B) | 3 | 6.00 ± 4.30 | 1.20 ± 0.86 | 204.95 ± 103.71 | 56.00 ± 66.54 | 0.67 ± 2.87 | 0.67 ± 2.87 | 0.00 ± 0.00 |
+| independent Nav2 (Baseline A) | 3 | 3.00 ± 0.00 | 0.60 ± 0.00 | 169.07 ± 114.22 | 117.91 ± 55.42 | 1.00 ± 2.48 | 1.00 ± 2.48 | 1.33 ± 3.79 |
+
+With reservations one robot holds at `H_2_1` / `H_2_3` while the other passes (≈ 50 denies per run); without them both
+robots drive into the 1.3 m aisle, block each other and wait (twice the waiting time, half the deliveries, stuck
+timeouts and footprint overlaps). n = 3 makes the intervals wide; the claim is the direction, not the size. The FCFS
+stuck events came from the Nav2 controller missing its rate under CPU load (fixed in M8, see below).
 
 ## Architecture
 

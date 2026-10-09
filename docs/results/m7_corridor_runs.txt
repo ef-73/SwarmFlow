@@ -1,0 +1,6 @@
+v1_corridor-fcfs-s1-r1: v1_corridor-fcfs-s1-r1,v1_corridor,fcfs,1,300.000,7,1.400,230.914,109.000,54.500,0,0,0
+v1_corridor-fcfs-s1-r2: v1_corridor-fcfs-s1-r2,v1_corridor,fcfs,1,300.000,4,0.800,156.800,167.000,83.500,2,2,0
+v1_corridor-fcfs-s1-r3: v1_corridor-fcfs-s1-r3,v1_corridor,fcfs,1,300.000,7,1.400,227.143,59.992,29.996,0,0,0
+v1_corridor-independent-s1-r1: v1_corridor-independent-s1-r1,v1_corridor,independent,1,300.000,3,0.600,134.600,215.492,107.746,0,0,0
+v1_corridor-independent-s1-r2: v1_corridor-independent-s1-r2,v1_corridor,independent,1,300.000,3,0.600,221.267,286.992,143.496,1,1,3
+v1_corridor-independent-s1-r3: v1_corridor-independent-s1-r3,v1_corridor,independent,1,300.000,3,0.600,151.333,205.000,102.500,2,2,1
