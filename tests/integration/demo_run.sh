@@ -41,7 +41,7 @@ if [ "$shot" = 1 ]; then
     [ -n "$f" ] && docker compose cp "gazebo_gui:$f" "runs/$run_id/screens/$(date +%s).png" >/dev/null 2>&1
   done
 fi
-docker compose exec -T orchestrator /entrypoint.sh bash -c 'timeout 5 ros2 topic echo --once /fleet/robot_markers visualization_msgs/msg/MarkerArray --field markers 2>/dev/null | grep -c "ns: robots"' 2>/dev/null | head -1 | sed 's/^/robot markers seen: /'
+docker compose exec -T orchestrator /entrypoint.sh bash -c 'timeout 5 ros2 topic echo --once /fleet/robot_markers visualization_msgs/msg/MarkerArray --field markers 2>/dev/null | grep -c "ns='robots'"' 2>/dev/null | head -1 | sed 's/^/robot markers seen: /'
 docker compose logs > "runs/$run_id/compose.log" 2>&1
 docker stats --no-stream --format '{{.Name}} {{.CPUPerc}} {{.MemUsage}}' | sed "s/$COMPOSE_PROJECT_NAME-//" > "runs/$run_id/cpu_end.txt"
 docker compose run --rm --no-deps -T dev python3 tools/metrics/compute.py "runs/$run_id" >/dev/null 2>&1

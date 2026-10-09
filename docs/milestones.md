@@ -236,4 +236,5 @@ Each item = one task card + lead tests + one subagent (Sonnet unless noted), mec
 | M3 | ✅ done 2026-10-09 — T001–T012 integrated (all sim-free lanes incl. metrics and 2D sim skeleton) |
 | M4 | ✅ done 2026-10-09 — 7/7 goals incl. 1.30 m aisle, 3 cm final error; G3 passed (docs/evidence/); decision 001 ground-truth localization |
 | M5 | ✅ done 2026-10-09 — G4 GO: 3 robots 14/14 goals; gate run ×3 each 3/3 delivered through aisle holds |
-| M6–M9 | not started |
+| M6 | ✅ done 2026-10-09 — 14 and 10 deliveries / 10 min unattended; packages visible; decisions consistent; contract change request (hold positions) for the user |
+| M7–M9 | not started |
