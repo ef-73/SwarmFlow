@@ -34,6 +34,11 @@ age_min() { # minutes since lock creation
 case "$cmd" in
   acquire)
     task="${3:-unknown}"; minutes="${4:-20}"
+    stale="${SWARMFLOW_LOCK_STALE_MIN:-60}"   # sim locks are checked by sim_lock.sh (30 min + container check)
+    if [ "$name" != sim ] && [ -d "$dir" ] && [ "$(age_min)" -ge "$stale" ]; then
+      echo "lock $name is STALE ($(age_min) min >= $stale), removing:" >&2; cat "$dir/owner.txt" >&2 2>/dev/null || true
+      rm -rf "$dir"
+    fi
     if mkdir "$dir" 2>/dev/null; then
       {
         echo "agent: ${SWARMFLOW_AGENT:-claude-lead}"
