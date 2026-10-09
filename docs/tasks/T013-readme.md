@@ -2,7 +2,7 @@
 id: T013
 title: README draft (Lead-delegated)
 workstream: Lead
-status: open
+status: review
 claimed_by: "sf-implementer"
 branch: lead/T013-readme
 model: sonnet
