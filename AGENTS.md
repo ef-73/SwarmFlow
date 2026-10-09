@@ -93,7 +93,9 @@ Rules: time-box ≤ 20 min per sim session, then `docker compose down` and relea
 the user is watching. If the CPU is hot, cap Gazebo's real-time factor (design §8.5) — metrics are in sim time.
 
 Builds: `colcon build --parallel-workers 2` with `MAKEFLAGS=-j2`; **one build at a time across all worktrees**
-(`scripts/lock.sh build`, same mechanism as the sim lock).
+(`scripts/lock.sh build`, same mechanism as the sim lock). `lock.sh` writes an owner token into the acquiring
+worktree (`.run/`): `release` refuses a lock acquired elsewhere (never release a lock you did not acquire); a non-sim
+lock older than 60 min is treated as stale and removed by the next `acquire`.
 
 ## 6. Commands and CI
 
@@ -146,6 +148,10 @@ risk: safety-critical   # low | normal | safety-critical
 - Definition of done: <observable criteria>; scripts/ci.sh green; log entry written
 - Inputs / contracts used: <design.md sections, contract files, fixtures>
 ```
+
+**Lead base commit:** the lead commits the card and its lead tests **on the task branch** (committing tests to `main`
+before the implementation would turn `main` red). `scripts/ci.sh` diffs owned files and lead-test hashes from that
+card commit.
 
 **Assignment:** the lead assigns every card (sets `claimed_by` when dispatching), so there is no race. The assigned
 agent's first commit on the card's branch sets `status: claimed`; its last sets `status: review`. Agents never take
