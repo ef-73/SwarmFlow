@@ -135,7 +135,7 @@ else
       pass "colcon build"
       # ROS node tests share one DDS domain inside the container: run packages one at a time (parallel runs cross-talk on /fleet/*).
       # Fresh results only: a crashed or timed-out run must not be judged by old result files (M9 review C1).
-      if in_dev 'source install/setup.bash; find build -path "*/test_results/*" -delete 2>/dev/null; find build -name "pytest.xml" -delete 2>/dev/null; timeout 1200 colcon test --parallel-workers 1 --event-handlers console_direct- >/dev/null 2>&1; rc=$?; colcon test-result --verbose | tail -40; n=$(colcon test-result 2>/dev/null | sed -n "s/^Summary: \([0-9]*\) tests.*//p"); [ "$rc" = 0 ] && [ "${n:-0}" -gt 0 ] && colcon test-result >/dev/null'; then
+      if in_dev 'source install/setup.bash; find build -path "*/test_results/*" -delete 2>/dev/null; find build -name "pytest.xml" -delete 2>/dev/null; timeout 1200 colcon test --parallel-workers 1 --event-handlers console_direct- >/dev/null 2>&1; rc=$?; colcon test-result --verbose | tail -40; n=$(colcon test-result 2>/dev/null | sed -n "s/^Summary: \([0-9]*\) tests.*/\1/p"); [ "$rc" = 0 ] && [ "${n:-0}" -gt 0 ] && colcon test-result >/dev/null'; then
         pass "colcon test"
       else bad "colcon test"; fi
     else bad "colcon build"; fi
