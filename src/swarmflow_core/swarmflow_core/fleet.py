@@ -19,6 +19,9 @@ from .api import (Assignment, Decision, DecisionType, FleetSnapshot, OrderSpec, 
                   RobotMode, RobotSnapshot, TaskResult)
 from .decisions import make_decision
 
+STUCK_RECOVERY_S = 30.0          #: wait after a robot's last task failure before a recovery park task
+STUCK_RECOVERY_ATTEMPTS = 3      #: recovery tasks in a row (reset when a task of that robot succeeds)
+
 
 @dataclass
 class TickOutput:
@@ -61,6 +64,9 @@ class FleetCore:
         self._park_task_of_robot: Dict[str, str] = {}    # robot -> running park task id
         self._park_done: Set[str] = set()                # robots already given a park task for this stay
         self._park_seq: Dict[str, int] = {}
+        self._last_fail: Dict[str, float] = {}           # robot -> time of its last task failure (or first STUCK seen)
+        self._failed: Set[str] = set()                   # robots whose last task failed (until a task succeeds)
+        self._recoveries: Dict[str, int] = {}            # robot -> recovery tasks issued in a row
 
     # ---- inputs -----------------------------------------------------------------------------------------------
 
@@ -192,6 +198,13 @@ class FleetCore:
             task = self._tasks.pop(res.task_id, None)
             if task is None:
                 continue
+            if res.success:
+                self._failed.discard(task.robot_id)
+                self._recoveries.pop(task.robot_id, None)
+                self._last_fail.pop(task.robot_id, None)
+            else:
+                self._failed.add(task.robot_id)
+                self._last_fail[task.robot_id] = res.t
             if task.order_id == "":
                 if self._park_task_of_robot.get(task.robot_id) == task.task_id:
                     del self._park_task_of_robot[task.robot_id]
@@ -248,8 +261,28 @@ class FleetCore:
                 self._change(out, t, rec, OrderState.ASSIGNED)
                 out.dispatches.append(a)
             out.decisions.extend(plan.decisions)
-        # (5) park rule
+        # (5a) STUCK recovery (S5): a failed/STUCK robot without a task gets a bounded number of park retries
         assigned = {a.robot_id for a in out.dispatches}
+        for rid, s in sorted(self._robots.items()):
+            if rid in assigned or rid in forced_park:
+                continue
+            if rid in self._order_task_of_robot or rid in self._park_task_of_robot:
+                continue
+            if not (s.mode == RobotMode.STUCK or rid in self._failed):
+                continue
+            last = self._last_fail.setdefault(rid, t)
+            n = self._recoveries.get(rid, 0)
+            if n >= STUCK_RECOVERY_ATTEMPTS or t - last < STUCK_RECOVERY_S:
+                continue
+            if self._issue_park(out, s):
+                self._recoveries[rid] = n + 1
+                assigned.add(rid)
+                out.decisions.append(make_decision(
+                    t=t, event_id=f"{t:.3f}-{rid}-STUCK_RECOVERY-{n + 1}", policy=self.policy.name,
+                    decision_type=DecisionType.REROUTE, robot_id=rid, order_id="",
+                    trigger=f"stuck_recovery:{n + 1}", previous_decision=f"{rid} stuck",
+                    new_decision=f"recovery park task {out.dispatches[-1].task_id}"))
+        # (5) park rule
         for rid, s in sorted(self._robots.items()):
             if rid in assigned or rid in forced_park or rid in self._park_task_of_robot or rid in self._park_done:
                 continue
