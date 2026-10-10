@@ -41,6 +41,8 @@ REJECTED = "REJECTED"
 CANCEL_HOLD_S = 5.0               #: hold dispatches to a robot this long while its cancelled goal finishes
 AGENT_LOST_S = 10.0               #: dispatched task, no RobotState from its robot this long -> AGENT_LOST
 RECOVERY_WARN_S = 5.0
+CLOCK_JUMP_S = 5.0                #: node clock going back by more than this = simulator restarted
+UNKNOWN_POSE_REASONS = frozenset({"NO_POSE", "STALE_POSE"})  #: FAULT reasons whose x/y must not reach the authority
 DISPATCH_SERVER_TIMEOUT_S = 10.0  #: action server of a robot not up this long after dispatch -> REJECTED
 
 _RELIABLE10 = QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE)
@@ -70,7 +72,7 @@ def _json_default(o):
 
 
 class RunRecord:
-    """Append-only JSON-lines run record (design §13.5). ``run_dir == ""`` disables all files."""
+    """JSON-lines run record (design §13.5), truncated when opened (a reused run id must not mix two runs). ``run_dir == ""`` disables all files."""
 
     FILES = ("decisions", "orders", "robot_states", "reservations")
 
@@ -79,7 +81,7 @@ class RunRecord:
         if run_dir:
             os.makedirs(run_dir, exist_ok=True)
             for name in self.FILES:
-                self._files[name] = open(os.path.join(run_dir, name + ".jsonl"), "a", encoding="utf-8", newline="\n")
+                self._files[name] = open(os.path.join(run_dir, name + ".jsonl"), "w", encoding="utf-8", newline="\n")
 
     def write(self, name: str, obj: dict) -> None:
         f = self._files.get(name)
@@ -132,6 +134,7 @@ class OrchestratorNode(Node):
         self._window_start: Optional[float] = None
         self._last_warn_t = 0.0
         self._recovered = False
+        self._last_clock_t: Optional[float] = None
         # Epoch is an identity, not a measurement: wall clock (not the possibly-frozen sim clock) guarantees that a
         # restarted orchestrator never reuses an epoch, even if sim time restarts at the same value.
         self.epoch = f"epoch:{time.time_ns()}-{os.getpid()}"
@@ -231,6 +234,7 @@ class OrchestratorNode(Node):
             next_vertex=msg.next_vertex, remaining_route=tuple(msg.remaining_route))
         stamp = time_msg_to_s(msg.header.stamp)
         with self._lock:
+            self._check_clock(self._now())
             if stamp < self._state_stamp.get(msg.robot_id, -1.0):
                 return  # stale / out-of-order sample never overwrites a newer one
             self._state_stamp[msg.robot_id] = stamp
@@ -239,7 +243,9 @@ class OrchestratorNode(Node):
                 self._reported.add(msg.robot_id)
             self._snapshots[msg.robot_id] = snap
             self.core.update_robot(snap)
-            self.authority.observe_robot(msg.robot_id, msg.x, msg.y, stamp)
+            if not (snap.mode == RobotMode.FAULT and snap.fault_reason in UNKNOWN_POSE_REASONS):
+                # an unknown / old pose must never clear a blocked zone (S4)
+                self.authority.observe_robot(msg.robot_id, msg.x, msg.y, stamp)
             self._flush_leases()
 
     def _on_heartbeat(self, msg: ReservationHeartbeat) -> None:
@@ -288,6 +294,7 @@ class OrchestratorNode(Node):
     def _on_tick(self) -> None:
         with self._lock:
             t = self._now()
+            self._check_clock(t)
             self._check_recovery(t)
             self.authority.expire(t)
             out = self.core.tick(t)
@@ -303,6 +310,26 @@ class OrchestratorNode(Node):
             self._flush_leases()
             self._send_pending(t)
             self._watchdog(t)
+
+    def _check_clock(self, t: float) -> None:
+        """Detect a clock reset (Gazebo restarted under a running orchestrator, S7): forget the per-robot stamps,
+        restart the recovery window with a fresh authority. Orders and tasks stay. Caller holds the lock."""
+        last, self._last_clock_t = self._last_clock_t, t
+        if last is None or t >= last - CLOCK_JUMP_S:
+            return
+        self.get_logger().warn(f"node clock went backwards ({last:.1f}s -> {t:.1f}s): resetting recovery state")
+        self._flush_leases()
+        self._state_stamp.clear()
+        self._last_seen.clear()
+        self._reported.clear()
+        self._window_start = None
+        self._last_warn_t = t
+        self._recovered = False
+        self.authority = FcfsReservationAuthority(self.graph)
+        self.core.authority = self.authority
+        self._active = {tid: (rid, t) for tid, (rid, _t0) in self._active.items()}
+        self._pending = [(a, t) for a, _t0 in self._pending]
+        self._cancelling = {rid: (tid, t) for rid, (tid, _since) in self._cancelling.items()}
 
     def _check_recovery(self, t: float) -> None:
         """Recovery window starts at the first tick with a running clock (sim clock is 0 until /clock arrives);
