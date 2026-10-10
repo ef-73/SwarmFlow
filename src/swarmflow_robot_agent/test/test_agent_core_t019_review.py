@@ -59,3 +59,24 @@ def test_timed_out_request_late_grant_is_released():
     late = a.on_reservation_response(old, ReservationDecision(True, lease_id="Lold", lease_expiry_t=9.0), t=3.0)
     rel = of(late, Release)
     assert rel and rel[0].lease_id == "Lold" and rel[0].reason == ReleaseReason.TASK_CANCELLED
+
+
+# ---- second review (lead fixes) ------------------------------------------------------------------------------------
+
+def test_stale_pose_cannot_accept():
+    a = AgentCore("robot_1", GRAPH)
+    a.on_pose(1.3, 1.1, 0.0, 0.0, t=1.0)
+    assert a.can_accept()
+    a.tick(t=3.0)
+    assert not a.can_accept()
+    a.on_pose(1.3, 1.1, 0.0, 0.0, t=3.1)
+    a.tick(t=3.2)
+    assert a.can_accept()
+
+
+def test_lease_event_with_stale_pose_keeps_lease():
+    a = agent()
+    grant(a, "lease_1")
+    acts = a.on_lease_event("lease_1", LeaseState.REVOKED, t=5.0)       # last pose at t=0: may be inside already
+    assert not of(acts, CancelNav)
+    assert a.state().held_lease_ids == ("lease_1",)

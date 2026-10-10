@@ -159,7 +159,7 @@ class AgentCore:
 
     # -- queries -------------------------------------------------------------------------------------------------
     def can_accept(self) -> bool:
-        return self._have_pose and self._mode in (RobotMode.IDLE, RobotMode.STUCK)
+        return self._have_pose and not self._stale and self._mode in (RobotMode.IDLE, RobotMode.STUCK)
 
     def has_pose(self) -> bool:
         return self._have_pose
@@ -333,6 +333,8 @@ class AgentCore:
             if lease_id not in self._lost_ids:
                 self._lost_ids.append(lease_id)           # may be the grant's event overtaking its response
             return []
+        if not self._have_pose or t - self._pose_t > POSE_STALE_S:
+            return []                                     # pose unknown/stale: may be inside, keep the lease
         zone = self.graph.zones.get(lease.zone)
         if lease.entered or (zone is not None and self._have_pose
                              and _inside_margin(self._x, self._y, zone.polygon) >= ENTERED_MARGIN_M):
@@ -364,6 +366,7 @@ class AgentCore:
         silently; inside ones are kept (it blocks that zone by recovery) and still released with EXITED later.
         Returns True if the robot has to (re-)request a reservation."""
         again = self._mode == RobotMode.WAITING_RESERVATION
+        self._lost_ids.clear()                            # ids are per orchestrator instance
         for lease in list(self._leases):
             zone = self.graph.zones.get(lease.zone)
             if zone is not None and point_in_polygon(self._x, self._y, zone.polygon):
