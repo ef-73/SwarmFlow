@@ -1,5 +1,5 @@
-# SwarmFlow services (design Â§8.3). Paths are relative to this file (docker/).
-# Every Gazebo-starting service carries label swarmflow.sim=1 (AGENTS.md Â§5).
+# SwarmFlow services (design §8.3). Paths are relative to this file (docker/).
+# Every Gazebo-starting service carries label swarmflow.sim=1 (AGENTS.md §5).
 
 x-ros-env: &ros-env
   RMW_IMPLEMENTATION: rmw_cyclonedds_cpp
@@ -75,7 +75,7 @@ services:
       - /run/desktop/mnt/host/wslg/.X11-unix:/tmp/.X11-unix
       - /run/desktop/mnt/host/wslg:/mnt/wslg
     ports:
-      - "6080:6080"
+      - "127.0.0.1:6080:6080"   # localhost only: the noVNC view has no password
     command: ["gui.sh"]
     networks: [swarmflow]
 
@@ -170,7 +170,7 @@ services:
       <<: *ros-env
     command: ["ros2", "launch", "foxglove_bridge", "foxglove_bridge_launch.xml", "port:=8765", "use_sim_time:=true"]
     ports:
-      - "8765:8765"
+      - "127.0.0.1:8765:8765"   # localhost only: the Foxglove bridge is unauthenticated
     networks: [swarmflow]
 
 networks:

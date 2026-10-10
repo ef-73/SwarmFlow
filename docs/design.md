@@ -751,12 +751,12 @@ F: `payload`, `scenario_engine`).
 
 | Service | Image | v1 | Notes |
 |---|---|---|---|
-| `dev` | dev | tools profile | build/test shell for agents and `scripts/ci.sh`: `docker compose run --rm dev <cmd>`. In profile `tools`, so plain `up` never starts it. |
+| `dev` | dev | `replicas: 0` | build/test shell for agents and `scripts/ci.sh`: `docker compose run --rm dev <cmd>`. `deploy.replicas: 0` (not a profile, so the sim/robot images can build `FROM` it), so plain `up` never starts it. |
 | `gazebo` | sim | ✔ | headless server, `/clock` bridge, spawns robots and packages; label `swarmflow.sim=1` |
 | `gazebo_gui` | sim | ✔ | `gz sim -g` client, shown on Windows (§8.4); can be stopped alone to save CPU; label `swarmflow.sim=1` |
 | `robot_1..robot_3` | robot | ✔ | Nav2 (composed) + bridges + SwarmFlow robot agent |
-| `orchestrator` | dev | ✔ | `swarmflow_orchestrator` (FCFS in v1) |
-| `scenario_engine` | dev | ✔ | order generator; stress events in v2 |
+| `orchestrator` | robot | ✔ | `swarmflow_orchestrator` (FCFS in v1) + global `/map` server (needs `nav2_map_server`, so the robot image) |
+| `scenario_engine` | robot | ✔ | order generator; stress events in v2 (the robot image carries `tools/` and `scenarios/`) |
 | `payload` | sim | ✔ | pose-follower + payload state (needs gz-transport, §7.4) |
 | `foxglove_bridge` | robot | ✔ | `foxglove_bridge`, port 8765 |
 | `rmf`, `fleet_adapter`, `rmf_api`, `rmf_dashboard` | fleet / upstream | v2 (profile `baseline-c`) | RMF core, free_fleet + `zenohd`, dashboard ports 8000 / 3000 |

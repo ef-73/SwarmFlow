@@ -43,7 +43,8 @@ verified in M7 ([`docs/evidence/m7_fresh_clone_compose_up.png`](docs/evidence/m7
 What appears:
 
 - A Gazebo window ("Gazebo Sim") through WSLg showing the standard warehouse and three robots.
-- Foxglove data on `ws://localhost:8765` (see [Foxglove](#foxglove)).
+- Foxglove data on `ws://localhost:8765` (see [Foxglove](#foxglove)). Ports 8765 and 6080 are published on
+  `127.0.0.1` only (the bridge and the noVNC view have no authentication).
 - With the default scenario `v1_demo`, orders are released by the scenario engine and the robots deliver them.
 
 Stop with Ctrl+C in the terminal, then `docker compose down` to remove the containers.
@@ -84,9 +85,9 @@ Firewall prompt when port 6080 is published; localhost access works whichever wa
 
 The standard warehouse (22.0 x 12.3 m, generated from `layouts/standard/layout.yaml`):
 
-- Four racks (R1 to R4) run west to east. The three **1.30 m storage aisles** between them are one-way exclusive
-  zones `Z_aisle_1` to `Z_aisle_3`: two robots cannot pass each other inside, so only one robot may hold the
-  lease at a time.
+- Four racks (R1 to R4) run west to east. The three **1.30 m storage aisles** between them are exclusive zones
+  `Z_aisle_1` to `Z_aisle_3`: robots may use them in both directions, but two robots cannot pass each other inside,
+  so only one robot at a time may hold an aisle's lease.
 - Each aisle end has an entry vertex and a **hold** vertex placed just outside the zone, so a waiting robot is off the
   exit path of the robot coming out.
 - Stations: **L1 to L3** (loading, west wall), **D1 to D3** (delivery, east wall), **P1 to P4** (parking, corners).
@@ -148,7 +149,7 @@ quick start.
 **Baseline A** (independent Nav2 with stuck timeout, no reservations) is:
 
 ```powershell
-$env:SWARMFLOW_POLICY="independent"; $env:SWARMFLOW_TRAFFIC_CONTROL="false"; docker compose up
+$env:SWARMFLOW_SCENARIO="v1_corridor"; $env:SWARMFLOW_POLICY="independent"; $env:SWARMFLOW_TRAFFIC_CONTROL="false"; docker compose up
 ```
 
 Variables used only by the scripts: `SWARMFLOW_LOCK_DIR` (lock directory, `scripts/lock.sh`).
