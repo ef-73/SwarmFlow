@@ -234,11 +234,13 @@ class AgentNode(Node):
                     tf = None
             if tf is not None:
                 x, y = tf.transform.translation.x, tf.transform.translation.y
-                if self._last_xy is not None and t > self._last_pose_t:
-                    self._speed = math.hypot(x - self._last_xy[0], y - self._last_xy[1]) / (t - self._last_pose_t)
-                self._last_xy, self._last_pose_t = (x, y), t
-                self._pose_stamp = stamp if stamp > 0.0 else t     # static transform (stamp 0): use now
-                self._run(self.core.on_pose(x, y, _yaw_of(tf.transform.rotation), self._speed, t))
+                pt = stamp if stamp > 0.0 else t                  # static transform (stamp 0): use now
+                if stamp <= 0.0 or stamp > self._pose_stamp:      # only a TF that advanced counts as a new pose
+                    if self._last_xy is not None and pt > self._last_pose_t:
+                        self._speed = math.hypot(x - self._last_xy[0], y - self._last_xy[1]) / (pt - self._last_pose_t)
+                    self._last_xy, self._last_pose_t = (x, y), pt
+                    self._pose_stamp = pt
+                    self._run(self.core.on_pose(x, y, _yaw_of(tf.transform.rotation), self._speed, pt))
             self._run(self.core.tick(t))
 
     def _publish_state(self) -> None:
