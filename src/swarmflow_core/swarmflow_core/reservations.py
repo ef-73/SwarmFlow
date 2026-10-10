@@ -160,12 +160,9 @@ class FcfsReservationAuthority:
             recs = self._zone_recs(req.zone_id)
             blocking = []
         else:
-            while queue:                                              # S6: drop stale heads, honour the live one
-                head = next(iter(queue))
-                if head != req.robot_id and t - queue[head] >= QUEUE_STALE_S:
-                    del queue[head]
-                else:
-                    break
+            stale = max(QUEUE_STALE_S, 2.5 * self._retry)             # S6: queue entries that stopped asking
+            for robot in [r for r, last in queue.items() if r != req.robot_id and t - last >= stale]:
+                del queue[robot]
             head = next(iter(queue), None)
             if head is not None and head != req.robot_id:
                 queue[req.robot_id] = t
@@ -176,6 +173,12 @@ class FcfsReservationAuthority:
             if sum(1 for r in recs if r.state == LeaseState.GRANTED) >= zone.capacity:
                 queue[req.robot_id] = t
                 return deny(api.DENY_ZONE_LEASED)
+        # Defence in depth (M9 review of T018): never grant while another robot's fresh stored pose is inside the zone,
+        # e.g. right after clear_zone revoked an intruder's block and before its next pose arrives.
+        for robot, (x, y, stamp) in sorted(self._poses.items()):
+            if robot != req.robot_id and stamp >= t - POSE_FRESH_S and point_in_polygon(x, y, zone.polygon):
+                queue[req.robot_id] = t
+                return deny(api.DENY_OCCUPIED_UNKNOWN)
         queue.pop(req.robot_id, None)
         self._seq += 1
         hard = api.lease_hard_expiry(max(req.earliest_entry_t, t), max(req.expected_exit_t, t))
