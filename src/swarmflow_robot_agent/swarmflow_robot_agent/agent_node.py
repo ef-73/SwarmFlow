@@ -19,20 +19,23 @@ from rclpy.action import ActionClient, ActionServer, CancelResponse, GoalRespons
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
-from rclpy.qos import QoSProfile, ReliabilityPolicy
+from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 from std_msgs.msg import Header
 from action_msgs.msg import GoalStatus
 
 from swarmflow_core import api
 from swarmflow_core.graph import load_layout
 from swarmflow_interfaces.action import DispatchTask
-from swarmflow_interfaces.msg import ReservationHeartbeat, ReservationRelease, RobotState
+from swarmflow_interfaces.msg import ReservationHeartbeat, ReservationRelease, RobotState, ZoneReservation
 from swarmflow_interfaces.srv import RequestReservation as RequestReservationSrv
 
 from .agent_core import AgentCore, CancelNav, Navigate, Release, RequestReservation, TaskFinished
 
 MAX_POSE_AGE_S = 1.0
 _QOS10 =QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE)
+_QOS_LATCHED = QoSProfile(depth=100, reliability=ReliabilityPolicy.RELIABLE,
+                          durability=DurabilityPolicy.TRANSIENT_LOCAL)
+_LEASE_STATES = {code: st for st, code in api.LEASE_STATE_CODES.items()}
 _RELEASE_CODES = {api.ReleaseReason.EXITED: ReservationRelease.REASON_EXITED,
                   api.ReleaseReason.TASK_CANCELLED: ReservationRelease.REASON_TASK_CANCELLED,
                   api.ReleaseReason.FAULT: ReservationRelease.REASON_FAULT}
@@ -74,6 +77,7 @@ class AgentNode(Node):
         self._res_future = None
         self._last_xy = None
         self._last_pose_t = 0.0
+        self._pose_stamp = 0.0        #: TF stamp of the newest valid pose (stamps RobotState)
         self._speed = 0.0
         self._waiting_zone_last = ""
 
@@ -89,6 +93,8 @@ class AgentNode(Node):
         self._hb_pub = self.create_publisher(ReservationHeartbeat, "/fleet/reservation_heartbeat", _QOS10)
         self._rel_pub = self.create_publisher(ReservationRelease, "/fleet/reservation_release", _QOS10)
         self.create_subscription(Header, "/fleet/orchestrator_heartbeat", self._on_orch_heartbeat, _QOS10,
+                                 callback_group=cb)
+        self.create_subscription(ZoneReservation, "/fleet/reservations", self._on_lease_event, _QOS_LATCHED,
                                  callback_group=cb)
         self._server = ActionServer(self, DispatchTask, "dispatch_task", self._execute,
                                     goal_callback=self._on_goal, cancel_callback=lambda _h: CancelResponse.ACCEPT,
@@ -205,6 +211,15 @@ class AgentNode(Node):
         with self._lock:
             self._run(self.core.on_orchestrator_heartbeat(self._now(), epoch=msg.frame_id))
 
+    def _on_lease_event(self, msg) -> None:
+        if msg.robot_id != self.robot_id:
+            return
+        st = _LEASE_STATES.get(msg.state)
+        if st is None:
+            return
+        with self._lock:
+            self._run(self.core.on_lease_event(msg.lease_id, st, self._now()))
+
     def _on_tick(self) -> None:
         with self._lock:
             t = self._now()
@@ -222,14 +237,17 @@ class AgentNode(Node):
                 if self._last_xy is not None and t > self._last_pose_t:
                     self._speed = math.hypot(x - self._last_xy[0], y - self._last_xy[1]) / (t - self._last_pose_t)
                 self._last_xy, self._last_pose_t = (x, y), t
+                self._pose_stamp = stamp if stamp > 0.0 else t     # static transform (stamp 0): use now
                 self._run(self.core.on_pose(x, y, _yaw_of(tf.transform.rotation), self._speed, t))
             self._run(self.core.tick(t))
 
     def _publish_state(self) -> None:
         with self._lock:
+            if not self.core.has_pose():
+                return                                  # never publish a state without a valid pose
             s = self.core.state()
             m = RobotState()
-            m.header.stamp = self.get_clock().now().to_msg()
+            m.header.stamp = _to_time_msg(self._pose_stamp)   # pose time, not now (orchestrator freshness)
             m.header.frame_id = "map"
             m.robot_id = s.robot_id
             m.x, m.y, m.yaw, m.linear_speed = s.x, s.y, s.yaw, s.linear_speed

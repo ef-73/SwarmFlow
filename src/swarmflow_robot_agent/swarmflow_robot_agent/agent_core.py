@@ -3,6 +3,11 @@
 All event methods take the current sim time ``t`` (seconds) and return a list of *actions* (the dataclasses below) for
 the caller (ROS node or 2D sim) to execute. Nothing in here sleeps, reads a clock or does I/O.
 
+M9 review hardening: S1 - ``on_lease_event`` drops a lease the authority no longer honours (expired, revoked,
+released, occupied-unknown) and, if the robot has not yet entered the zone, cancels navigation and re-requests, so a
+granted robot never drives into a zone it no longer holds. S4 - pose validity: before the first pose the state is
+``FAULT/NO_POSE`` (cannot accept tasks); a pose older than ``POSE_STALE_S`` shows ``FAULT/STALE_POSE`` (overlay only).
+
 Route bookkeeping uses **indices into the route**, not vertex names, because a route may visit a vertex twice
 (e.g. ``X_1_0`` before and after the pickup).
 """
@@ -20,6 +25,7 @@ from swarmflow_core.api import ReleaseReason, RobotMode
 from swarmflow_core.graph import WarehouseGraph, point_in_polygon
 
 ZONE_SPEED_MPS = 0.5          #: assumed speed through a zone when estimating ``expected_exit_t``
+POSE_STALE_S = 1.0            #: a pose older than this makes ``state()`` report FAULT / STALE_POSE
 REACH_RADIUS_M = 0.6          #: pose within this of a route vertex counts as having reached it
 
 
@@ -99,6 +105,8 @@ class AgentCore:
         # pose
         self._x = self._y = self._yaw = self._speed = 0.0
         self._have_pose = False
+        self._pose_t = 0.0
+        self._stale = False
         self._last_vertex = ""
         # mode
         self._mode = RobotMode.IDLE
@@ -134,7 +142,13 @@ class AgentCore:
 
     # -- queries -------------------------------------------------------------------------------------------------
     def can_accept(self) -> bool:
-        return self._mode in (RobotMode.IDLE, RobotMode.STUCK)
+        return self._have_pose and self._mode in (RobotMode.IDLE, RobotMode.STUCK)
+
+    def has_pose(self) -> bool:
+        return self._have_pose
+
+    def pose_time(self) -> float:
+        return self._pose_t
 
     def pending_request_id(self) -> str:
         return self._pending[0] if self._pending else ""
@@ -150,19 +164,24 @@ class AgentCore:
     def state(self) -> api.RobotSnapshot:
         active = bool(self._route)
         mode = RobotMode.FAULT if self._fault else self._mode
+        overlay = ""
+        if not self._have_pose:
+            mode, overlay = RobotMode.FAULT, "NO_POSE"
+        elif self._stale and not self._fault:
+            mode, overlay = RobotMode.FAULT, "STALE_POSE"
         return api.RobotSnapshot(
             robot_id=self.robot_id, x=self._x, y=self._y, yaw=self._yaw, mode=mode,
             last_vertex=self._route[self._reach] if active else self._last_vertex,
             task_id=self._task_id, order_id=self._order_id,
             held_lease_ids=tuple(self.heartbeat_lease_ids()), linear_speed=self._speed,
-            fault_reason=self._fault or (self._fault_reason_stuck if self._mode == RobotMode.STUCK else ""),
+            fault_reason=overlay or self._fault or (self._fault_reason_stuck if self._mode == RobotMode.STUCK else ""),
             next_vertex=self._route[self._reach + 1] if active and self._reach + 1 < len(self._route) else "",
             remaining_route=tuple(self._route[self._reach + 1:]) if active else ())
 
     # -- events --------------------------------------------------------------------------------------------------
     def start_task(self, task_id: str, order_id: str, route: Sequence[str], t: float, pickup: str = "",
                    dropoff: str = "") -> List[object]:
-        if not self.can_accept():
+        if self._mode not in (RobotMode.IDLE, RobotMode.STUCK):
             raise RuntimeError(f"{self.robot_id} is busy ({self._mode.value})")
         route = list(route)
         if not route:
@@ -206,6 +225,8 @@ class AgentCore:
     def on_pose(self, x: float, y: float, yaw: float, speed: float, t: float) -> List[object]:
         self._x, self._y, self._yaw, self._speed = x, y, yaw, speed
         self._have_pose = True
+        self._pose_t = t
+        self._stale = False
         if self._route:
             if self._mode == RobotMode.NAVIGATING:
                 for k in range(self._seg_end, self._reach, -1):
@@ -279,6 +300,38 @@ class AgentCore:
             acts += self._issue_request(t)
         return acts
 
+    def on_lease_event(self, lease_id: str, state: api.LeaseState, t: float) -> List[object]:
+        """Authority-side lease state change (``/fleet/reservations``). A held lease that is no longer valid is
+        dropped; if the robot has not entered the zone it stops and asks again. Inside the zone it keeps driving out
+        (the lease is kept so the EXITED release is still sent; the authority blocks the zone meanwhile)."""
+        if state not in (api.LeaseState.OCCUPIED_UNKNOWN, api.LeaseState.REVOKED, api.LeaseState.RELEASED,
+                         api.LeaseState.EXPIRED):
+            return []
+        lease = next((l for l in self._leases if l.lease_id == lease_id), None)
+        if lease is None:
+            return []
+        zone = self.graph.zones.get(lease.zone)
+        inside = lease.entered or (zone is not None and self._have_pose
+                                   and point_in_polygon(self._x, self._y, zone.polygon))
+        if inside:
+            lease.entered = True
+            return []
+        self._leases.remove(lease)
+        acts: List[object] = []
+        if (self._mode == RobotMode.NAVIGATING and self._route and lease.exit_idx is not None
+                and self._reach < lease.exit_idx):
+            acts.append(CancelNav())
+            self._mode = RobotMode.WAITING_RESERVATION
+            self._wait_since = t
+            self._retry_at = None
+            if self._reach not in self._holds and not self._ensure_zone_hold(self._reach):
+                if lease.hold_idx is not None:
+                    self._reach = lease.hold_idx
+            self._granted.discard(self._reach)
+            if self._reach in self._holds:
+                acts += self._issue_request(t)
+        return acts
+
     def _on_new_epoch(self, acts: List[object], t: float) -> bool:
         """New orchestrator instance: it does not know our leases. Leases of zones we are not inside are dropped
         silently; inside ones are kept (it blocks that zone by recovery) and still released with EXITED later.
@@ -304,6 +357,10 @@ class AgentCore:
 
     def tick(self, t: float) -> List[object]:
         self._init_time(t)
+        # Stationary dwell/wait modes are exempt (position cannot drift while loading or holding for a grant); the
+        # mode is judged before this tick's transitions.
+        self._stale = (self._have_pose and t - self._pose_t > POSE_STALE_S
+                       and self._mode in (RobotMode.IDLE, RobotMode.STUCK, RobotMode.NAVIGATING))
         acts = self._check_release()
         if self._mode in (RobotMode.LOADING, RobotMode.UNLOADING):
             if t >= self._dwell_until:
