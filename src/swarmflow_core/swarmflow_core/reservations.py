@@ -155,6 +155,9 @@ class FcfsReservationAuthority:
         blocking = [r for r in recs if r.blocking]
         if (blocking and all(r.robot_id == req.robot_id for r in blocking)
                 and not any(r.state == LeaseState.GRANTED for r in recs)):
+            if self._other_robot_inside(req.robot_id, zone, t):     # check before superseding the owner's blocks
+                queue[req.robot_id] = t
+                return deny(api.DENY_OCCUPIED_UNKNOWN)
             for rec in sorted(blocking, key=lambda r: r.lease_id):   # S2: owner re-grant
                 self._set(rec, LeaseState.RELEASED, "SUPERSEDED", t)
             recs = self._zone_recs(req.zone_id)
@@ -175,10 +178,11 @@ class FcfsReservationAuthority:
                 return deny(api.DENY_ZONE_LEASED)
         # Defence in depth (M9 review of T018): never grant while another robot's fresh stored pose is inside the zone,
         # e.g. right after clear_zone revoked an intruder's block and before its next pose arrives.
-        for robot, (x, y, stamp) in sorted(self._poses.items()):
-            if robot != req.robot_id and stamp >= t - POSE_FRESH_S and point_in_polygon(x, y, zone.polygon):
-                queue[req.robot_id] = t
-                return deny(api.DENY_OCCUPIED_UNKNOWN)
+        # Residual (second review of T018): a robot whose pose is older than POSE_FRESH_S is not seen here; its own
+        # blocking lease (S3 / recovery) is the primary guard.
+        if self._other_robot_inside(req.robot_id, zone, t):
+            queue[req.robot_id] = t
+            return deny(api.DENY_OCCUPIED_UNKNOWN)
         queue.pop(req.robot_id, None)
         self._seq += 1
         hard = api.lease_hard_expiry(max(req.earliest_entry_t, t), max(req.expected_exit_t, t))
@@ -187,6 +191,10 @@ class FcfsReservationAuthority:
         self._live[rec.lease_id] = rec
         self._events.append(rec.snapshot())
         return ReservationDecision(True, rec.lease_id, rec.expiry_t)
+
+    def _other_robot_inside(self, robot_id: str, zone, t: float) -> bool:
+        return any(robot != robot_id and stamp >= t - POSE_FRESH_S and point_in_polygon(x, y, zone.polygon)
+                   for robot, (x, y, stamp) in sorted(self._poses.items()))
 
     def heartbeat(self, robot_id: str, lease_ids: Sequence[str], t: float) -> None:
         # Renews only live (not yet expired) GRANTED leases of the caller. The expiry transition itself is left to
