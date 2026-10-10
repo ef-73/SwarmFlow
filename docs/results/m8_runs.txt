@@ -1,0 +1,7 @@
+m8b-corridor-fcfs-s1-r1: m8b-corridor-fcfs-s1-r1,v1_corridor,fcfs,1,300.000,7,1.400,221.286,73.504,36.752,0,0,0
+m8b-corridor-fcfs-s1-r2: m8b-corridor-fcfs-s1-r2,v1_corridor,fcfs,1,300.000,7,1.400,221.714,75.004,37.502,0,0,0
+m8b-corridor-fcfs-s1-r3: m8b-corridor-fcfs-s1-r3,v1_corridor,fcfs,1,300.000,7,1.400,220.314,67.996,33.998,0,0,0
+m8b-corridor-independent-s1-r1: m8b-corridor-independent-s1-r1,v1_corridor,independent,1,300.000,5,1.000,166.360,162.504,81.252,2,2,2
+m8b-corridor-independent-s1-r2: m8b-corridor-independent-s1-r2,v1_corridor,independent,1,300.000,3,0.600,188.200,291.996,145.998,3,3,2
+m8b-corridor-independent-s1-r3: m8b-corridor-independent-s1-r3,v1_corridor,independent,1,300.000,2,0.400,186.100,155.496,77.748,3,3,2
+m8b-demo-1: m8b-demo-1,v1_demo,fcfs,1,600.000,15,1.500,216.520,177.500,59.167,0,0,3

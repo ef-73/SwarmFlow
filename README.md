@@ -195,7 +195,25 @@ the other one, loaded, head-on in storage aisle `Z_aisle_2`. 300 s per run, Gaze
 With reservations one robot holds at `H_2_1` / `H_2_3` while the other passes (≈ 50 denies per run); without them both
 robots drive into the 1.3 m aisle, block each other and wait (twice the waiting time, half the deliveries, stuck
 timeouts and footprint overlaps). n = 3 makes the intervals wide; the claim is the direction, not the size. The FCFS
-stuck events came from the Nav2 controller missing its rate under CPU load (fixed in M8, see below).
+stuck events came from the Nav2 controller missing its rate under CPU load (fixed in M8, below).
+
+**After M8 hardening** (MPPI 15 Hz x 800 x 30, static-only global costmap, custom NavigateThroughPoses BT that drops
+passed waypoints every tick). Measured 2026-10-10, same scenario and method, `docs/results/m8_corridor_n3.md`:
+
+| policy | n | deliveries | throughput /min | mean latency s | mean wait s | stuck events | failed orders | clearance violations |
+|---|---|---|---|---|---|---|---|---|
+| FCFS reservations (Baseline B) | 3 | 7.00 ± 0.00 | 1.40 ± 0.00 | 221.10 ± 1.78 | 36.08 ± 4.58 | 0.00 ± 0.00 | 0.00 ± 0.00 | 0.00 ± 0.00 |
+| independent Nav2 (Baseline A) | 3 | 3.33 ± 3.79 | 0.67 ± 0.76 | 180.22 ± 29.93 | 101.67 ± 95.48 | 2.67 ± 1.43 | 2.67 ± 1.43 | 2.00 ± 0.00 |
+
+FCFS now runs identically three times (22–25 denies per run, no controller-rate warnings); Baseline A still jams in
+the aisle (2–3 stuck timeouts and 2 footprint overlaps per run).
+
+### 10-minute demo
+
+`scenarios/v1_demo.yaml` (3 robots, 3 orders/min, FCFS), unattended: **15 deliveries, 0 stuck, 0 failed** (M8,
+`runs/m8b-demo-1`; M6 before tuning: 14 and 10). Its 3 padded-footprint overlaps (max 11 cm, i.e. about 1 cm between
+the real 0.60 x 0.50 m bodies) are one repeated pattern: a robot leaving `Z_aisle_1` eastwards meets a robot coming
+from the D stations at the unreserved east-trunk junction (18.6, 3.85). See "Known limitations".
 
 ## Architecture
 
@@ -280,6 +298,10 @@ scripts/ci.sh        # the referee: contract diff, owned files, hygiene, build, 
 - **Hold vertices sit 1.0 m beside the main-aisle trunks**: a robot waiting at a hold narrows the trunk, so passing
   robots come within the 0.05 m footprint padding (counted as clearance violations ≤ 0.10 m) and occasionally hit the
   60 s stuck timeout. Moving the holds needs a change of the frozen layout fixtures (listed for the user, v1 G5).
+- **Trunk junctions are not reserved**: only storage aisles are exclusive zones. Where an aisle meets a trunk, a robot
+  leaving the aisle and a robot travelling on the trunk rely on Nav2's local avoidance and can come within the
+  footprint padding (the 3 overlaps of the M8 demo, all at the east end of `Z_aisle_1`). Junction zones or moved
+  trunks change the layout contract (listed for the user).
 - The Foxglove layout file has been checked against the topics the bridge advertises, but not yet imported into a
   Foxglove app (unverified).
 - **Open-RMF** appears only in v2 (Baseline C); v1 has no RMF or free_fleet dependency.

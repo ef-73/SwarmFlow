@@ -238,4 +238,5 @@ Each item = one task card + lead tests + one subagent (Sonnet unless noted), mec
 | M5 | ✅ done 2026-10-09 — G4 GO: 3 robots 14/14 goals; gate run ×3 each 3/3 delivered through aisle holds |
 | M6 | ✅ done 2026-10-09 — 14 and 10 deliveries / 10 min unattended; packages visible; decisions consistent; contract change request (hold positions) for the user |
 | M7 | ✅ done 2026-10-09 — corridor n=3: FCFS 6.0 vs independent 3.0 deliveries, wait 56 vs 118 s; fresh clone + one-command up verified; cold build 10 min |
-| M8–M9 | not started |
+| M8 | ✅ done 2026-10-10 — controller starvation and in-aisle reversals fixed; corridor n=3: FCFS 7.0 ± 0.0 vs independent 3.3 deliveries, 0 stuck; 10-min demo 15 deliveries, 0 stuck; §15.4 checked (tag + video with the user) |
+| M9 | in progress — retrospective draft; T018/T019 reviewed twice; T020 dispatched |
