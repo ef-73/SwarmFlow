@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.8)
 project(swarmflow_nav)
 find_package(ament_cmake REQUIRED)
-install(DIRECTORY launch config DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY launch config behavior_trees DESTINATION share/${PROJECT_NAME})
 if(BUILD_TESTING)
   find_package(ament_cmake_pytest REQUIRED)
   file(GLOB _tests RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} test/test_*.py)
