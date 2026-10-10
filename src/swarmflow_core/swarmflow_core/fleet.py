@@ -66,6 +66,7 @@ class FleetCore:
         self._park_seq: Dict[str, int] = {}
         self._last_fail: Dict[str, float] = {}           # robot -> time of its last task failure (or first STUCK seen)
         self._failed: Set[str] = set()                   # robots whose last task failed (until a task succeeds)
+        self._finished: Set[str] = set()                 # ids of tasks that already have a result
         self._recoveries: Dict[str, int] = {}            # robot -> recovery tasks issued in a row
 
     # ---- inputs -----------------------------------------------------------------------------------------------
@@ -198,7 +199,8 @@ class FleetCore:
             task = self._tasks.pop(res.task_id, None)
             if task is None:
                 continue
-            if res.success:
+            self._finished.add(res.task_id)
+            if res.success:      # intended: any successful task (also a park) resets the recovery counter
                 self._failed.discard(task.robot_id)
                 self._recoveries.pop(task.robot_id, None)
                 self._last_fail.pop(task.robot_id, None)
@@ -269,6 +271,12 @@ class FleetCore:
             if rid in self._order_task_of_robot or rid in self._park_task_of_robot:
                 continue
             if not (s.mode == RobotMode.STUCK or rid in self._failed):
+                continue
+            if s.mode not in (RobotMode.STUCK, RobotMode.IDLE):      # never FAULT or any other mode
+                continue
+            if s.task_id and s.task_id not in self._finished:        # still reports a live task
+                continue
+            if any(task.robot_id == rid for task in self._tasks.values()):
                 continue
             last = self._last_fail.setdefault(rid, t)
             n = self._recoveries.get(rid, 0)
