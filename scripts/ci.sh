@@ -1,6 +1,7 @@
 #!/bin/bash
 # SwarmFlow CI referee (Lead-owned; design §14.3, AGENTS.md §6).
-# Run from the repo root. To verify a task branch, run main's copy:  git show main:scripts/ci.sh | bash -s
+# Run from the repo root. To verify a task branch, run main's copy:  bash <(git show main:scripts/ci.sh)
+#   (not `| bash -s`: docker compose run would read the rest of the script from stdin)
 #   CI_BASE        base ref to diff against (default: main, or origin/$GITHUB_BASE_REF on GitHub)
 #   CI_BRANCH      branch name (default: current branch / GitHub head ref)
 #   CI_SKIP_DOCKER=1  run only the host-side git checks
@@ -104,7 +105,8 @@ if [ -z "$hyg" ]; then pass "hygiene"; else bad "hygiene:"; echo "$hyg"; fi
 # Container helper -----------------------------------------------------------------------------------
 in_dev() {
   if [ "${CI_IN_CONTAINER:-0}" = 1 ]; then bash -c "source /opt/ros/jazzy/setup.bash; [ -f install/setup.bash ] && source install/setup.bash; $1"
-  else docker compose run --rm --no-deps -T dev bash -c "$1"; fi
+  elif [ "${lock_held:-0}" != 1 ]; then echo "  (skipped: no build lock)"; return 1
+  else docker compose run --rm --no-deps -T dev bash -c "$1" </dev/null; fi
 }
 
 if [ "${CI_SKIP_DOCKER:-0}" = 1 ]; then
