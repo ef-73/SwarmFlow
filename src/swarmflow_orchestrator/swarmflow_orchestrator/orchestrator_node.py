@@ -242,7 +242,10 @@ class OrchestratorNode(Node):
             now = self._now()
             self._check_clock(now)
             if stamp < self._state_stamp.get(msg.robot_id, -1.0) - CLOCK_JUMP_S:
-                self._reset_clock_state(now, now)    # stamps far behind the newest one: simulator restarted (S7)
+                # this robot's time base went back (agent restart): forget its newest stamp only; a simulator
+                # restart is detected by the node clock in _check_clock, which revokes fleet-wide (S7)
+                self.get_logger().warn(f"{msg.robot_id}: RobotState stamp went back by more than {CLOCK_JUMP_S} s")
+                self._state_stamp.pop(msg.robot_id, None)
             if stamp < self._state_stamp.get(msg.robot_id, -1.0):
                 return  # stale / out-of-order sample never overwrites a newer one
             self._state_stamp[msg.robot_id] = stamp
@@ -370,7 +373,7 @@ class OrchestratorNode(Node):
             self._recovered = True
         elif missing and t - self._last_warn_t >= RECOVERY_WARN_S:
             self._last_warn_t = t
-            self.get_logger().warn(f"recovering: no RobotState yet from {', '.join(missing)}")
+            self.get_logger().warn(f"recovering: no RobotState with a valid pose yet from {', '.join(missing)}")
 
     def _watchdog(self, t: float) -> None:
         for task_id, (rid, t0) in list(self._active.items()):

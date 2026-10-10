@@ -162,6 +162,7 @@ def test_clock_reset_detected_by_other_callbacks_and_by_stamps(ros):
         second = n.authority
         n._on_robot_state(_state(RobotState.MODE_IDLE, "", 90))
         n._on_robot_state(_state(RobotState.MODE_IDLE, "", 40))   # newest stamp 90, now 40: > CLOCK_JUMP_S behind
-        assert n.authority is not second and n._state_stamp["robot_1"] == 40.0
+        # one robot's time base going back is not a simulator restart: no fleet-wide reset, its new stamps count
+        assert n.authority is second and n._state_stamp["robot_1"] == 40.0
     finally:
         n.destroy_node()
