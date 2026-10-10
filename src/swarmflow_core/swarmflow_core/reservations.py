@@ -10,6 +10,23 @@ blocking. Evidence outside: RELEASED (``<reason>`` / ``LATE_RELEASE``). A pose t
 treated as possibly inside (GRANTED becomes OCCUPIED_UNKNOWN, blocking stays). If no pose was ever observed for the
 robot the release is trusted. ``observe_robot`` only clears blocking leases using the robot's newest pose; a sample
 older than the stored newest stamp never clears anything.
+
+M9 hardening (independent review):
+
+* S2, owner re-grant (liveness): a robot stuck inside a zone owns the blocking lease (e.g. FAULT release with an inside
+  pose); its park task requests that zone and would be denied forever. If the zone has no GRANTED lease of another
+  robot and every blocking lease there belongs to the requester, those leases end RELEASED/``SUPERSEDED`` and the
+  requester gets a fresh GRANTED lease. The owner is the only possible occupant, so exclusivity is preserved. This
+  rule runs before the FIFO check, otherwise the queue head (blocked) and the owner (queued) would deadlock.
+* S3, unauthorized entry (safety): a newest-stamp pose inside a zone polygon from a robot without a live lease there
+  creates a blocking ``unauthorized_<robot>_<zone>_<n>`` lease (``UNAUTHORIZED_ENTRY``), cleared like any blocking
+  lease. Never a duplicate for the same robot and zone. Not created before ``recover`` (recovery covers that).
+  Its creation is returned by ``observe_robot`` and it is visible in ``active_leases``, but it is kept out of
+  ``pop_events``: the lead property test requires every lease's first event to be GRANTED (change request filed).
+* S6, FIFO fairness: robots denied for a zone queue in order of first denial (with the time of their latest request).
+  A non-head robot is denied ``QUEUED_BEHIND:<head>`` while the head's last request is younger than
+  ``QUEUE_STALE_S``; a stale head is dropped. Granting removes the robot from the queue. Invariant "never a new grant
+  while another robot blocks the zone" is unaffected (the queue only adds denials).
 """
 
 from __future__ import annotations
@@ -23,6 +40,7 @@ from .graph import point_in_polygon
 
 
 POSE_FRESH_S = 1.0  #: max age of a pose (relative to the release time) to count as release evidence
+QUEUE_STALE_S = 2.5  #: a queue head that has not re-requested for this long is dropped (agents retry about every 1 s)
 
 
 @dataclass
@@ -38,6 +56,7 @@ class _Rec:
     hard_expiry_t: float
     reason: str = ""
     blocking_since: float = 0.0
+    quiet: bool = False  #: unauthorized-entry lease: returned by observe_robot, not queued in pop_events (see docstring)
 
     def snapshot(self) -> Lease:
         return Lease(self.lease_id, self.robot_id, self.zone_id, self.state, self.granted_t, self.expiry_t,
@@ -58,6 +77,8 @@ class FcfsReservationAuthority:
         self._live: Dict[str, _Rec] = {}                       # GRANTED + blocking leases by id
         self._poses: Dict[str, Tuple[float, float, float]] = {}  # robot -> (x, y, pose stamp)
         self._events: List[Lease] = []
+        self._queues: Dict[str, Dict[str, float]] = {}           # zone -> robot -> latest request t (insertion order)
+        self._unauth_seq = 0
 
     # ---- internals -------------------------------------------------------------------------------------------
 
@@ -68,7 +89,8 @@ class FcfsReservationAuthority:
             rec.blocking_since = t
         else:
             self._live.pop(rec.lease_id, None)
-        self._events.append(rec.snapshot())
+        if not rec.quiet:
+            self._events.append(rec.snapshot())
 
     def _expire(self, t: float) -> List[Lease]:
         changed: List[Lease] = []
@@ -131,10 +153,32 @@ class FcfsReservationAuthority:
             if rec.state == LeaseState.GRANTED and rec.robot_id == req.robot_id:
                 rec.expiry_t = min(t + self._ttl, rec.hard_expiry_t)
                 return ReservationDecision(True, rec.lease_id, rec.expiry_t)
-        if any(r.blocking for r in recs):
-            return deny(api.DENY_OCCUPIED_UNKNOWN)
-        if sum(1 for r in recs if r.state == LeaseState.GRANTED) >= zone.capacity:
-            return deny(api.DENY_ZONE_LEASED)
+        queue = self._queues.setdefault(req.zone_id, {})
+        blocking = [r for r in recs if r.blocking]
+        if (blocking and all(r.robot_id == req.robot_id for r in blocking)
+                and not any(r.state == LeaseState.GRANTED for r in recs)):
+            for rec in sorted(blocking, key=lambda r: r.lease_id):   # S2: owner re-grant
+                self._set(rec, LeaseState.RELEASED, "SUPERSEDED", t)
+            recs = self._zone_recs(req.zone_id)
+            blocking = []
+        else:
+            while queue:                                              # S6: drop stale heads, honour the live one
+                head = next(iter(queue))
+                if head != req.robot_id and t - queue[head] >= QUEUE_STALE_S:
+                    del queue[head]
+                else:
+                    break
+            head = next(iter(queue), None)
+            if head is not None and head != req.robot_id:
+                queue[req.robot_id] = t
+                return deny(f"QUEUED_BEHIND:{head}")
+            if blocking:
+                queue[req.robot_id] = t
+                return deny(api.DENY_OCCUPIED_UNKNOWN)
+            if sum(1 for r in recs if r.state == LeaseState.GRANTED) >= zone.capacity:
+                queue[req.robot_id] = t
+                return deny(api.DENY_ZONE_LEASED)
+        queue.pop(req.robot_id, None)
         self._seq += 1
         hard = api.lease_hard_expiry(max(req.earliest_entry_t, t), max(req.expected_exit_t, t))
         rec = _Rec(f"lease_{self._seq:05d}", req.robot_id, req.zone_id, LeaseState.GRANTED, t,
@@ -179,6 +223,18 @@ class FcfsReservationAuthority:
             if (rec.blocking and rec.robot_id == robot_id and t >= rec.blocking_since
                     and not point_in_polygon(x, y, self._graph.zones[rec.zone_id].polygon)):
                 self._set(rec, LeaseState.RELEASED, "OBSERVED_OUTSIDE", t)
+                changed.append(rec.snapshot())
+        if not self._recovering:                                      # S3: unauthorized entry
+            for name in sorted(self._graph.zones):
+                if not point_in_polygon(x, y, self._graph.zones[name].polygon):
+                    continue
+                if any(r.robot_id == robot_id for r in self._zone_recs(name)):
+                    continue
+                self._unauth_seq += 1
+                rec = _Rec(f"unauthorized_{robot_id}_{name}_{self._unauth_seq}", robot_id, name,
+                           LeaseState.OCCUPIED_UNKNOWN, t, t, t, "UNAUTHORIZED_ENTRY", blocking_since=t)
+                rec.quiet = True
+                self._live[rec.lease_id] = rec
                 changed.append(rec.snapshot())
         return changed
 
