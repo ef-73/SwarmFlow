@@ -26,6 +26,7 @@ from swarmflow_core.graph import WarehouseGraph, point_in_polygon
 
 ZONE_SPEED_MPS = 0.5          #: assumed speed through a zone when estimating ``expected_exit_t``
 POSE_STALE_S = 1.0            #: a pose older than this makes ``state()`` report FAULT / STALE_POSE
+ENTERED_MARGIN_M = 0.2        #: "entered" needs the pose this far inside the polygon (entry vertices lie on it)
 REACH_RADIUS_M = 0.6          #: pose within this of a route vertex counts as having reached it
 
 
@@ -96,6 +97,21 @@ def _outside_distance(x: float, y: float, poly: Sequence[Tuple[float, float]]) -
     return best
 
 
+def _inside_margin(x: float, y: float, poly: Sequence[Tuple[float, float]]) -> float:
+    """Distance to the nearest polygon edge if the point is inside (or on) it, else -1."""
+    if not point_in_polygon(x, y, poly):
+        return -1.0
+    best = math.inf
+    n = len(poly)
+    for i in range(n):
+        (x1, y1), (x2, y2) = poly[i], poly[(i + 1) % n]
+        dx, dy = x2 - x1, y2 - y1
+        L2 = dx * dx + dy * dy
+        u = 0.0 if L2 == 0 else max(0.0, min(1.0, ((x - x1) * dx + (y - y1) * dy) / L2))
+        best = min(best, math.hypot(x - (x1 + u * dx), y - (y1 + u * dy)))
+    return best
+
+
 class AgentCore:
     def __init__(self, robot_id: str, graph: WarehouseGraph, traffic_control: bool = True, rng_seed: int = 0):
         self.robot_id = robot_id
@@ -139,6 +155,7 @@ class AgentCore:
         self._wait_since = 0.0
         self._last_contact: Optional[float] = None
         self._leases: List[_Lease] = []
+        self._lost_ids: deque = deque(maxlen=64)    #: lease ids reported lost (possibly before their grant arrived)
 
     # -- queries -------------------------------------------------------------------------------------------------
     def can_accept(self) -> bool:
@@ -271,6 +288,10 @@ class AgentCore:
         if self._fault:
             self._fault = ""
             self._wait_since = t
+        if decision.granted and decision.lease_id in self._lost_ids:
+            self._lost_ids.remove(decision.lease_id)      # revoked/expired before the grant reached us: not valid
+            self._retry_at = None
+            return self._issue_request(t) if self._reach in self._holds else []
         if decision.granted:
             hold = self._holds.get(self._reach)
             zone = hold.zone if hold else ""
@@ -309,14 +330,17 @@ class AgentCore:
             return []
         lease = next((l for l in self._leases if l.lease_id == lease_id), None)
         if lease is None:
+            if lease_id not in self._lost_ids:
+                self._lost_ids.append(lease_id)           # may be the grant's event overtaking its response
             return []
         zone = self.graph.zones.get(lease.zone)
-        inside = lease.entered or (zone is not None and self._have_pose
-                                   and point_in_polygon(self._x, self._y, zone.polygon))
-        if inside:
+        if lease.entered or (zone is not None and self._have_pose
+                             and _inside_margin(self._x, self._y, zone.polygon) >= ENTERED_MARGIN_M):
             lease.entered = True
             return []
         self._leases.remove(lease)
+        if lease.hold_idx is not None:
+            self._granted.discard(lease.hold_idx)
         acts: List[object] = []
         if (self._mode == RobotMode.NAVIGATING and self._route and lease.exit_idx is not None
                 and self._reach < lease.exit_idx):
@@ -330,6 +354,9 @@ class AgentCore:
             self._granted.discard(self._reach)
             if self._reach in self._holds:
                 acts += self._issue_request(t)
+            else:                                         # nowhere to ask: do not wait silently
+                acts += self._release_all(ReleaseReason.FAULT)
+                acts += self._fail("NO_HOLD", RobotMode.STUCK)
         return acts
 
     def _on_new_epoch(self, acts: List[object], t: float) -> bool:
@@ -373,7 +400,7 @@ class AgentCore:
             acts += self._check_stuck(t)
         elif self._mode == RobotMode.WAITING_RESERVATION:
             if self._pending is not None and t - self._pending[1] >= api.ORCH_RESPONSE_TIMEOUT_S:
-                self._pending = None                  # orchestrator did not answer: ask again with a new id
+                self._abandon_pending()               # orchestrator did not answer: ask again with a new id
                 acts += self._issue_request(t)
             elif self._pending is None and self._retry_at is not None and t >= self._retry_at:
                 acts += self._issue_request(t)
@@ -535,8 +562,9 @@ class AgentCore:
         for lease in list(self._leases):
             if lease.zone not in self.graph.zones:
                 continue
-            d = _outside_distance(self._x, self._y, self.graph.zones[lease.zone].polygon)
-            if d == 0.0:
+            poly = self.graph.zones[lease.zone].polygon
+            d = _outside_distance(self._x, self._y, poly)
+            if _inside_margin(self._x, self._y, poly) >= ENTERED_MARGIN_M:
                 lease.entered = True
             past_exit = lease.exit_idx is not None and self._route and self._reach >= lease.exit_idx
             if d >= api.RELEASE_MARGIN_M and (lease.entered or past_exit):
