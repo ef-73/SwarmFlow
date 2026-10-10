@@ -163,3 +163,34 @@ def test_blocking_release_with_stale_pose_stays_blocking():
     a.expire(5.0)
     a.release("robot_1", d.lease_id, 6.0)
     assert a.active_leases()[0].state == LeaseState.OCCUPIED_UNKNOWN
+
+
+# ---- lead additions after the T018 review (escalated to the lead) ---------------------------------------------
+
+def _req2(robot, zone="Z_aisle_1", n=[0]):
+    from swarmflow_core.api import ReservationRequest
+    n[0] += 1
+    z = GRAPH.zones[zone]
+    return ReservationRequest(f"x{n[0]}", robot, zone, z.entries[0].entry, z.entries[-1].entry)
+
+
+def test_no_grant_while_intruder_pose_inside_after_clear_zone():
+    from swarmflow_core.reservations import FcfsReservationAuthority
+    a = FcfsReservationAuthority(GRAPH)
+    a.recover([], 0.0)
+    poly = GRAPH.zones["Z_aisle_1"].polygon
+    cx, cy = sum(p[0] for p in poly) / len(poly), sum(p[1] for p in poly) / len(poly)
+    a.observe_robot("robot_2", cx, cy, 1.0)                  # intruder → blocked
+    assert a.clear_zone("Z_aisle_1", "operator", 1.2)        # operator clears while robot_2 is still inside
+    assert not a.request(_req2("robot_1"), 1.5).granted      # its fresh pose (0.5 s old) still says inside
+
+
+def test_queue_stale_threshold_scales_with_retry_period():
+    from swarmflow_core.reservations import FcfsReservationAuthority
+    a = FcfsReservationAuthority(GRAPH, retry_after_s=2.0)  # agents retry every 2 s → head stale only after 5 s
+    a.recover([], 0.0)
+    d1 = a.request(_req2("robot_1"), 0.0)
+    a.request(_req2("robot_2"), 1.0)
+    a.release("robot_1", d1.lease_id, 2.0)
+    assert not a.request(_req2("robot_3"), 4.5).granted      # robot_2 asked 3.5 s ago: still the head
+    assert a.request(_req2("robot_2"), 4.8).granted
