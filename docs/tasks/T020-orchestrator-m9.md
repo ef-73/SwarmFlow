@@ -2,7 +2,7 @@
 id: T020
 title: Orchestrator / fleet-core hardening (STUCK recovery, pose validity, run records, clock reset)
 workstream: B
-status: open
+status: claimed
 claimed_by: "sf-implementer"
 branch: ws-b/T020-orchestrator-m9
 model: sonnet
