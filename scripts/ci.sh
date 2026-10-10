@@ -94,7 +94,7 @@ while IFS= read -r f; do
   sz=$(wc -c < "$f"); [ "$sz" -gt 5242880 ] && hyg+="  >5MB: $f"$'\n'
 done < <(git ls-files)
 git ls-files | grep -E '^runs/|\.db3$|\.mcap$' | sed 's/^/  forbidden: /' > /tmp/sf_hyg_$$ ; hyg+="$(cat /tmp/sf_hyg_$$)"; rm -f /tmp/sf_hyg_$$
-crlf="$(git ls-files --eol | awk '$1 ~ /crlf/ {print $NF}' | grep -E '\.(sh|py|xml|xacro|sdf|yaml|json|launch\.py|Dockerfile)$|Dockerfile$' || true)"
+crlf="$(git ls-files --eol | awk '$1 ~ /crlf/ {print $NF}' | grep -E '\.(sh|py|xml|xacro|sdf|yaml|yml|json|msg|srv|action|cfg|txt|md|launch\.py|Dockerfile)$|Dockerfile$' || true)"
 [ -n "$crlf" ] && hyg+="$(echo "$crlf" | sed 's/^/  CRLF in index: /')"$'\n'
 secrets="$(git grep -nIE 'ghp_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9_-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----' -- . ':!scripts/ci.sh' || true)"
 [ -n "$secrets" ] && hyg+="$(echo "$secrets" | sed 's/^/  secret? /')"$'\n'
@@ -132,11 +132,20 @@ else
     if in_dev 'export MAKEFLAGS=-j2; colcon build --symlink-install --parallel-workers 2 --event-handlers console_cohesion+ 2>&1 | tail -40; exit ${PIPESTATUS[0]}'; then
       pass "colcon build"
       # ROS node tests share one DDS domain inside the container: run packages one at a time (parallel runs cross-talk on /fleet/*).
-      if in_dev 'source install/setup.bash; timeout 1200 colcon test --parallel-workers 1 --event-handlers console_direct- >/dev/null 2>&1; colcon test-result --verbose | tail -40; colcon test-result >/dev/null'; then
+      # Fresh results only: a crashed or timed-out run must not be judged by old result files (M9 review C1).
+      if in_dev 'source install/setup.bash; find build -path "*/test_results/*" -delete 2>/dev/null; find build -name "pytest.xml" -delete 2>/dev/null; timeout 1200 colcon test --parallel-workers 1 --event-handlers console_direct- >/dev/null 2>&1; rc=$?; colcon test-result --verbose | tail -40; n=$(colcon test-result 2>/dev/null | sed -n "s/^Summary: \([0-9]*\) tests.*//p"); [ "$rc" = 0 ] && [ "${n:-0}" -gt 0 ] && colcon test-result >/dev/null'; then
         pass "colcon test"
       else bad "colcon test"; fi
     else bad "colcon build"; fi
   else pass "colcon (no packages yet)"; fi
+
+  # 6b. Static checks of the runtime config (M9 review C2): compose file, xacro, launch files
+  if docker compose config -q 2>/dev/null || [ "${CI_IN_CONTAINER:-0}" = 1 ]; then pass "compose config"; else bad "compose config"; fi
+  if [ -f src/swarmflow_description/urdf/swarmflow_bot.urdf.xacro ]; then
+    if in_dev 'xacro src/swarmflow_description/urdf/swarmflow_bot.urdf.xacro robot_id:=robot_1 namespace:=robot_1 > /dev/null && for f in src/*/launch/*.py; do python3 -m py_compile "$f" || exit 1; done'; then
+      pass "xacro renders, launch files compile"
+    else bad "xacro / launch files"; fi
+  fi
 
   # 7. pytest over pure-Python roots
   roots=""; for r in "${PY_ROOTS[@]}"; do [ -d "$r" ] && roots+="$r "; done

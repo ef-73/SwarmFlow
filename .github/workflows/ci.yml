@@ -4,6 +4,9 @@ name: ci
 on:
   push:
   pull_request:
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   ci:
     runs-on: ubuntu-24.04
@@ -15,7 +18,7 @@ jobs:
       - name: Referee script from the base branch
         run: |
           git fetch origin main
-          git show origin/main:scripts/ci.sh > "$RUNNER_TEMP/ci.sh" 2>/dev/null || cp scripts/ci.sh "$RUNNER_TEMP/ci.sh"
+          git show origin/main:scripts/ci.sh > "$RUNNER_TEMP/ci.sh"
       - name: Build dev image
         run: docker compose build dev
       - name: scripts/ci.sh
