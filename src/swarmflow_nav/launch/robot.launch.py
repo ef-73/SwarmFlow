@@ -90,7 +90,10 @@ def setup(context):
         ComposableNode(package="nav2_behaviors", plugin="behavior_server::BehaviorServer", name="behavior_server",
                        namespace=rid, parameters=[params, sim], remappings=TF + [("cmd_vel", "cmd_vel_nav")]),
         ComposableNode(package="nav2_bt_navigator", plugin="nav2_bt_navigator::BtNavigator", name="bt_navigator",
-                       namespace=rid, parameters=[params, sim], remappings=TF),
+                       namespace=rid, remappings=TF, parameters=[params, sim, {
+                           "default_nav_through_poses_bt_xml": os.path.join(
+                               get_package_share_directory("swarmflow_nav"), "behavior_trees",
+                               "navigate_through_poses.xml")}]),
         ComposableNode(package="nav2_velocity_smoother", plugin="nav2_velocity_smoother::VelocitySmoother",
                        name="velocity_smoother", namespace=rid, parameters=[params, sim],
                        remappings=TF + [("cmd_vel", "cmd_vel_nav"), ("cmd_vel_smoothed", "cmd_vel")]),
