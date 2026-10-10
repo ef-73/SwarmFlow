@@ -235,6 +235,8 @@ class AgentNode(Node):
             if tf is not None:
                 x, y = tf.transform.translation.x, tf.transform.translation.y
                 pt = stamp if stamp > 0.0 else t                  # static transform (stamp 0): use now
+                if pt < self._pose_stamp - 1.0:                   # clock went backwards (sim restart): start over
+                    self._pose_stamp, self._last_xy = 0.0, None
                 if stamp <= 0.0 or stamp > self._pose_stamp:      # only a TF that advanced counts as a new pose
                     if self._last_xy is not None and pt > self._last_pose_t:
                         self._speed = math.hypot(x - self._last_xy[0], y - self._last_xy[1]) / (pt - self._last_pose_t)
