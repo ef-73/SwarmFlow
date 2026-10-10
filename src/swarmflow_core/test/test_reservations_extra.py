@@ -194,3 +194,17 @@ def test_queue_stale_threshold_scales_with_retry_period():
     a.release("robot_1", d1.lease_id, 2.0)
     assert not a.request(_req2("robot_3"), 4.5).granted      # robot_2 asked 3.5 s ago: still the head
     assert a.request(_req2("robot_2"), 4.8).granted
+
+
+def test_owner_regrant_denied_keeps_owner_blocks():
+    # Second review of T018: the grant-time pose check runs before the owner's blocking leases are superseded.
+    a = make()
+    a.observe_robot("robot_1", *inside(), 1.0)                          # both robots inside without a lease
+    a.observe_robot("robot_2", *inside(), 1.0)
+    assert a.clear_zone("Z_aisle_1", "operator", 1.5)
+    a.observe_robot("robot_1", *inside(), 1.6)                          # robot_1 re-blocks; robot_2 not yet
+    before = {l.lease_id for l in a.active_leases() if l.robot_id == "robot_1"}
+    assert before
+    assert not a.request(req("robot_1", t=1.7), 1.7).granted            # robot_2's fresh pose is inside
+    after = {l.lease_id: l.state for l in a.active_leases() if l.robot_id == "robot_1"}
+    assert set(after) == before and all(s == LeaseState.OCCUPIED_UNKNOWN for s in after.values())
