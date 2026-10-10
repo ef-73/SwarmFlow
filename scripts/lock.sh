@@ -41,7 +41,7 @@ case "$cmd" in
     fi
     if mkdir "$dir" 2>/dev/null; then
       {
-        echo "agent: ${SWARMFLOW_AGENT:-claude-lead}"
+        echo "agent: ${SWARMFLOW_LOCK_OWNER:-claude-lead}"
         echo "branch: $(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
         echo "task: $task"
         echo "start_utc: $(date -u +%Y-%m-%dT%H:%MZ)"
