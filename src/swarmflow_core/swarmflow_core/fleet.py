@@ -239,7 +239,9 @@ class FleetCore:
             if robot is not None:
                 forced_park.add(task.robot_id)
                 if task.robot_id in self._park_task_of_robot:  # keep at most one park task per robot
-                    del self._park_task_of_robot[task.robot_id]
+                    old_park = self._park_task_of_robot.pop(task.robot_id)
+                    self._tasks.pop(old_park, None)
+                    self._finished.add(old_park)
                 self._issue_park(out, robot)
         # (4) plan
         avail = [s for rid, s in sorted(self._robots.items()) if rid not in forced_park and self._available(s)]
@@ -255,6 +257,7 @@ class FleetCore:
                 park = self._park_task_of_robot.pop(a.robot_id, None)
                 if park is not None:
                     self._tasks.pop(park, None)
+                    self._finished.add(park)
                     out.cancels.append(park)
                 self._tasks[a.task_id] = _Task(a.task_id, a.robot_id, a.order_id)
                 self._order_task_of_robot[a.robot_id] = a.task_id
