@@ -2,7 +2,7 @@
 id: T018
 title: Reservation authority hardening — owner re-grant, unauthorized entry, FIFO queue
 workstream: B
-status: review
+status: done
 claimed_by: "sf-implementer"
 branch: ws-b/T018b-reservations-m9
 model: sonnet

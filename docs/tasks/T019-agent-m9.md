@@ -2,7 +2,7 @@
 id: T019
 title: Robot agent hardening — lost leases, pose validity
 workstream: D
-status: review
+status: done
 claimed_by: "sf-implementer"
 branch: ws-d/T019-agent-m9
 model: sonnet
