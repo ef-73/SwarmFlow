@@ -165,3 +165,42 @@ def test_fake_run_orders_from_fixture_finish_and_no_leases_leak():
     assert any(d.decision_type == DecisionType.RESERVATION_GRANT for d in res.decisions)
     assert all(d.explanation for d in res.decisions)
     assert all(l.state != api.LeaseState.GRANTED for l in auth.active_leases())
+
+
+# ---- T020 review fixes: STUCK recovery only for STUCK/IDLE robots that report no live task -----------------------
+
+def _failed_core():
+    from swarmflow_core.fleet import STUCK_RECOVERY_S  # noqa: F401
+    c = FleetCore(GRAPH, FcfsPolicy(), FcfsReservationAuthority(GRAPH))
+    c.update_robot(snap("robot_1", "P1"))
+    c.add_order(order("o1", "L1", "D1"))
+    task = c.tick(0.0).dispatches[0].task_id
+    c.update_robot(snap("robot_1", "X_1_0", RobotMode.STUCK, task_id=task, order_id="o1"))
+    c.task_result(task, False, api.FAILURE_STUCK_TIMEOUT, 60.0)
+    park = [a for a in c.tick(60.0).dispatches if a.robot_id == "robot_1"][0]
+    c.task_result(park.task_id, False, api.FAILURE_STUCK_TIMEOUT, 130.0)
+    c.tick(130.0)
+    return c
+
+
+def _recoveries(c, t):
+    return [a for a in c.tick(t).dispatches if a.robot_id == "robot_1"]
+
+
+def test_fault_robot_gets_no_recovery():
+    from swarmflow_core.fleet import STUCK_RECOVERY_S
+    c = _failed_core()
+    c.update_robot(snap("robot_1", "X_1_0", RobotMode.FAULT, fault_reason="NO_POSE"))
+    assert not _recoveries(c, 130.0 + STUCK_RECOVERY_S)
+    assert not _recoveries(c, 130.0 + 5 * STUCK_RECOVERY_S)
+    c.update_robot(snap("robot_1", "X_1_0", RobotMode.STUCK))
+    assert len(_recoveries(c, 130.0 + 6 * STUCK_RECOVERY_S)) == 1
+
+
+def test_robot_still_reporting_a_task_gets_no_recovery():
+    from swarmflow_core.fleet import STUCK_RECOVERY_S
+    c = _failed_core()
+    c.update_robot(snap("robot_1", "X_1_0", RobotMode.STUCK, task_id="some_live_task"))
+    assert not _recoveries(c, 130.0 + STUCK_RECOVERY_S)
+    c.update_robot(snap("robot_1", "X_1_0", RobotMode.STUCK))
+    assert len(_recoveries(c, 130.0 + 2 * STUCK_RECOVERY_S)) == 1

@@ -72,7 +72,8 @@ def _json_default(o):
 
 
 class RunRecord:
-    """JSON-lines run record (design §13.5), truncated when opened (a reused run id must not mix two runs). ``run_dir == ""`` disables all files."""
+    """JSON-lines run record (design §13.5). A non-empty earlier file is moved to ``<name>.prev`` when opened, so a
+    reused run id never mixes two runs and never destroys the earlier one. ``run_dir == ""`` disables all files."""
 
     FILES = ("decisions", "orders", "robot_states", "reservations")
 
@@ -81,7 +82,10 @@ class RunRecord:
         if run_dir:
             os.makedirs(run_dir, exist_ok=True)
             for name in self.FILES:
-                self._files[name] = open(os.path.join(run_dir, name + ".jsonl"), "w", encoding="utf-8", newline="\n")
+                path = os.path.join(run_dir, name + ".jsonl")
+                if os.path.exists(path) and os.path.getsize(path) > 0:
+                    os.replace(path, path + ".prev")   # keep the earlier run (replacing an older .prev)
+                self._files[name] = open(path, "w", encoding="utf-8", newline="\n")
 
     def write(self, name: str, obj: dict) -> None:
         f = self._files.get(name)
@@ -130,6 +134,7 @@ class OrchestratorNode(Node):
         self._cancelling: Dict[str, Tuple[str, float]] = {}        # robot_id -> (cancelled task_id, since t)
         self._state_stamp: Dict[str, float] = {}                   # robot_id -> newest RobotState header stamp
         self._last_seen: Dict[str, float] = {}                     # robot_id -> node time of last RobotState
+        self._valid_snapshots: Dict[str, RobotSnapshot] = {}       # latest snapshot with a valid pose, per robot
         self._reported = set()                                     # robots reported since the recovery window start
         self._window_start: Optional[float] = None
         self._last_warn_t = 0.0
@@ -234,26 +239,34 @@ class OrchestratorNode(Node):
             next_vertex=msg.next_vertex, remaining_route=tuple(msg.remaining_route))
         stamp = time_msg_to_s(msg.header.stamp)
         with self._lock:
-            self._check_clock(self._now())
+            now = self._now()
+            self._check_clock(now)
+            if stamp < self._state_stamp.get(msg.robot_id, -1.0) - CLOCK_JUMP_S:
+                self._reset_clock_state(now, now)    # stamps far behind the newest one: simulator restarted (S7)
             if stamp < self._state_stamp.get(msg.robot_id, -1.0):
                 return  # stale / out-of-order sample never overwrites a newer one
             self._state_stamp[msg.robot_id] = stamp
             self._last_seen[msg.robot_id] = self._now()
-            if self._window_start is not None and stamp >= self._window_start:
+            unknown_pose = snap.mode == RobotMode.FAULT and snap.fault_reason in UNKNOWN_POSE_REASONS
+            if self._window_start is not None and stamp >= self._window_start and not unknown_pose:
                 self._reported.add(msg.robot_id)
             self._snapshots[msg.robot_id] = snap
+            if not unknown_pose:
+                self._valid_snapshots[msg.robot_id] = snap
             self.core.update_robot(snap)
-            if not (snap.mode == RobotMode.FAULT and snap.fault_reason in UNKNOWN_POSE_REASONS):
+            if not unknown_pose:
                 # an unknown / old pose must never clear a blocked zone (S4)
                 self.authority.observe_robot(msg.robot_id, msg.x, msg.y, stamp)
             self._flush_leases()
 
     def _on_heartbeat(self, msg: ReservationHeartbeat) -> None:
         with self._lock:
+            self._check_clock(self._now())
             self.authority.heartbeat(msg.robot_id, list(msg.lease_ids), self._now())
 
     def _on_release(self, msg: ReservationRelease) -> None:
         with self._lock:
+            self._check_clock(self._now())
             self.authority.release(msg.robot_id, msg.lease_id, self._now(),
                                    _REASON_OF_CODE.get(msg.reason, ReleaseReason.FAULT))
             self._flush_leases()
@@ -271,6 +284,7 @@ class OrchestratorNode(Node):
             earliest_entry_t=time_msg_to_s(req.earliest_entry), expected_exit_t=time_msg_to_s(req.expected_exit),
             priority=int(req.priority))
         with self._lock:
+            self._check_clock(now)
             dec = self.authority.request(r, now)
             self._publish_decision(decisions.reservation_decision(now, self.policy_name, r, dec))
             self._flush_leases()
@@ -317,7 +331,14 @@ class OrchestratorNode(Node):
         last, self._last_clock_t = self._last_clock_t, t
         if last is None or t >= last - CLOCK_JUMP_S:
             return
-        self.get_logger().warn(f"node clock went backwards ({last:.1f}s -> {t:.1f}s): resetting recovery state")
+        self._reset_clock_state(t, last)
+
+    def _reset_clock_state(self, t: float, t_old: float) -> None:
+        """Caller holds the lock. ``t_old`` is the last time the old authority saw."""
+        self.get_logger().warn(f"node clock went backwards ({t_old:.1f}s -> {t:.1f}s): resetting recovery state")
+        old = self.authority
+        for zone in sorted(self.graph.zones):      # robots must drop every lease of the old time base
+            old.clear_zone(zone, "CLOCK_RESET", t_old)
         self._flush_leases()
         self._state_stamp.clear()
         self._last_seen.clear()
@@ -325,6 +346,7 @@ class OrchestratorNode(Node):
         self._window_start = None
         self._last_warn_t = t
         self._recovered = False
+        self._last_clock_t = t
         self.authority = FcfsReservationAuthority(self.graph)
         self.core.authority = self.authority
         self._active = {tid: (rid, t) for tid, (rid, _t0) in self._active.items()}
@@ -341,9 +363,10 @@ class OrchestratorNode(Node):
             self._window_start = t
             self._last_warn_t = t
             return
-        missing = [r for r in self.robots if r not in self._reported]
+        missing = [r for r in self.robots if r not in self._reported or r not in self._valid_snapshots
+                   or self._snapshots[r] is not self._valid_snapshots[r]]
         if not missing and t - self._window_start >= api.RECOVERY_GRACE_S:
-            self.authority.recover(list(self._snapshots.values()), t)
+            self.authority.recover(list(self._valid_snapshots.values()), t)
             self._recovered = True
         elif missing and t - self._last_warn_t >= RECOVERY_WARN_S:
             self._last_warn_t = t
