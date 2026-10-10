@@ -61,6 +61,15 @@ def compute(run_dir: pathlib.Path) -> dict:
         duration = max((s["t"] for s in states), default=0.0)
     duration = float(duration)
 
+    # Scenario window (M9 review D3): runs last longer in wall time than the scenario, so count only what happened in
+    # [scenario start, scenario start + duration_s] when the scenario engine recorded its start (sim seconds).
+    if cfg.get("start_time_sim_s") is not None:
+        t0 = float(cfg["start_time_sim_s"]) + float(cfg.get("start_delay_s") or 0.0)
+        t1 = t0 + duration
+        orders = [o for o in orders if o["t"] <= t1]
+        decisions = [d for d in decisions if d.get("t", t0) <= t1]
+        states = [s for s in states if t0 <= s["t"] <= t1]
+
     first_queued, last_state, delivered_t = {}, {}, {}
     for o in sorted(orders, key=lambda r: r["t"]):
         oid = o["order_id"]
