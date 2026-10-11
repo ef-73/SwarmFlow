@@ -284,8 +284,12 @@ class FleetCoreV2:
             # baseline, in goal order, and never the final goal (the task result covers it)
             if s.last_vertex != task.baseline:
                 task.moved = True
-            if task.moved and task.reached < len(task.goals) - 1 and s.last_vertex == task.goals[task.reached]:
-                task.reached += 1
+            if task.moved:
+                # the agent reports goals strictly in order, so a later goal implies the earlier ones
+                for j in range(task.reached, len(task.goals) - 1):
+                    if s.last_vertex == task.goals[j]:
+                        task.reached = j + 1
+                        break
             if rec.spec.order_type == api.ORDER_SHELF:
                 rec.picks_left = list(task.goals[task.reached:-1])
                 if len(rec.picks_left) < len(rec.spec.pick_vertices):

@@ -251,3 +251,13 @@ def test_l3_duplicate_order_id_rejected():
     c.tick(1.0)
     with pytest.raises(ValueError):
         c.add_order(shelf("s1", ["PK_A_2"], "DK1"))
+
+
+def test_h1_robot_starting_on_its_first_pick_is_credited_by_later_goals():
+    c = _core()
+    c.update_robot(snap("r1", "PK_A_1"))
+    c.add_order(shelf("o", ["PK_A_1", "PK_A_2"], "DK2"))
+    a = only(c.tick(1.0).dispatches, "r1")
+    assert tuple(a.route) == ("PK_A_1", "PK_A_2", "DK2")
+    c.update_robot(snap("r1", "PK_A_2", RobotMode.NAVIGATING, a.task_id, "o", nxt="DK2"))
+    assert states(c.tick(2.0), "o") == [OrderState.PICKING_UP, OrderState.IN_TRANSIT]
