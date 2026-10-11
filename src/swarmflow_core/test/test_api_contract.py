@@ -77,3 +77,16 @@ def test_v2_defaults_keep_v1_behaviour():
     assert a.route_kind == api.ROUTE_WAYPOINTS
     assert api.RobotSnapshot("robot_1", 0.0, 0.0, 0.0, api.RobotMode.IDLE).angular_speed == 0.0
     assert api.UNLOAD_DWELL_BOX_S == 5.0 and api.UNLOAD_DWELL_PALLET_S == 10.0
+
+
+def test_v2_sample_orders_load_as_orderspecs():
+    import pathlib
+    import yaml
+    f = pathlib.Path(__file__).resolve().parents[3] / "tests" / "fixtures" / "orders_v2_sample.yaml"
+    specs = [api.OrderSpec(**{**o, "pick_vertices": tuple(o.get("pick_vertices", ()))})
+             for o in yaml.safe_load(f.read_text(encoding="utf-8"))["orders"]]
+    assert {s.order_type for s in specs} == {api.ORDER_SHELF, api.ORDER_PALLET}
+    for s in specs:
+        if s.order_type == api.ORDER_SHELF:
+            assert s.pickup_vertex == "" and s.pick_vertices and len(set(s.pick_vertices)) == len(s.pick_vertices)
+        assert s.dropoff_vertex.startswith("DK")

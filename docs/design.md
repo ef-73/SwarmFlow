@@ -355,7 +355,7 @@ its module docstring). The listings below include them.
 string order_id
 builtin_interfaces/Time release_time
 builtin_interfaces/Time deadline        # zero = no deadline
-string pickup_vertex                    # TRANSPORT: loading station, e.g. "L1"; PALLET: pallet spot, e.g. "PL_1_2"
+string pickup_vertex                    # TRANSPORT: loading station, e.g. "L1"; PALLET: pallet spot, e.g. "PL_W1"; SHELF: ""
 string dropoff_vertex                   # TRANSPORT: delivery station, e.g. "D3"; SHELF / PALLET: truck dock, e.g. "DK2"
 string payload_type                     # "small" | "medium" | "wide" | "long" | "pallet"
 uint8 priority                          # 0 = normal, higher = more urgent
@@ -364,7 +364,7 @@ uint8 TYPE_TRANSPORT=0                  # v1: pickup_vertex -> dropoff_vertex
 uint8 TYPE_SHELF=1                      # visit pick_vertices (pick = arrival), then the dock in dropoff_vertex
 uint8 TYPE_PALLET=2                     # lift pallet_id at pickup_vertex, carry it to the dock in dropoff_vertex
 uint8 order_type
-string[] pick_vertices                  # SHELF: 1..N pick points (visit order chosen by the orchestrator)
+string[] pick_vertices                  # SHELF: 1..N distinct pick points (visit order chosen by the orchestrator)
 string pallet_id                        # PALLET: pallet model name
 ```
 
@@ -402,7 +402,7 @@ uint8 MODE_STUCK=5
 uint8 MODE_FAULT=6
 uint8 MODE_LIFTING=7                    # v2 pallets: docking under / lifting / setting down a pallet
 uint8 MODE_CARRYING=8                   # v2 pallets: driving with a lifted pallet
-uint8 mode                              # BLOCKED (v2 local navigation) = MODE_STUCK + fault_reason "blocked"
+uint8 mode                              # BLOCKED (v2 local navigation) = MODE_STUCK + fault_reason "BLOCKED"
 string fault_reason
 string task_id
 string order_id
