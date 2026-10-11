@@ -29,6 +29,15 @@ ROUTE = ["P1", "X_0_0", "X_1_0", "L1", "X_1_0", "X_2_0", "X_3_0", "H_3_1", "X_3_
 TF_REMAP = ["--ros-args", "-r", "/tf:=tf", "-r", "/tf_static:=tf_static"]
 
 
+def _wait(pred, timeout=10.0):
+    end = time.time() + timeout
+    while time.time() < end:
+        if pred():
+            return True
+        time.sleep(0.05)
+    return False
+
+
 @pytest.fixture(scope="module")
 def ros():
     rclpy.init()
@@ -75,7 +84,8 @@ def test_agent_drives_fake_nav2_with_zone_hold(ros):
     spin.start()
     try:
         assert client.wait_for_server(timeout_sec=10.0)
-        time.sleep(1.0)  # TF + heartbeat warm-up
+        # warm-up: the agent has a TF pose, has published a state and has seen the orchestrator heartbeat
+        assert _wait(lambda: agent._pose_stamp > 0.0 and states and agent.core._last_contact is not None, 10.0)
         goal = DispatchTask.Goal(task_id="task_0001", robot_id="robot_1", route=ROUTE,
                                  order=Order(order_id="o1", pickup_vertex="L1", dropoff_vertex="D3",
                                              payload_type="small"))

@@ -2,7 +2,7 @@
 id: T023
 title: Replace fixed sleeps in ROS node tests with condition waits (X-06)
 workstream: Lead
-status: claimed
+status: review
 claimed_by: "sf-implementer"
 branch: lead/T023-test-waits
 model: sonnet
