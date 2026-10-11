@@ -92,7 +92,7 @@ def test_standard_layout_valid(layout_schema, layout):
 
 
 @pytest.mark.parametrize("breaker", [
-    "missing_racks", "bad_vertex_name", "zone_capacity_2",
+    "missing_racks", "bad_vertex_name", "zone_capacity_0", "bad_station_type", "bad_queue_of",
 ])
 def test_broken_layouts_rejected(layout_schema, layout, breaker):
     bad = copy.deepcopy(layout)
@@ -100,8 +100,12 @@ def test_broken_layouts_rejected(layout_schema, layout, breaker):
         del bad["racks"]
     elif breaker == "bad_vertex_name":
         bad["intersections"][0]["name"] = "junction-1"
-    elif breaker == "zone_capacity_2":
-        bad["zones"][0]["capacity"] = 2
+    elif breaker == "zone_capacity_0":              # v2: capacity may be > 1, never < 1 (decision 002)
+        bad["zones"][0]["capacity"] = 0
+    elif breaker == "bad_station_type":
+        bad["stations"][0]["type"] = "charger"
+    elif breaker == "bad_queue_of":
+        bad["stations"][0]["queue_of"] = "D1"
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate(bad, layout_schema)
 
@@ -250,3 +254,22 @@ def test_holds_off_exit_paths(layout):
             p, q = poses[a], poses[b]
             d = seg_dist_to_rect(p, q, (poses[h["name"]][0], poses[h["name"]][1]) * 2)
             assert d >= 2 * CIRCUMRADIUS, f"{h['name']} {d:.3f} m from exit lane {a}->{b}"
+
+
+def test_v2_station_types_aisles_and_zone_capacity_accepted(layout_schema, layout):
+    """contract-v2 (decision 002): pick / dock / queue / home / pallet stations, keep-right aisles, capacity > 1."""
+    v2 = copy.deepcopy(layout)
+    v2["schema_version"] = 2
+    v2["stations"] += [
+        {"name": "PK_W3_N_04", "type": "pick", "pose": {"x": 1.0, "y": 1.0, "yaw": 0.0}},
+        {"name": "DK2", "type": "dock", "pose": {"x": 2.0, "y": 1.0, "yaw": 1.57}},
+        {"name": "Q_DK2_1", "type": "queue", "pose": {"x": 2.0, "y": 2.0, "yaw": 1.57}, "queue_of": "DK2",
+         "queue_index": 1},
+        {"name": "HM1", "type": "home", "pose": {"x": 3.0, "y": 1.0, "yaw": 0.0}},
+        {"name": "PL_1_2", "type": "pallet", "pose": {"x": 4.0, "y": 1.0, "yaw": 0.0}},
+    ]
+    v2["aisles"] = [{"name": "central", "x_min": 0.0, "y_min": 0.0, "x_max": 4.0, "y_max": 30.0, "axis": "y"}]
+    v2["zones"][0]["capacity"] = 2
+    jsonschema.validate(v2, layout_schema)
+    v2["zones"] = []                                      # zones optional by default in v2
+    jsonschema.validate(v2, layout_schema)

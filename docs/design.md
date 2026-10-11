@@ -343,15 +343,29 @@ Package `src/swarmflow_interfaces/` (ament_cmake, rosidl). **Frozen** when the M
 through the contract-change process in `AGENTS.md`. Field lists below are the Day-0 draft; the lead finalizes
 them on the M2 contract branch (`lead/contract-freeze`).
 
+**v2 additions (2026-10-11, `lead/contract-v2`, [decision 002](decisions/002-v2-contract-preapproval.md)):** all
+backward compatible (new fields and constants only; v1 codes unchanged): `Order.order_type` / `pick_vertices` /
+`pallet_id`, `RobotState.angular_speed` and modes `LIFTING` / `CARRYING`, `DispatchTask.route_kind`
+(`ROUTE_GOALS` = ordered goal vertices). Layout schema v2: station types `pick`, `dock`, `queue`, `home`,
+`pallet`, keep-right `aisles`, zone capacity ≥ 1. `swarmflow_core.api` → `API_VERSION = 2` (v2 order lifecycle in
+its module docstring). The listings below include them.
+
 `msg/Order.msg`
 ```
 string order_id
 builtin_interfaces/Time release_time
 builtin_interfaces/Time deadline        # zero = no deadline
-string pickup_vertex                    # nav-graph vertex name, e.g. "L1"
-string dropoff_vertex                   # e.g. "D3"
-string payload_type                     # "small" | "medium" | "wide" | "long"
+string pickup_vertex                    # TRANSPORT: loading station, e.g. "L1"; PALLET: pallet spot, e.g. "PL_1_2"
+string dropoff_vertex                   # TRANSPORT: delivery station, e.g. "D3"; SHELF / PALLET: truck dock, e.g. "DK2"
+string payload_type                     # "small" | "medium" | "wide" | "long" | "pallet"
 uint8 priority                          # 0 = normal, higher = more urgent
+# v2 (contract-v2, decision 002); defaults keep v1 orders unchanged
+uint8 TYPE_TRANSPORT=0                  # v1: pickup_vertex -> dropoff_vertex
+uint8 TYPE_SHELF=1                      # visit pick_vertices (pick = arrival), then the dock in dropoff_vertex
+uint8 TYPE_PALLET=2                     # lift pallet_id at pickup_vertex, carry it to the dock in dropoff_vertex
+uint8 order_type
+string[] pick_vertices                  # SHELF: 1..N pick points (visit order chosen by the orchestrator)
+string pallet_id                        # PALLET: pallet model name
 ```
 
 `msg/OrderStatus.msg`
@@ -378,6 +392,7 @@ float64 x
 float64 y
 float64 yaw
 float64 linear_speed
+float64 angular_speed                   # rad/s, + = counter-clockwise (v2: other robots predict turns, N-05)
 uint8 MODE_IDLE=0
 uint8 MODE_NAVIGATING=1
 uint8 MODE_WAITING_RESERVATION=2
@@ -385,12 +400,14 @@ uint8 MODE_LOADING=3
 uint8 MODE_UNLOADING=4
 uint8 MODE_STUCK=5
 uint8 MODE_FAULT=6
-uint8 mode
+uint8 MODE_LIFTING=7                    # v2 pallets: docking under / lifting / setting down a pallet
+uint8 MODE_CARRYING=8                   # v2 pallets: driving with a lifted pallet
+uint8 mode                              # BLOCKED (v2 local navigation) = MODE_STUCK + fault_reason "blocked"
 string fault_reason
 string task_id
 string order_id
-string last_vertex
-string next_vertex
+string last_vertex                      # ROUTE_GOALS tasks: the last goal reached
+string next_vertex                      # ROUTE_GOALS tasks: the current goal
 string[] remaining_route
 string[] held_lease_ids
 builtin_interfaces/Time eta
@@ -446,7 +463,12 @@ string params_json                      # extra typed params, schema per event_t
 string task_id
 string robot_id
 swarmflow_interfaces/Order order
-string[] route                          # vertex names, pickup and dropoff included
+string[] route                          # vertex names; meaning set by route_kind
+uint8 ROUTE_WAYPOINTS=0                 # v1: every vertex from the robot's position via pickup to dropoff (traffic control)
+uint8 ROUTE_GOALS=1                     # v2: ordered goal vertices only; the robot's planner finds the paths. Success =
+                                        # the last goal reached (incl. its dwell); a last goal that is not the order's
+                                        # dock (e.g. a dock queue spot) does not deliver the order
+uint8 route_kind
 ---
 bool success
 string failure_reason

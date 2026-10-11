@@ -7,7 +7,7 @@
   "additionalProperties": false,
   "required": ["schema_version", "layout", "nav_graph", "vertices", "edges", "zones", "payloads"],
   "properties": {
-    "schema_version": {"const": 1},
+    "schema_version": {"enum": [1, 2]},
     "layout": {"type": "string"},
     "nav_graph": {"type": "string", "description": "Path of the RMF-format nav graph relative to this file, e.g. nav_graph.yaml."},
     "vertices": {
@@ -19,7 +19,9 @@
         "properties": {
           "x": {"type": "number"}, "y": {"type": "number"},
           "yaw": {"type": "number", "description": "Stations only: docking yaw."},
-          "kind": {"enum": ["loading", "delivery", "park", "intersection", "hold"]},
+          "kind": {"enum": ["loading", "delivery", "park", "intersection", "hold", "pick", "dock", "queue", "home", "pallet"]},
+          "queue_of": {"type": "string", "description": "Queue spots (v2): the dock this spot waits for."},
+          "queue_index": {"type": "integer", "minimum": 1, "description": "Queue spots (v2): 1 = next in line."},
           "zone_entry_of": {"type": "array", "items": {"type": "string"}, "description": "Zones this vertex is an entry vertex of."},
           "hold_for": {"type": "array", "items": {"type": "string"}, "description": "Zones this vertex is the hold vertex of."}
         }
@@ -54,6 +56,20 @@
           "vertices": {"type": "array", "items": {"type": "string"}},
           "entries": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["entry", "hold"], "properties": {"entry": {"type": "string"}, "hold": {"type": "string"}}}},
           "polygon": {"type": "array", "minItems": 3, "items": {"type": "array", "prefixItems": [{"type": "number"}, {"type": "number"}], "minItems": 2, "maxItems": 2}}
+        }
+      }
+    },
+    "aisles": {
+      "description": "v2 keep-right areas, copied from layout.yaml (layout.schema.json 'aisles'). Optional.",
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["name", "x_min", "y_min", "x_max", "y_max", "axis", "keep"],
+        "properties": {
+          "name": {"type": "string"},
+          "x_min": {"type": "number"}, "y_min": {"type": "number"},
+          "x_max": {"type": "number"}, "y_max": {"type": "number"},
+          "axis": {"enum": ["x", "y"]}, "keep": {"enum": ["right"]}
         }
       }
     },

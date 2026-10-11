@@ -24,14 +24,15 @@ Vertex params emitted (RMF traffic-editor vertex params, passed through upstream
 
 | Param | When | Value |
 |---|---|---|
-| `name` | always | SwarmFlow vertex name (`L1`, `D2`, `P1`, `X_1_3`, `H_1_1`) |
-| `is_parking_spot` | park stations `P*` | `true` |
-| `is_charger` | park stations `P*` | `true` (v1 has no batteries; RMF needs a charger per robot) |
+| `name` | always | SwarmFlow vertex name (`L1`, `D2`, `P1`, `X_1_3`, `H_1_1`; v2: `PK_W3_N_04`, `DK2`, `Q_DK2_1`, `HM3`, `PL_1_2`) |
+| `is_parking_spot` | park stations `P*`; v2 home slots `HM*` | `true` |
+| `is_charger` | park stations `P*`; v2 home slots `HM*` | `true` (no batteries; RMF needs a charger per robot) |
 | `is_holding_point` | hold vertices `H_*` | `true` |
 | `pickup_dispenser` / `dropoff_ingestor` | never in v1 | — (RMF workcells unused, design §5.5) |
 
 Rules:
-- Vertex order: stations (L, D, P in name order), then intersections, then holds, each sorted by name. Indices are
+- Vertex order: stations (L, D, P in name order; v2 layouts then DK, HM, PK, PL, Q_ groups, each in name order), then
+  intersections, then holds, each sorted by name. Indices are
   derived from this order; SwarmFlow code always refers to vertices **by name**, never by index.
 - Lanes: authored bidirectional lanes become two entries (`[a,b]`, `[b,a]`); one-way lanes one entry. Sorted by
   (from name, to name).

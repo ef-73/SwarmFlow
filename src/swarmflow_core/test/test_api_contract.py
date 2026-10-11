@@ -5,7 +5,7 @@ from swarmflow_core import api
 
 
 def test_api_version_and_constants():
-    assert api.API_VERSION == 1
+    assert api.API_VERSION == 2
     assert api.LEASE_TTL_S == 5.0 and api.HEARTBEAT_PERIOD_S == 1.0
     assert api.ORCHESTRATOR_TIMEOUT_S == 10.0
     assert api.lease_hard_expiry(100.0, 110.0) == 120.0       # max(10, 5) = 10
@@ -14,8 +14,9 @@ def test_api_version_and_constants():
 
 def test_codes_match_interface_constants():
     # RobotState.MODE_*, OrderStatus.STATE_*, ZoneReservation.STATE_*, ReservationRelease.REASON_*, direction
-    assert [api.MODE_CODES[m] for m in api.RobotMode] == list(range(7))
+    assert [api.MODE_CODES[m] for m in api.RobotMode] == list(range(9))
     assert api.MODE_CODES[api.RobotMode.FAULT] == 6
+    assert api.MODE_CODES[api.RobotMode.CARRYING] == 8           # v2 modes appended: v1 codes unchanged
     assert api.ORDER_STATE_CODES[api.OrderState.FAILED] == 5
     assert api.LEASE_STATE_CODES[api.LeaseState.OCCUPIED_UNKNOWN] == 4
     assert api.RELEASE_REASON_CODES[api.ReleaseReason.FAULT] == 2
@@ -59,3 +60,20 @@ def test_codes_parsed_from_interface_files():
     assert {f"DIRECTION_{d.value}": c for d, c in api.DIRECTION_CODES.items()} == \
         {k: v for k, v in req.items() if k.startswith("DIRECTION_")}
     assert {k: v for k, v in req.items() if k.startswith("RESULT_")} == {"RESULT_GRANTED": 0, "RESULT_DENIED": 1}
+
+
+def test_v2_codes_parsed_from_interface_files():
+    """v2 additions (decision 002): order types and route kinds match the .msg/.action constants."""
+    order = _msg_constants("msg/Order.msg")
+    assert {f"TYPE_{k.upper()}": c for k, c in api.ORDER_TYPE_CODES.items()} == order
+    task = _msg_constants("action/DispatchTask.action")
+    assert {f"ROUTE_{k.upper()}": c for k, c in api.ROUTE_KIND_CODES.items()} == task
+
+
+def test_v2_defaults_keep_v1_behaviour():
+    o = api.OrderSpec("o1", 0.0, None, "L1", "D1")
+    assert o.order_type == api.ORDER_TRANSPORT and o.pick_vertices == () and o.pallet_id == ""
+    a = api.Assignment("robot_1", "o1", "t1", ("P1", "L1", "D1"))
+    assert a.route_kind == api.ROUTE_WAYPOINTS
+    assert api.RobotSnapshot("robot_1", 0.0, 0.0, 0.0, api.RobotMode.IDLE).angular_speed == 0.0
+    assert api.UNLOAD_DWELL_BOX_S == 5.0 and api.UNLOAD_DWELL_PALLET_S == 10.0
