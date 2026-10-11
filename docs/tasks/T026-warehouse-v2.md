@@ -2,7 +2,7 @@
 id: T026
 title: v2 warehouse layout (two blocks, central aisle, docks with queues, homes, pallets) + generator support
 workstream: F
-status: open
+status: claimed
 claimed_by: "sf-implementer"
 branch: ws-f/T026-warehouse-v2
 model: sonnet
