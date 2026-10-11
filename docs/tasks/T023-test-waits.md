@@ -31,7 +31,7 @@ observable condition, so the tests are faster and not flaky on a busy machine (i
 ## Commands to run
 ```bash
 export PATH="/c/Program Files/Docker/Docker/resources/bin:$PATH" COMPOSE_PROJECT_NAME=swarmflow-t023 SWARMFLOW_GUI=none
-scripts/lock.sh acquire build T023 30 && docker compose run --rm dev bash -c "colcon build --symlink-install --parallel-workers 2 && colcon test --packages-select swarmflow_orchestrator swarmflow_robot_agent swarmflow_viz && colcon test-result --verbose"; scripts/lock.sh release build
+scripts/lock.sh acquire build T023 30 && docker compose run --rm dev bash -c "colcon build --symlink-install --parallel-workers 2 && colcon test --parallel-workers 1 --packages-select swarmflow_orchestrator swarmflow_robot_agent swarmflow_viz && colcon test-result --verbose"; scripts/lock.sh release build
 ```
 
 ## Definition of done
