@@ -76,6 +76,14 @@ def validate_semantics(layout: dict) -> None:
             if v["name"] in names:
                 raise LayoutError(f"{sect}[{i}]: duplicate vertex name '{v['name']}'")
             names[v["name"]] = v
+    for i, s in enumerate(layout["stations"]):
+        if s["type"] == "queue":
+            dock = names.get(s["queue_of"])
+            if dock is None or "type" not in dock or dock["type"] != "dock":
+                raise LayoutError(f"stations[{i}] ({s['name']}): queue_of '{s['queue_of']}' is not a dock station")
+            if s["name"] != f"Q_{s['queue_of']}_{s['queue_index']}":
+                raise LayoutError(f"stations[{i}]: queue name '{s['name']}' must be "
+                                  f"Q_{s['queue_of']}_{s['queue_index']}")
     rn = set()
     for r in layout["racks"]:
         if r["name"] in rn:
@@ -141,6 +149,9 @@ def build_graph(layout: dict):
     for s in layout["stations"]:
         verts[s["name"]] = {"x": r3(s["pose"]["x"]), "y": r3(s["pose"]["y"]), "yaw": r3(s["pose"]["yaw"]),
                             "kind": s["type"]}
+        if s["type"] == "queue":
+            verts[s["name"]]["queue_of"] = s["queue_of"]
+            verts[s["name"]]["queue_index"] = s["queue_index"]
     for i in layout["intersections"]:
         verts[i["name"]] = {"x": r3(i["pose"]["x"]), "y": r3(i["pose"]["y"]), "kind": "intersection"}
     for h in layout["holds"]:
@@ -172,7 +183,8 @@ def build_graph(layout: dict):
 
 
 def vertex_order(verts: dict) -> list:
-    group = {"loading": 0, "delivery": 1, "park": 2, "intersection": 3, "hold": 4}
+    group = {"loading": 0, "delivery": 1, "park": 2, "dock": 3, "home": 4, "pick": 5, "pallet": 6, "queue": 7,
+             "intersection": 8, "hold": 9}
     return sorted(verts, key=lambda n: (group[verts[n]["kind"]], n))
 
 
@@ -183,7 +195,7 @@ def nav_graph(layout: dict, verts: dict, edges: list) -> dict:
     for n in order:
         v = verts[n]
         p = {"name": n}
-        if v["kind"] == "park":
+        if v["kind"] in ("park", "home"):
             p["is_parking_spot"] = True
             p["is_charger"] = True
         if v["kind"] == "hold":
@@ -214,8 +226,17 @@ def zones_sidecar(layout: dict, verts: dict, edges: list) -> dict:
             if k in v:
                 v[k] = sorted(v[k])
         vout[n] = v
-    return {"schema_version": 1, "layout": layout["name"], "nav_graph": "nav_graph.yaml", "vertices": vout,
-            "edges": edges, "zones": zones, "payloads": payload_geometry()}
+    side = {"schema_version": layout["schema_version"], "layout": layout["name"], "nav_graph": "nav_graph.yaml",
+            "vertices": vout, "edges": edges, "zones": zones, "payloads": payload_geometry()}
+    if layout["schema_version"] >= 2:
+        side["aisles"] = _aisles(layout)
+    return side
+
+
+def _aisles(layout: dict) -> list:
+    return [{"name": a["name"], "x_min": r3(a["x_min"]), "y_min": r3(a["y_min"]), "x_max": r3(a["x_max"]),
+             "y_max": r3(a["y_max"]), "axis": a["axis"], "keep": a.get("keep", "right")}
+            for a in layout.get("aisles", [])]
 
 
 # ---- map -----------------------------------------------------------------------------------------------------
@@ -270,7 +291,9 @@ def _box_model(name, pose, size, color, static=True, collision=True, gravity=Non
             f"      </link>\n    </model>\n")
 
 
-STATION_COLOR = {"loading": "0.1 0.7 0.2 1", "delivery": "0.1 0.3 0.9 1", "park": "0.5 0.5 0.5 1"}
+STATION_COLOR = {"loading": "0.1 0.7 0.2 1", "delivery": "0.1 0.3 0.9 1", "park": "0.5 0.5 0.5 1",
+                 "pick": "0.9 0.8 0.1 1", "dock": "0.9 0.5 0.1 1", "queue": "0.95 0.75 0.5 1",
+                 "home": "0.5 0.5 0.5 1", "pallet": "0.6 0.2 0.7 1"}
 
 
 def make_world(layout: dict) -> str:
@@ -324,13 +347,14 @@ def make_world(layout: dict) -> str:
 # ---- sim2d ---------------------------------------------------------------------------------------------------
 
 def make_sim2d(layout: dict, verts: dict, edges: list) -> dict:
-    return {
+    out = {
         "name": layout["name"],
         "bounds": {k: layout["bounds"][k] for k in sorted(layout["bounds"])},
         "racks": [{"name": r["name"], "x_min": r["x_min"], "y_min": r["y_min"], "x_max": r["x_max"],
                    "y_max": r["y_max"], "height_m": r.get("height_m", 2.0)}
                   for r in sorted(layout["racks"], key=lambda r: r["name"])],
-        "vertices": {n: {"x": verts[n]["x"], "y": verts[n]["y"], "kind": verts[n]["kind"]} for n in sorted(verts)},
+        "vertices": {n: {k: verts[n][k] for k in ("x", "y", "kind", "queue_of", "queue_index") if k in verts[n]}
+                     for n in sorted(verts)},
         "edges": [{"from": e["from"], "to": e["to"], "length_m": e["length_m"], "zone": e["zone"]} for e in edges],
         "zones": [{"name": z["name"], "polygon": [[r3(x), r3(y)] for x, y in z["polygon"]],
                    "entries": [{"entry": e["entry"], "hold": e["hold"]} for e in z["entries"]]}
@@ -338,6 +362,9 @@ def make_sim2d(layout: dict, verts: dict, edges: list) -> dict:
         "spawn": [{"robot_id": s["robot_id"], "vertex": s["vertex"], "yaw": float(s.get("yaw", 0.0))}
                   for s in layout["spawn"]],
     }
+    if layout["schema_version"] >= 2:
+        out["aisles"] = _aisles(layout)
+    return out
 
 
 # ---- driver --------------------------------------------------------------------------------------------------
