@@ -75,6 +75,8 @@ decision afterwards.
 | **G3** | first GUI run (M4) | async | Verified by screenshot (noVNC route: captured in the built-in browser; WSLg route: window capture). User glances when convenient. |
 | **G4** | Day-2 go/no-go (M5) | async | GO if design §15.2 criteria pass 3 runs in a row (logged); otherwise I apply the §15.3 cuts in order and log each. |
 | **G5** | v1 release (after M9) | **blocking** | User watches the demo, records/approves the video. I prepare everything incl. the `v1.0.0` tag command; tagging stays with the user (AGENTS.md §4). |
+| **G6** | v2 contracts (M12) | ✅ pre-approved 2026-10-11 | The user pre-approved the v2 contract changes listed in [decision 002](decisions/002-v2-contract-preapproval.md). Anything beyond that list stops for the user. |
+| **G7** | v2 release (after M17) | **blocking** | User watches the v2 demo; I propose the `v2.0.0` tag (name + commit) and create it only after explicit approval. |
 
 Between gates I work without asking, inside AGENTS.md rules. I also stop and ask if: a fix would change a frozen
 contract, the v1 scope or a user decision; something needs a new install on the host; or the same failure survives
@@ -226,6 +228,31 @@ Each item = one task card + lead tests + one subagent (Sonnet unless noted), mec
   improvement as done (with commit) or deferred (with reason).
 - **Exit:** G5 (the user reviews the retrospective together with the demo).
 
+## 4.1 v2 milestones
+
+Source: [`improvements_v2.md`](improvements_v2.md); the **success criterion of every item is in its §14** and is each
+card's definition of done (plus `ci.sh` green and a log entry). Run from M10 to G7 without stopping, except for the
+reasons in §2 (a contract change beyond decision 002, a host install, the same failure after three fixes) and G7.
+
+**Lanes.** Gazebo work is serial (lead, sim lock, ≤ 20-min headless sessions, each running a pre-written scenario list
+that answers several criteria at once). Sim-free cards run beside it, ≤ 3 subagents: haiku for sweeps (X-02, X-03,
+X-08), sonnet for sim2d, layoutgen, order generator, orchestrator/agent cards and reviews; lead for contracts, lead
+tests, Nav2/Gazebo and integration. Assignment questions are tried in sim2d before Gazebo.
+
+| M | Goal | Items | Lead/sim work | Parallel sim-free work |
+|---|---|---|---|---|
+| M10 | Clean-up + v1 baseline | X-01 … X-03, X-05, X-08, X-10 (X-06 alongside M11–M14) | X-01, X-05, X-10 | X-02, X-03, X-08, X-06 |
+| M11 | Light mode | X-09, C-03 | integration | sim2d card(s) |
+| M12 | Contract branch `lead/contract-v2` | L-07, O-01, O-04, F-06, angular speed | contracts, fixtures, v1 regression run | reviewer pass |
+| M13 | v2 layout + shelf orders | L-01 … L-06, P-02 | Gazebo check of the world | layoutgen, order generator |
+| M14 | Local navigation | N-01 … N-04, N-07 … N-09, then N-05, N-06 | all (Nav2, BT, URDF) | M15 cards |
+| M15 | Assignment only + picking | O-01 … O-05, O-07, O-08, P-01, P-03 | lead tests, Gazebo 4-robot run | orchestrator + agent cards, reviewer |
+| M16 | Pallets | F-01 … F-05 | all | pallet orders in sim2d |
+| M17 | Realism ladder + benchmarks | I-01, I-03, E-01, E-02, C-01 | all runs | metrics scripts |
+| G7 | v2 release | README, design, demo | — | doc sweep |
+
+Each milestone ends like v1 (§2.1): ff-merge to `main`, push, §5 row updated, agent-log entry with the evidence.
+
 ## 5. Status
 
 | Milestone | Status |
@@ -239,4 +266,12 @@ Each item = one task card + lead tests + one subagent (Sonnet unless noted), mec
 | M6 | ✅ done 2026-10-09 — 14 and 10 deliveries / 10 min unattended; packages visible; decisions consistent; contract change request (hold positions) for the user |
 | M7 | ✅ done 2026-10-09 — corridor n=3: FCFS 6.0 vs independent 3.0 deliveries, wait 56 vs 118 s; fresh clone + one-command up verified; cold build 10 min |
 | M8 | ✅ done 2026-10-10 — controller starvation and in-aisle reversals fixed; corridor n=3: FCFS 7.0 ± 0.0 vs independent 3.3 deliveries, 0 stuck; 10-min demo 15 deliveries, 0 stuck; §15.4 checked (tag + video with the user) |
-| M9 | ✅ done 2026-10-10 — retrospective (`docs/retrospective_v1.md`); T018–T020 safety hardening (each reviewed twice), CI referee fixes, docs/ports; M9 demo 15 deliveries, 0 stuck; §15.4 re-checked → **G5 waiting for the user** |
+| M9 | ✅ done 2026-10-10 — retrospective (`docs/retrospective_v1.md`); T018–T020 safety hardening (each reviewed twice), CI referee fixes, docs/ports; M9 demo 15 deliveries, 0 stuck; §15.4 re-checked; G5 passed (`v1.0.0` tagged 2026-10-11) |
+| M10 | ⏳ next — v2 plan accepted 2026-10-11 (`improvements_v2.md` rev 4, decision 002) |
+| M11 | open |
+| M12 | open |
+| M13 | open |
+| M14 | open |
+| M15 | open |
+| M16 | open |
+| M17 | open |

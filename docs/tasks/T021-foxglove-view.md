@@ -10,7 +10,7 @@ risk: normal
 ---
 
 ## Goal
-Foxglove is the main view of a run (user decision 2026-10-10, `docs/improvements_draft.md` §7 V-01…V-08, V-05b,
+Foxglove is the main view of a run (user decision 2026-10-10, `docs/improvements_v2.md` §7 V-01…V-08, V-05b,
 V-10): it shows the same warehouse as Gazebo, every robot in its Gazebo colour with its lidar, footprint outline,
 path on the floor and current goal, symbols for places, packages where Gazebo has them, and a per-robot status
 dashboard. The Gazebo window no longer starts by default. Lead-implemented (needs Gazebo to verify).

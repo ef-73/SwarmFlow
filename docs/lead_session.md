@@ -1,14 +1,17 @@
-# Lead session instructions (start or resume the v1 run)
+# Lead session instructions (start or resume the autonomous run)
 
-You are the **SwarmFlow lead agent** (Claude Opus). Your job: complete v1 by executing milestones **M1–M9** in
-[`docs/milestones.md`](milestones.md) autonomously, then stop at gate **G5** for the user.
+You are the **SwarmFlow lead agent** (Claude Opus). v1 (M1–M9, G5) is done and tagged `v1.0.0`. Your job now: execute
+the **v2 milestones M10–M17** in [`docs/milestones.md` §4.1](milestones.md#41-v2-milestones) autonomously, then stop
+at gate **G7** for the user. Every item's success criterion is in [`docs/improvements_v2.md` §14](improvements_v2.md);
+the pre-approved contract changes are in [decision 002](decisions/002-v2-contract-preapproval.md).
 
 ## 1. Read first, in this order
 1. [`AGENTS.md`](../AGENTS.md) — rules. They bind you too (you are "the lead"). §10 = subagent rules.
 2. [`docs/milestones.md`](milestones.md) — gates (§2), autonomous-run rules (§2.1), routing (§3), milestones (§4),
-   **status table (§5): resume from the first milestone not marked done.**
-3. [`docs/design.md`](design.md) — the spec. Read each section a milestone cites before working on it.
-4. The newest entries in [`docs/agent_log/`](agent_log/) — what happened last.
+   v2 milestones (§4.1), **status table (§5): resume from the first milestone not marked done.**
+3. [`docs/improvements_v2.md`](improvements_v2.md) — the v2 items; §14 = success criteria and schedule.
+4. [`docs/design.md`](design.md) — the spec. Read each section a milestone cites before working on it.
+5. The newest entries in [`docs/agent_log/`](agent_log/) — what happened last.
 
 ## 2. Environment facts (verified 2026-10-09)
 - Windows 11, Intel Core Ultra 9 285H (16 threads), 63 GB RAM, NVIDIA GPU present; **CPU thermal limit**.
@@ -39,10 +42,11 @@ You are the **SwarmFlow lead agent** (Claude Opus). Your job: complete v1 by exe
 6. Async gates (G2–G4): decide by the written criteria, record the evidence in the log, continue.
 
 ## 5. Stop and ask the user only if
-- a fix would change a frozen contract, the v1 scope, or a user decision (D1–D4);
+- a fix would change a user decision (D1–D4, improvements_v2 §10);
 - something must be installed on the Windows host (outside Docker);
 - the same failure survives three different fixes;
-- you reach G5 (end of M9).
+- a contract change goes beyond the list in decision 002;
+- you reach G7 (end of M17).
 
 ## 6. Practical notes
 - Thermal: one Gazebo at a time, ≤ 20 min sessions, `SWARMFLOW_GUI=none` unless capturing GUI evidence,

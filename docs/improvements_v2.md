@@ -1,8 +1,10 @@
-# SwarmFlow v2 improvements — draft (2026-10-10, rev 2)
+# SwarmFlow v2 improvements (rev 4, 2026-10-11)
 
-Status: **draft, being edited with the user.** Done so far (2026-10-11): `v1.0.0` tagged; the Foxglove view and
-both dashboards (§7: V-01 … V-08, V-05b, V-10) in T021/T022, on `main`. Everything else below is still open. Nothing here is a task card yet. Once the open questions (§10)
-are answered, the lead turns the items into cards under `docs/tasks/`.
+Status: **accepted; being executed** as milestones M10–M17 in [`milestones.md` §4.1](milestones.md#41-v2-milestones).
+Done so far: `v1.0.0` tagged; the Foxglove view and both dashboards (§7: V-01 … V-08, V-05b, V-10) in T021/T022;
+X-04, X-07. **Every open item has a success criterion and a milestone in §14**; the lead turns each milestone's items
+into task cards under `docs/tasks/` when the milestone starts. Contract changes in §14 (M12) were pre-approved by the
+user on 2026-10-11 ([decision 002](decisions/002-v2-contract-preapproval.md)).
 
 Tags: **[contract]** changes a frozen contract (AGENTS.md §2) and needs a `lead/contract-*` branch and the user's
 approval · **[sim]** needs Gazebo runs by the lead · **S/M/L** = rough size.
@@ -201,8 +203,7 @@ Use it only as an experiment, not as a way to reduce privilege.
 - **E-01** Benchmark on the new layout: orders/hour, pallet moves/hour, average task time, near misses (closest
   approach), stuck/blocked count. Compare: v1 reservations vs local-only navigation, ± prediction (N-05), ± realism (I-01).
 - **E-02** 3+ demo runs of 10 min each.
-- **v1.1 leftovers:** container healthchecks and restart policies; `ci.sh` branch names like `T018b`; no fixed
-  sleeps in tests; occasional GitHub Actions failures; license.
+- **v1.1 leftovers:** see X-06 (license done, X-07).
 
 ## 9. Suggested order
 
@@ -233,6 +234,10 @@ The light mode (X-09 / C-03) is built before step 3, so steps 3–6 can be tried
 10. **Dock unloading:** 5 s boxes, 10 s pallets; robots queue in a lane per dock (O-05).
 11. **Navigation overlay** per robot in its colour: footprint, path on the floor, goal; symbols for places (V-05b).
 
+## 11. Your additions
+
+<!-- add items here; give them any id, the lead will renumber -->
+
 ## 12. Further items (lead review, 2026-10-11; all accepted by the user)
 
 | # | Suggestion | Why | Size |
@@ -245,11 +250,48 @@ The light mode (X-09 / C-03) is built before step 3, so steps 3–6 can be tried
 | X-06 | v1.1 leftovers from the retrospective: container healthchecks + restart policies, 19 fixed sleeps in tests, `ci.sh` branch names like `T018b`, batch scripts that kill their children, a "control loop missed" counter, the undiagnosed GitHub Actions failures | Robustness of runs and CI | M |
 | X-07 | **Done:** MIT (user decision 2026-10-11), `LICENSE` + all package manifests | Still missing | S |
 | X-08 | Clear the `[U]` (unverified) notes in `payload_node.py`; the code has worked in every run since M4 | Misleading comments | S |
-| X-09 | Run the 2D sim (`sim2d/`) as the planned light mode early, before the new layout, so new assignment logic can be tested without Gazebo | Saves Gazebo time on every later step | M |
+| X-09 | Run the 2D sim (`sim2d/`) as the planned light mode early, before the new layout, so new assignment logic can be tested without Gazebo (`sim2d/` is a ~400-line skeleton today, so L rather than M) | Saves Gazebo time on every later step | L |
 | X-10 | One benchmark scenario on the *current* layout before the rework (baseline numbers to compare v2 against) | Otherwise v2 has nothing to beat | S |
 
 Non-blocking actions for the user live in [`docs/user_todo.md`](user_todo.md).
 
-## 11. Your additions
+## 13. Gaps found in the plan review (2026-10-11), resolved
 
-<!-- add items here; give them any id, the lead will renumber -->
+1. **`RobotState` has no angular speed**; N-05 prediction would be straight-line only. → add `angular_speed` (M12).
+2. **"BLOCKED" is not a mode.** → robots report it as `MODE_STUCK` with `fault_reason = "blocked"`; no new constant.
+   New modes `MODE_LIFTING`, `MODE_CARRYING` for pallets (F-06).
+3. **Dock-queue moves (O-05) need a mechanism.** → the orchestrator cancels the robot's current goal and dispatches a
+   single-goal task to the next queue spot. Queue spots are stations of type `queue` (L-03, L-07).
+4. **Keep-right lane masks (N-09) need a home** → a `lanes` entry in the layout sidecar schema (L-07).
+5. `Order` is embedded in `DispatchTask`, so O-04/F-06 also change the action. `route` stays `string[]` of vertex
+   names (pick points are vertices, L-02): O-01 is a change of meaning only.
+6. **O-06 deferred:** only the reservation baseline uses leases; not worth a contract change.
+7. **Deferred, not built in v2.0:** I-02, N-05b, V-09, O-06 (reasons above and in §6/§3/§7).
+
+## 14. Schedule and success criteria (authoritative)
+
+"Gz ×3" = passes in 3 consecutive headless Gazebo runs, numbers logged. Each card's definition of done = its line
+here + `scripts/ci.sh` green + an agent-log entry.
+
+| Milestone | Items | Success |
+|---|---|---|
+| **M10** clean-up + baseline | X-02 | no `robot_markers`/`zone_markers`/`markers.py`/`swarmflow_v1` left outside history; viz tests green; v2 Foxglove layout unchanged |
+| | X-03 | design §11.1 and §8.3 match compose and configs; doc sweep finds 0 stale references |
+| | X-08 | no `[U]` in `src/swarmflow_payload/`; tests green |
+| | X-05 | `git worktree list` = main + active only; unused swarmflow volumes removed; build cache pruned (images kept); Foxglove duplicates on `user_todo.md` |
+| | X-01 | `viz` ≤ 0.3 core avg over 60 s with 3 robots (was ~0.9); Foxglove view unchanged |
+| | X-10 | `docs/results/v1_baseline.md`: `v1_demo`, 3 × 10 min: deliveries/h, mean task time, stuck, min separation (mean ± sd) |
+| | X-06 (alongside M11–M14) | healthcheck + restart policy on every long-running service; 0 fixed sleeps in tests; `ci.sh` accepts `T018b`-style ids (test); control-loop-missed counter logged; GitHub Actions failures root-caused and fixed |
+| **M11** light mode | X-09, C-03 | `sim2d` runs the unchanged orchestrator + robot-agent logic with simple avoidance, same topics (v2 Foxglove layout works); 10 robots × 10 sim-min ≤ 1 core avg; same seed → identical delivery log; `docker compose --profile light up` |
+| **M12** contracts (pre-approved) | L-07, O-01, O-04, F-06, gaps 1–5 | `ci.sh` green on `lead/contract-v2`; all packages build; reviewer 0 open high findings; v1 demo with `traffic_control: true` ≥ 15 deliveries / 10 min, 0 stuck (Gz ×1, sim2d ×3) |
+| **M13** layout + shelf orders | L-01 … L-06, P-02 | generator builds `layouts/warehouse_v2/`; tests: central aisle 4.0 m, storage aisles 2.2 m (±1 cm), dead ends, 2 × 5 rows, pick points every 2 m both faces, 4 docks × 3 queue spots, ≥ 6 home slots, pallet grid; `standard` byte-identical; order generator seeded/reproducible, 1–N valid picks + dock; one robot reaches a pick point per block and every dock (Gz ×1); Foxglove matches Gazebo (screenshots) |
+| **M14** local navigation | N-01, N-02, N-07 | head-on in central aisle and pass-a-parked-robot: Gz ×3, no contact, ≥ 0.15 m between footprints |
+| | N-03, N-04 | no `Spin` in any BT; blocked robot probes, backs up, reports `MODE_STUCK/blocked` within 30 s; probe node unit-tested |
+| | N-08 | two robots meeting in a dead-end aisle resolve within 60 s, 5/5 |
+| | N-09 | ≥ 80 % of central-aisle pose samples on the right half; still passes an obstacle on the left |
+| | N-05 (a, b) | crossing scenario: fewer near misses (< 0.3 m) than without prediction, 3 runs each; avoidance works with the orchestrator stopped |
+| | N-06 | scan covers 360° minus ≤ 4 masked sectors of ≤ 5°; no returns from own posts |
+| **M15** assignment only + picking | O-01 … O-05, O-07, O-08, P-01, P-03 | lead tests green (goal lists, nearest-next, cost explanation, determinism, dock queue, requeue vs retries, pick = arrival) + reviewer pass adjudicated; sim2d 10 robots × 10 min on v2: every order delivered or explained, 0 deadlocks; Gazebo 4 robots × 10 min: ≥ 1 delivery per dock, 0 collisions; CLI and Foxglove Publish orders delivered |
+| **M16** pallets | F-01 … F-05 | robot docks under a pallet stand (≤ 3 cm lateral error), lifts, carries, sets down, leaves: 5/5; footprint switches (recorded); no scan returns from carried legs; mixed scenario delivers a pallet order |
+| **M17** realism + benchmarks | I-01, I-03, E-01, E-02, C-01 | `docs/results/v2_realism_ladder.md` (4 rungs × 3 runs); AMCL default if within 10 % of ground-truth throughput (else reason logged); `docs/results/v2_benchmarks.md` vs X-10 baseline; CPU per container; 3 × 10-min demos with 4–5 robots, 0 collisions |
+| **G7** v2 release (blocking) | — | README/design updated; user watches the demo; `v2.0.0` tag only after the user approves name and commit |
