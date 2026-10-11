@@ -113,3 +113,141 @@ def test_forward_only_states_never_regress_on_late_snapshots():
     c.update_robot(snap("robot_1", "X_0_1", RobotMode.NAVIGATING, a.task_id, "s1", nxt="DK2"))
     assert states(c.tick(3.0), "s1") == []
     assert c.order_state("s1") == OrderState.IN_TRANSIT
+
+
+# ---- review fixes (H1, M1-M4, L1, L3) ---------------------------------------------------------------------------
+
+import pytest  # noqa: E402
+
+from swarmflow_core.api import RobotSnapshot  # noqa: E402
+
+
+def test_h1_stale_last_vertex_does_not_credit_a_pick():
+    c = _core()
+    c.update_robot(snap("r1", "DK1"))                    # just delivered at DK1; last_vertex stays DK1
+    c.add_order(shelf("o2", ["DK1"], "DK2"))             # worst case: the pick equals the stale vertex
+    tid = only(c.tick(1.0).dispatches, "r1").task_id
+    c.update_robot(snap("r1", "DK1", RobotMode.NAVIGATING, tid, "o2", nxt="DK1"))
+    out = c.tick(2.0)
+    assert states(out, "o2") == [] and c.order_state("o2") == OrderState.ASSIGNED
+    c.task_result(tid, False, "NAV_FAILED:DK1", 3.0)
+    out = c.tick(3.0)
+    assert states(out, "o2") == [OrderState.QUEUED]      # requeued (not loaded), pick not dropped
+    # credited only after last_vertex left the baseline, in goal order
+    c.update_robot(snap("r1", "HM2"))
+    tid = only([d for d in c.tick(4.0).dispatches if d.order_id], "r1").task_id
+    c.update_robot(snap("r1", "X_0_1", RobotMode.NAVIGATING, tid, "o2", nxt="DK1"))
+    c.tick(5.0)
+    c.update_robot(snap("r1", "DK1", RobotMode.NAVIGATING, tid, "o2", nxt="DK2"))
+    assert states(c.tick(6.0), "o2") == [OrderState.PICKING_UP, OrderState.IN_TRANSIT]
+
+
+def test_h1_final_goal_is_never_credited_from_last_vertex():
+    c = _core()
+    c.update_robot(snap("r1", "HM2"))
+    c.add_order(shelf("o", ["PK_A_1"], "DK2"))
+    tid = only(c.tick(1.0).dispatches, "r1").task_id
+    c.update_robot(snap("r1", "DK2", RobotMode.UNLOADING, tid, "o"))   # skipped the pick in the snapshots
+    c.tick(2.0)
+    assert c.order_state("o") == OrderState.ASSIGNED
+
+
+def test_m1_down_waiting_robot_releases_dock_queue_slot():
+    c = _core()
+    for r, at in (("r1", "HM3"), ("r2", "HM2"), ("r3", "HM1")):
+        c.update_robot(snap(r, at))
+    for i, p in enumerate(["PK_B_1", "PK_A_1", "PK_A_2"]):
+        c.add_order(shelf(f"s{i + 1}", [p], "DK1", t=0.1 * i))
+    out = c.tick(1.0)
+    q1 = [d for d in out.dispatches if d.route[-1] == "Q_DK1_1"][0]
+    c.task_result(q1.task_id, True, "", 4.0)
+    c.update_robot(snap(q1.robot_id, "Q_DK1_1", RobotMode.FAULT, "", q1.order_id, fault="X"))
+    c.tick(4.0)
+    assert c.order_state(q1.order_id) == OrderState.IN_TRANSIT
+    out = c.tick(4.0 + api.BLOCKED_REQUEUE_S + 0.1)
+    assert c.order_state(q1.order_id) == OrderState.FAILED
+    assert [x.failure_reason for x in out.status_changes if x.state == OrderState.FAILED] == \
+        [api.FAILURE_STUCK_AFTER_PICKUP]
+    assert "Q_DK1_1" not in c._spot_owner
+
+
+def test_m2_failed_home_slot_expires_and_success_clears():
+    c = _core()
+    c.update_robot(snap("robot_1", "X_0_1"))
+    c.update_robot(snap("robot_2", "HM3"))
+    h = only(c.tick(1.0).dispatches, "robot_1")
+    assert h.route == ("HM2",)
+    c.task_result(h.task_id, False, api.FAILURE_NAV_PREFIX + "HM2", 2.0)
+    h = only(c.tick(2.0).dispatches, "robot_1")
+    assert h.route == ("HM1",)
+    c.task_result(h.task_id, False, api.FAILURE_NAV_PREFIX + "HM1", 3.0)
+    assert not c.tick(3.0).dispatches                       # both slots marked bad, HM3 taken
+    out = c.tick(3.0 + 121.0)
+    assert only(out.dispatches, "robot_1").route == ("HM2",)  # entries expired
+    c._bad_home["robot_1"] = {"HM2": 200.0}
+    c.add_order(shelf("s1", ["PK_A_1"], "DK2", t=0.0))
+    c.update_robot(snap("robot_1", "X_0_1"))
+    a = only([d for d in c.tick(130.0).dispatches if d.order_id], "robot_1")
+    c.task_result(a.task_id, True, "", 140.0)
+    c.tick(140.0)
+    assert "robot_1" not in c._bad_home
+
+
+def test_m3_requeues_are_capped():
+    c = _core()
+    c.add_order(shelf("s1", ["PK_A_2"], "DK2"))
+    reason = api.FAILURE_NAV_PREFIX + "PK_A_2"
+    t = 1.0
+    for i in range(api.MAX_LOADED_RETRIES):
+        c.update_robot(snap("robot_1", "HM2"))
+        a = only([d for d in c.tick(t).dispatches if d.order_id], "robot_1")
+        c.task_result(a.task_id, False, reason, t + 1)
+        assert OrderState.QUEUED in states(c.tick(t + 1), "s1")
+        t += 10.0
+    c.update_robot(snap("robot_1", "HM2"))
+    a = only([d for d in c.tick(t).dispatches if d.order_id], "robot_1")
+    c.task_result(a.task_id, False, reason, t + 1)
+    out = c.tick(t + 1)
+    assert [x.failure_reason for x in out.status_changes if x.state == OrderState.FAILED] == [reason]
+    assert any(x.decision_type == api.DecisionType.STUCK_FAIL for x in out.decisions)
+
+
+def test_m4_home_uses_pose_not_stale_last_vertex():
+    c = _core()
+    x, y, _ = V["X_0_1"]
+    stale = RobotSnapshot("robot_1", float(x), float(y), 0.0, RobotMode.IDLE, last_vertex="HM1")
+    hx, hy, _ = V["HM2"]
+    parked = RobotSnapshot("robot_2", float(hx), float(hy), 0.0, RobotMode.IDLE, last_vertex="X_0_5")
+    c.update_robot(stale)
+    c.update_robot(parked)
+    out = c.tick(1.0)
+    assert [(d.robot_id, tuple(d.route)) for d in out.dispatches] == [("robot_1", ("HM1",))]   # HM2 taken by pose
+
+
+def test_l1_cancelled_set_is_pruned():
+    c = _core()
+    c.update_robot(snap("robot_1", "HM3"))
+    c.update_robot(snap("robot_2", "HM2"))
+    c.add_order(shelf("s1", ["PK_B_1"], "DK1"))
+    c.add_order(shelf("s2", ["PK_A_1"], "DK1", t=0.1))
+    out = c.tick(1.0)
+    a1 = only(out.dispatches, "robot_1")
+    a2 = only(out.dispatches, "robot_2")
+    c.update_robot(snap("robot_2", "PK_A_1", RobotMode.NAVIGATING, a2.task_id, "s2", nxt="Q_DK1_1"))
+    c.task_result(a1.task_id, True, "", 5.0)
+    c.update_robot(snap("robot_1", "DK1"))
+    assert a2.task_id in c.tick(5.0).cancels
+    assert a2.task_id in c._cancelled
+    c.tick(5.0 + 61.0)
+    assert not c._cancelled
+    assert a1.task_id not in c._task_robot
+
+
+def test_l3_duplicate_order_id_rejected():
+    c = _core()
+    c.add_order(shelf("s1", ["PK_A_1"], "DK1"))
+    with pytest.raises(ValueError):
+        c.add_order(shelf("s1", ["PK_A_2"], "DK1"))
+    c.tick(1.0)
+    with pytest.raises(ValueError):
+        c.add_order(shelf("s1", ["PK_A_2"], "DK1"))

@@ -28,6 +28,7 @@ Design notes
 from __future__ import annotations
 
 import dataclasses
+import math
 import re
 from dataclasses import dataclass, field
 from typing import Dict, List, Mapping, Optional, Set, Tuple
@@ -42,6 +43,7 @@ _FORWARD = [OrderState.QUEUED, OrderState.ASSIGNED, OrderState.PICKING_UP, Order
             OrderState.DELIVERED]
 _RANK = {s: i for i, s in enumerate(_FORWARD)}
 _ACTIVE = (OrderState.ASSIGNED, OrderState.PICKING_UP, OrderState.IN_TRANSIT)
+BAD_HOME_TTL_S = 120.0   #: a failed home slot is avoided for this long (cleared earlier by any success)
 _QUEUE_NAME = re.compile(r"Q_(.+)_(\d+)")
 
 
@@ -67,6 +69,8 @@ class _Task:
     order_id: str                     #: "" for a home task
     goals: Tuple[str, ...] = ()
     reached: int = 0                  #: leading goals known reached
+    baseline: str = ""                #: robot last_vertex at dispatch; goals are credited only after it changes
+    moved: bool = False
 
 
 class FleetCoreV2:
@@ -90,12 +94,14 @@ class FleetCoreV2:
         self._results: List[TaskResult] = []
         self._tasks: Dict[str, _Task] = {}
         self._task_robot: Dict[str, str] = {}
-        self._cancelled: Set[str] = set()                  # tasks the core cancelled itself
+        self._cancelled: Dict[str, Tuple[float, str]] = {}               # tasks the core cancelled itself -> time
+        self._now = 0.0
+        self._down_since: Dict[str, float] = {}            # robot -> first tick seen FAULT/STUCK while waiting
         self._order_of_robot: Dict[str, str] = {}          # robot -> its active order
         self._home_task_of_robot: Dict[str, str] = {}
         self._home_target: Dict[str, str] = {}             # home task id -> slot
         self._home_seq: Dict[str, int] = {}
-        self._bad_home: Dict[str, Set[str]] = {}           # robot -> slots whose home task failed
+        self._bad_home: Dict[str, Dict[str, float]] = {}    # robot -> slot -> time its home task failed
         self._holder: Dict[str, str] = {}                  # dock -> order
         self._spot_owner: Dict[str, str] = {}              # queue spot -> order
         self._blocked_since: Dict[str, float] = {}
@@ -105,6 +111,8 @@ class FleetCoreV2:
     def add_order(self, order: OrderSpec) -> None:
         if order.order_type not in (api.ORDER_SHELF, api.ORDER_PALLET):
             raise ValueError(f"FleetCoreV2 supports shelf and pallet orders, got {order.order_type!r}")
+        if order.order_id in self._orders or any(o.order_id == order.order_id for o in self._pending):
+            raise ValueError(f"duplicate order id {order.order_id!r}")
         self._pending.append(order)
         self._pending.sort(key=lambda o: (o.release_t, o.order_id))
 
@@ -129,8 +137,18 @@ class FleetCoreV2:
 
     # ---- helpers ----------------------------------------------------------------------------------------------
 
+    def _near(self, s: RobotSnapshot, vertex: str) -> bool:
+        v = self.graph.vertices.get(vertex)
+        return v is not None and math.hypot(s.x - v.x, s.y - v.y) <= api.GOAL_TOLERANCE_M
+
     def _vertex(self, s: RobotSnapshot) -> str:
-        return s.last_vertex or self.graph.nearest_vertex(s.x, s.y)
+        """Start vertex for path distance: last_vertex only while the pose confirms it (it can be stale)."""
+        if s.last_vertex and self._near(s, s.last_vertex):
+            return s.last_vertex
+        return self.graph.nearest_vertex(s.x, s.y)
+
+    def _at_home(self, s: RobotSnapshot) -> bool:
+        return any(self._near(s, h) for h in self.graph.vertices_of_kind("home"))
 
     def _available(self, s: RobotSnapshot) -> bool:
         if s.mode in (RobotMode.STUCK, RobotMode.FAULT):
@@ -172,7 +190,8 @@ class FleetCoreV2:
     def _cancel_task(self, out: TickOutput, rec: _Order) -> None:
         if rec.task_id:
             self._tasks.pop(rec.task_id, None)
-            self._cancelled.add(rec.task_id)
+            self._cancelled[rec.task_id] = (self._now, rec.robot_id)
+            self._task_robot.pop(rec.task_id, None)
             out.cancels.append(rec.task_id)
             rec.task_id = ""
         self._blocked_since.pop(rec.robot_id, None)
@@ -186,7 +205,11 @@ class FleetCoreV2:
         base = f"task_{rec.spec.order_id}"
         return base if n == 0 else f"{base}_{n}"
 
-    def _requeue(self, out: TickOutput, t: float, rec: _Order, trigger: str, forced_home: Set[str]) -> None:
+    def _requeue(self, out: TickOutput, t: float, rec: _Order, trigger: str, forced_home: Set[str],
+                 reason: str = "") -> None:
+        if rec.attempts >= api.MAX_LOADED_RETRIES:                 # requeues are capped like loaded retries
+            self._fail(out, t, rec, reason or api.FAULT_BLOCKED, trigger, forced_home)
+            return
         robot = rec.robot_id
         self._release_claims(rec)
         self._drop_robot(rec)
@@ -226,6 +249,11 @@ class FleetCoreV2:
 
     def tick(self, t: float) -> TickOutput:
         out = TickOutput()
+        self._now = t
+        for tid, (ts, r) in list(self._cancelled.items()):              # prune our own cancels
+            s = self._robots.get(r)
+            if t - ts > 60.0 or (s is not None and s.task_id != tid):
+                del self._cancelled[tid]
         forced_home: Set[str] = set()
         while self._pending and self._pending[0].release_t <= t:       # (1) release
             spec = self._pending.pop(0)
@@ -252,8 +280,12 @@ class FleetCoreV2:
             task = self._tasks.get(rec.task_id)
             if s is None or task is None or s.task_id != rec.task_id or s.order_id != oid:
                 continue
-            if s.last_vertex in task.goals:
-                task.reached = max(task.reached, task.goals.index(s.last_vertex) + 1)
+            # last_vertex survives between tasks (api), so credit a goal only after it moved away from the dispatch-time
+            # baseline, in goal order, and never the final goal (the task result covers it)
+            if s.last_vertex != task.baseline:
+                task.moved = True
+            if task.moved and task.reached < len(task.goals) - 1 and s.last_vertex == task.goals[task.reached]:
+                task.reached += 1
             if rec.spec.order_type == api.ORDER_SHELF:
                 rec.picks_left = list(task.goals[task.reached:-1])
                 if len(rec.picks_left) < len(rec.spec.pick_vertices):
@@ -274,17 +306,22 @@ class FleetCoreV2:
         results, self._results = self._results, []
         for res in results:
             if res.task_id in self._cancelled:
-                self._cancelled.discard(res.task_id)               # our own cancel: changes nothing
+                # our own cancel: changes nothing
+                self._cancelled.pop(res.task_id, None)
+                self._task_robot.pop(res.task_id, None)
                 continue
             task = self._tasks.pop(res.task_id, None)
             if task is None:
                 continue
+            self._task_robot.pop(res.task_id, None)
+            if res.success:
+                self._bad_home.pop(task.robot_id, None)
             if task.order_id == "":
                 if self._home_task_of_robot.get(task.robot_id) == task.task_id:
                     del self._home_task_of_robot[task.robot_id]
                 target = self._home_target.pop(task.task_id, "")
                 if not res.success and target:
-                    self._bad_home.setdefault(task.robot_id, set()).add(target)
+                    self._bad_home.setdefault(task.robot_id, {})[target] = t
                 continue
             rec = self._orders[task.order_id]
             if rec.task_id != task.task_id:
@@ -307,7 +344,7 @@ class FleetCoreV2:
             elif self._loaded(rec):
                 self._retry_or_fail(out, t, rec, reason, trigger, forced_home)
             else:
-                self._requeue(out, t, rec, trigger, forced_home)
+                self._requeue(out, t, rec, trigger, forced_home, reason)
 
     # ---- (4) blocked robots ---------------------------------------------------------------------------------------
 
@@ -316,6 +353,19 @@ class FleetCoreV2:
             s = self._robots[rid]
             oid = self._order_of_robot.get(rid)
             rec = self._orders.get(oid) if oid else None
+            if rec is not None and rec.task_id == "" and not rec.followup and s.mode in (RobotMode.FAULT,
+                                                                                        RobotMode.STUCK):
+                # waiting robot (e.g. at a queue spot) that is down: do not hold the dock forever
+                since = self._down_since.setdefault(rid, t)
+                if t - since >= api.BLOCKED_REQUEUE_S:
+                    del self._down_since[rid]
+                    trigger = f"robot_down:{s.mode.value}"
+                    if self._loaded(rec):
+                        self._fail(out, t, rec, api.FAILURE_STUCK_AFTER_PICKUP, trigger, set())
+                    else:
+                        self._requeue(out, t, rec, trigger, set(), s.fault_reason or s.mode.value)
+                continue
+            self._down_since.pop(rid, None)
             blocked = (rec is not None and rec.task_id != "" and s.task_id == rec.task_id and s.order_id == oid
                        and s.mode == RobotMode.STUCK and s.fault_reason == api.FAULT_BLOCKED)
             if not blocked:
@@ -329,7 +379,7 @@ class FleetCoreV2:
             if self._loaded(rec):
                 self._retry_or_fail(out, t, rec, api.FAULT_BLOCKED, trigger, forced_home)
             else:
-                self._requeue(out, t, rec, trigger, forced_home)
+                self._requeue(out, t, rec, trigger, forced_home, api.FAULT_BLOCKED)
 
     # ---- (5) dock queues ------------------------------------------------------------------------------------------
 
@@ -375,7 +425,9 @@ class FleetCoreV2:
 
     def _start_task(self, rec: _Order, goals: Tuple[str, ...]) -> str:
         task_id = self._next_task_id(rec)
-        self._tasks[task_id] = _Task(task_id, rec.robot_id, rec.spec.order_id, goals)
+        snap = self._robots.get(rec.robot_id)
+        self._tasks[task_id] = _Task(task_id, rec.robot_id, rec.spec.order_id, goals,
+                                     baseline=snap.last_vertex if snap else "")
         self._task_robot[task_id] = rec.robot_id
         rec.task_id = task_id
         self._blocked_since.pop(rec.robot_id, None)
@@ -434,7 +486,7 @@ class FleetCoreV2:
             if home is not None:
                 self._tasks.pop(home, None)
                 self._home_target.pop(home, None)
-                self._cancelled.add(home)
+                self._cancelled[home] = (self._now, a.robot_id)
                 out.cancels.append(home)
             rec.robot_id, rec.target, rec.retries = a.robot_id, target, 0
             rec.picks_left = goals[:-1]
@@ -446,12 +498,18 @@ class FleetCoreV2:
 
     # ---- (8) home slots -------------------------------------------------------------------------------------------
 
-    def _issue_home(self, out: TickOutput, robot: RobotSnapshot) -> bool:
+    def _issue_home(self, out: TickOutput, robot: RobotSnapshot, t: float) -> bool:
         rid = robot.robot_id
-        taken = {self._vertex(s) for r, s in self._robots.items() if r != rid}
+        taken = {h for h in self.graph.vertices_of_kind("home")
+                 if any(self._near(s, h) for r, s in self._robots.items() if r != rid)}
         taken |= {self._home_target[tid] for r, tid in self._home_task_of_robot.items()
                   if r != rid and tid in self._home_target}
-        taken |= self._bad_home.get(rid, set())
+        bad = {v: ts for v, ts in self._bad_home.get(rid, {}).items() if t - ts <= BAD_HOME_TTL_S}
+        if bad:
+            self._bad_home[rid] = bad
+        else:
+            self._bad_home.pop(rid, None)
+        taken |= set(bad)
         start = self._vertex(robot)
         best = None
         for slot in self.graph.vertices_of_kind("home"):
@@ -469,7 +527,7 @@ class FleetCoreV2:
         if old is not None:
             self._tasks.pop(old, None)
             self._home_target.pop(old, None)
-            self._cancelled.add(old)
+            self._cancelled[old] = (self._now, rid)
             out.cancels.append(old)
         n = self._home_seq.get(rid, 0) + 1
         self._home_seq[rid] = n
@@ -485,10 +543,10 @@ class FleetCoreV2:
         for rid in sorted(self._robots):
             s = self._robots[rid]
             if rid in forced_home:
-                self._issue_home(out, s)
+                self._issue_home(out, s, t)
                 continue
             if not self._available(s) or rid in self._home_task_of_robot:
                 continue
-            if self.graph.vertices[self._vertex(s)].kind == "home":
+            if self._at_home(s):
                 continue
-            self._issue_home(out, s)
+            self._issue_home(out, s, t)
