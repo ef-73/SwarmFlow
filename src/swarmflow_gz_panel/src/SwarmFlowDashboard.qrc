@@ -1,0 +1,5 @@
+<RCC>
+  <qresource prefix="SwarmFlowDashboard/">
+    <file>SwarmFlowDashboard.qml</file>
+  </qresource>
+</RCC>

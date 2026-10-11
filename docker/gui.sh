@@ -6,6 +6,8 @@ mode="${SWARMFLOW_GUI:-wslg}"
 # SwarmFlow GUI layout with the robot dashboard panel (T021), if installed
 gui_cfg=(); cfg=/ws/install/swarmflow_viz/share/swarmflow_viz/config/gazebo_gui.config
 [ -f "$cfg" ] && gui_cfg=(--gui-config "$cfg")
+# SwarmFlowDashboard panel (T022, swarmflow_gz_panel)
+export GZ_GUI_PLUGIN_PATH="/ws/install/swarmflow_gz_panel/lib/swarmflow_gz_panel${GZ_GUI_PLUGIN_PATH:+:$GZ_GUI_PLUGIN_PATH}"
 case "$mode" in
   none)
     echo "gui.sh: SWARMFLOW_GUI=none, GUI disabled"; exit 0 ;;

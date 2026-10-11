@@ -70,8 +70,8 @@ docker compose --profile gui up
 
 The Gazebo window shows the SwarmFlow overlay: a ring under each robot coloured by its status (green OK, amber
 waiting or no recent update, red stuck or fault), the robot's path on the floor and its goal disc in the robot's
-colour. The **SwarmFlow robots** panel on the right lists one status line per robot: switch **Echo** on and set
-**Buffer** to the number of robots (Gazebo's text panel cannot be preset).
+colour. The **SwarmFlow robots** panel on the right (a Gazebo GUI plugin, `src/swarmflow_gz_panel`) shows one card
+per robot: status colour, robot colour, mode, speed, goal, order and its state, load, and the age of the last update.
 
 `SWARMFLOW_GPU_ADAPTER` (default `NVIDIA`) is passed to Mesa as `MESA_D3D12_DEFAULT_ADAPTER_NAME` to pick the GPU
 adapter for the WSLg route; set it to another adapter name if you have no NVIDIA GPU (value format unverified).
@@ -330,7 +330,8 @@ scripts/ci.sh        # the referee: contract diff, owned files, hygiene, build, 
   leaving the aisle and a robot travelling on the trunk rely on Nav2's local avoidance and can come within the
   footprint padding (the 3 overlaps of the M8 demo, all at the east end of `Z_aisle_1`). Junction zones or moved
   trunks change the layout contract (listed for the user).
-- The `viz` container uses about one CPU core (Python TF relay and scene updates for 3 robots; T021 measurement).
+- The `viz` container uses about 0.9 CPU core with 3 robots (Python TF relay, scene and Gazebo overlay; T021/T022
+  measurement, not yet profiled).
 - **Open-RMF** appears only in v2 (Baseline C); v1 has no RMF or free_fleet dependency.
 
 ## Repository layout
