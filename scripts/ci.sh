@@ -49,7 +49,7 @@ glob_match() { # glob_match <path> <glob>  (** matches across /)
   local re; re="$(printf '%s' "$2" | sed -e 's/[.+^$(){}|]/\\&/g' -e 's/\*\*/\x01/g' -e 's/\*/[^\/]*/g' -e 's/?/[^\/]/g' -e 's/\x01/.*/g')"
   [[ "$1" =~ ^${re}$ ]] || [[ "$1" == "$2"/* ]] || [[ "$2" == */ && "$1" == "$2"* ]]
 }
-if [[ "$BRANCH" =~ ^ws-[a-f]/(T[0-9]{3})- ]]; then
+if [[ "$BRANCH" =~ ^ws-[a-f]/(T[0-9]{3}[a-z]?)- ]]; then
   task="${BASH_REMATCH[1]}"
   card="$(ls docs/tasks/"$task"-*.md 2>/dev/null | head -1)"
   if [ -z "$card" ]; then bad "owned-files: no task card docs/tasks/$task-*.md"
