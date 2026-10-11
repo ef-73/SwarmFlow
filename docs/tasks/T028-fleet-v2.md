@@ -2,7 +2,7 @@
 id: T028
 title: Assignment-only fleet core v2 (goal tasks, shelf/pallet orders, dock queues, blocked handling, home slots)
 workstream: B
-status: claimed
+status: review
 claimed_by: "sf-implementer"
 branch: ws-b/T028-fleet-v2
 model: sonnet

@@ -31,6 +31,12 @@ def render(decision: Decision) -> str:
     robot = d.robot_id or "no robot"
     order = d.order_id or "no order"
     if t == DecisionType.ASSIGN:
+        first, cong = _cost(d, "travel_to_first_goal_m"), _cost(d, "congestion_m")
+        if first is not None and cong is not None:
+            total_m = _cost(d, "route_total_m")
+            tail = f" (route {total_m:.1f} m)" if total_m is not None else ""
+            return (f"{robot} assigned order {order}: lowest cost, {first:.1f} m to its first goal "
+                    f"plus {cong:.1f} m congestion{tail}.")
         to_pickup, total = _cost(d, "route_to_pickup_m"), _cost(d, "route_total_m")
         if to_pickup is not None and total is not None:
             return (f"{robot} assigned order {order}: nearest available robot, {to_pickup:.1f} m to pickup "
