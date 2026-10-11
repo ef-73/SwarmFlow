@@ -41,6 +41,16 @@
       "items": {
         "type": "object", "additionalProperties": false,
         "required": ["name", "type", "pose"],
+        "allOf": [
+          {"if": {"properties": {"type": {"const": "loading"}}, "required": ["type"]}, "then": {"properties": {"name": {"pattern": "^L[1-9][0-9]*$"}}, "not": {"anyOf": [{"required": ["queue_of"]}, {"required": ["queue_index"]}]}}},
+          {"if": {"properties": {"type": {"const": "delivery"}}, "required": ["type"]}, "then": {"properties": {"name": {"pattern": "^D[1-9][0-9]*$"}}, "not": {"anyOf": [{"required": ["queue_of"]}, {"required": ["queue_index"]}]}}},
+          {"if": {"properties": {"type": {"const": "park"}}, "required": ["type"]}, "then": {"properties": {"name": {"pattern": "^P[1-9][0-9]*$"}}, "not": {"anyOf": [{"required": ["queue_of"]}, {"required": ["queue_index"]}]}}},
+          {"if": {"properties": {"type": {"const": "dock"}}, "required": ["type"]}, "then": {"properties": {"name": {"pattern": "^DK[1-9][0-9]*$"}}, "not": {"anyOf": [{"required": ["queue_of"]}, {"required": ["queue_index"]}]}}},
+          {"if": {"properties": {"type": {"const": "home"}}, "required": ["type"]}, "then": {"properties": {"name": {"pattern": "^HM[1-9][0-9]*$"}}, "not": {"anyOf": [{"required": ["queue_of"]}, {"required": ["queue_index"]}]}}},
+          {"if": {"properties": {"type": {"const": "queue"}}, "required": ["type"]}, "then": {"properties": {"name": {"pattern": "^Q_DK[1-9][0-9]*_[1-9][0-9]*$"}}, "required": ["queue_of", "queue_index"]}},
+          {"if": {"properties": {"type": {"const": "pick"}}, "required": ["type"]}, "then": {"properties": {"name": {"pattern": "^PK_[0-9A-Za-z_]+$"}}, "not": {"anyOf": [{"required": ["queue_of"]}, {"required": ["queue_index"]}]}}},
+          {"if": {"properties": {"type": {"const": "pallet"}}, "required": ["type"]}, "then": {"properties": {"name": {"pattern": "^PL_[0-9A-Za-z_]+$"}}, "not": {"anyOf": [{"required": ["queue_of"]}, {"required": ["queue_index"]}]}}}
+        ],
         "properties": {
           "name": {"$ref": "#/$defs/station_name"},
           "type": {"enum": ["loading", "delivery", "park", "pick", "dock", "queue", "home", "pallet"],
@@ -90,7 +100,7 @@
       }
     },
     "zones": {
-      "description": "Exclusive conflict zones (design §6.1, §6.5).",
+      "description": "Conflict zones (design §6.1, §6.5). v2 layouts use an empty list by default (no traffic control); the key stays required.",
       "type": "array",
       "items": {
         "type": "object", "additionalProperties": false,

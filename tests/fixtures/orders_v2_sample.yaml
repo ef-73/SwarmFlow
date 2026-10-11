@@ -1,0 +1,9 @@
+# v2 sample orders (contract-v2, decision 002) for layouts/warehouse_v2 (T026 vertex names).
+# Fields map 1:1 to swarmflow_core.api.OrderSpec. Times are sim seconds.
+orders:
+  - {order_id: s1, release_t: 0.0, deadline_t: null, pickup_vertex: "", dropoff_vertex: DK2, payload_type: small,
+     priority: 0, order_type: shelf, pick_vertices: [PK_W2_N_03, PK_W2_S_01, PK_E4_N_02]}
+  - {order_id: s2, release_t: 5.0, deadline_t: 400.0, pickup_vertex: "", dropoff_vertex: DK3, payload_type: small,
+     priority: 1, order_type: shelf, pick_vertices: [PK_E1_S_04]}
+  - {order_id: p1, release_t: 10.0, deadline_t: null, pickup_vertex: PL_W1, dropoff_vertex: DK1,
+     payload_type: pallet, priority: 0, order_type: pallet, pallet_id: pallet_W1}

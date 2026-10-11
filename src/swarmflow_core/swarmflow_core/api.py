@@ -35,19 +35,36 @@ v2 (API_VERSION 2, contract-v2, decision 002) — all additions are backward com
 ``Assignment.route_kind == ROUTE_WAYPOINTS`` and ``OrderSpec.order_type == ORDER_TRANSPORT``:
 
 - **Goal tasks** (``route_kind == ROUTE_GOALS``): ``route`` is the ordered list of goal vertices (no intermediate
-  vertices); the robot's own planner drives between them. The robot reports the last goal reached in
-  ``last_vertex`` and the current goal in ``next_vertex``. A task succeeds when its last goal is reached (plus that
-  goal's dwell); if the last goal is not the order's dock (a dock queue spot), the order stays ``IN_TRANSIT`` and the
-  orchestrator dispatches a follow-up task.
-- **Shelf orders** (``ORDER_SHELF``): ``ASSIGNED`` → ``PICKING_UP`` when the first pick point is reached (pick =
-  arrival, no dwell) → ``IN_TRANSIT`` when the last pick point is reached → ``DELIVERED`` when the task ending at
-  the dock (``dropoff_vertex``) succeeds after ``UNLOAD_DWELL_BOX_S``.
-- **Pallet orders** (``ORDER_PALLET``): mode ``LIFTING`` at the pallet spot → ``PICKING_UP``; mode ``CARRYING`` →
-  ``IN_TRANSIT``; dock task success after ``UNLOAD_DWELL_PALLET_S`` → ``DELIVERED``.
-- **Blocked** robots (local navigation found no way for ``BLOCKED_REPORT_S``) report ``STUCK`` with
-  ``fault_reason == FAULT_BLOCKED`` and keep trying. After ``BLOCKED_REQUEUE_S`` the orchestrator requeues the
-  order if nothing is on board (and sends the robot home), else retries the robot's next goal up to
-  ``MAX_LOADED_RETRIES`` times before ``FAILED`` (``STUCK_AFTER_PICKUP``).
+  vertices); the robot's own planner drives between them, and goal tasks request **no reservations** (O-02). The
+  robot follows ``route`` only (it never derives goals from ``Order.pick_vertices``). It sets ``last_vertex`` to a
+  goal when its pose is within ``GOAL_TOLERANCE_M`` of it, and reports the current goal in ``next_vertex``. Dwell
+  per goal is chosen by the goal's vertex kind: ``dock`` → ``UNLOAD_DWELL_BOX_S`` (shelf) or
+  ``UNLOAD_DWELL_PALLET_S`` (pallet), mode ``UNLOADING`` during the dwell; ``loading`` / ``delivery`` →
+  ``LOAD_DWELL_S`` as in v1; every other kind (``pick``, ``queue``, ``home``, ``pallet``) → no dwell. A task
+  succeeds when its last goal is reached and its dwell is over.
+- **Follow-up tasks and dock queues** (O-05): the orchestrator alone tracks dock occupancy and sends a robot to its
+  dock only when the dock is free, else to the next free queue spot (``queue`` vertices, ordered by
+  ``queue_index``). A task whose last goal is not the order's dock (``dropoff_vertex``) does not deliver: the order
+  stays ``IN_TRANSIT`` and the orchestrator dispatches a follow-up task for the same order (carrying the same
+  ``Order``). An **orchestrator-initiated cancel** (result ``FAILURE_CANCELLED``) never fails or requeues the order;
+  it only ends that task. Between the two tasks the robot keeps its ``order_id`` and ``last_vertex``.
+- Order states only move **forward**. ``PICKING_UP`` may be skipped (one pick point: ``ASSIGNED`` → ``IN_TRANSIT``;
+  both status messages are published).
+- **Shelf orders** (``ORDER_SHELF``): ``pickup_vertex`` is ""; ``pick_vertices`` holds 1..N distinct pick points.
+  ``ASSIGNED`` → ``PICKING_UP`` when the first pick point is reached (pick = arrival, no dwell) → ``IN_TRANSIT``
+  when the last one is reached → ``DELIVERED`` when the task ending at the dock succeeds. An unreachable pick point
+  fails the task with ``FAILURE_NAV_PREFIX`` + vertex.
+- **Pallet orders** (``ORDER_PALLET``): mode ``LIFTING`` while the order is ``ASSIGNED`` → ``PICKING_UP``; mode
+  ``CARRYING`` → ``IN_TRANSIT``; dock task success → ``DELIVERED``. ``LIFTING`` while setting the pallet down at the
+  dock does not change the order state.
+- **Blocked** robots (local navigation without progress for ``BLOCKED_REPORT_S``) report ``STUCK`` with
+  ``fault_reason == FAULT_BLOCKED`` and keep trying; the v1 stuck rules (STUCK_WINDOW_S, park retries) do **not**
+  apply to them. ``BLOCKED_REQUEUE_S`` counts from the first such report and resets when the mode leaves ``STUCK``.
+  When it passes, the orchestrator cancels the task and either requeues the order if nothing is on board (and sends
+  the robot home), or dispatches a follow-up task to the same next goal, up to ``MAX_LOADED_RETRIES`` times, then
+  ``FAILED`` (``STUCK_AFTER_PICKUP``).
+- **Home slots**: in v2 layouts ``home`` vertices replace ``park`` vertices for move-only tasks (nearest free slot,
+  any robot).
 """
 
 from __future__ import annotations
@@ -171,7 +188,7 @@ FAILURE_STUCK_AFTER_PICKUP = "STUCK_AFTER_PICKUP"
 FAILURE_NAV_PREFIX = "NAV_FAILED:"         #: + failing vertex name (Nav2 failed twice, §6.3 item 5)
 FAILURE_CANCELLED = "CANCELLED"
 FAULT_ORCHESTRATOR_TIMEOUT = "ORCHESTRATOR_TIMEOUT"
-FAULT_BLOCKED = "blocked"                  #: v2: STUCK because local navigation found no way (RobotState.fault_reason)
+FAULT_BLOCKED = "BLOCKED"                  #: v2: STUCK because local navigation found no way (RobotState.fault_reason)
 
 #: Order types (Order.order_type codes in ORDER_TYPE_CODES).
 ORDER_TRANSPORT = "transport"              #: v1: pickup_vertex → dropoff_vertex

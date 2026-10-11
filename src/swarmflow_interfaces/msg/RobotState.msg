@@ -14,7 +14,7 @@ uint8 MODE_STUCK=5
 uint8 MODE_FAULT=6
 uint8 MODE_LIFTING=7                    # v2 pallets: docking under / lifting / setting down a pallet
 uint8 MODE_CARRYING=8                   # v2 pallets: driving with a lifted pallet
-uint8 mode                              # BLOCKED (v2 local navigation) = MODE_STUCK + fault_reason "blocked"
+uint8 mode                              # BLOCKED (v2 local navigation) = MODE_STUCK + fault_reason "BLOCKED"
 string fault_reason
 string task_id
 string order_id

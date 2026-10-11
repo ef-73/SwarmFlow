@@ -75,7 +75,7 @@
     },
     "payloads": {
       "type": "object",
-      "description": "payload name ('unloaded', 'small', 'medium', 'wide', 'long') -> geometry (design §7.2).",
+      "description": "payload name ('unloaded', 'small', 'medium', 'wide', 'long'; v2 adds 'pallet', F-04) -> geometry (design §7.2).",
       "additionalProperties": {
         "type": "object", "additionalProperties": false,
         "required": ["size_x", "size_y", "padded_x", "padded_y", "rotation_diameter"],

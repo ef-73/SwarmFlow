@@ -32,7 +32,7 @@ Vertex params emitted (RMF traffic-editor vertex params, passed through upstream
 
 Rules:
 - Vertex order: stations (L, D, P in name order; v2 layouts then DK, HM, PK, PL, Q_ groups, each in name order), then
-  intersections, then holds, each sorted by name. Indices are
+  intersections, then holds, each sorted by name. "Name order" is plain lexicographic string order (`DK10` < `DK2`). Indices are
   derived from this order; SwarmFlow code always refers to vertices **by name**, never by index.
 - Lanes: authored bidirectional lanes become two entries (`[a,b]`, `[b,a]`); one-way lanes one entry. Sorted by
   (from name, to name).
