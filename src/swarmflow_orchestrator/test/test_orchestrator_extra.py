@@ -110,7 +110,7 @@ def test_rejected_goal_requeues_order(ros):
                     goal_callback=lambda goal: (h.goals.append(goal), GoalResponse.REJECT)[1])
     h = _Harness("P1", kw)
     try:
-        time.sleep(0.5)
+        assert wait(lambda: h.order_pub.get_subscription_count() > 0, 10.0)  # orchestrator subscribed to /fleet/orders
         h.order_pub.publish(Order(order_id="o1", pickup_vertex="L1", dropoff_vertex="D1", payload_type="small"))
         assert wait(lambda: any(d.decision_type == "REASSIGN" for d in h.decisions), 15.0)
         seq = [s.state for s in h.statuses if s.order_id == "o1"]

@@ -88,13 +88,19 @@ def test_orchestrator_end_to_end(ros, tmp_path):
         assert wait(lambda: len(beats) >= 2, 10.0), "no orchestrator heartbeat"
         assert beats[-1].frame_id.startswith("epoch:")
         assert req_cli.wait_for_service(timeout_sec=10.0)
-        time.sleep(3.0)  # recovery grace (api.RECOVERY_GRACE_S) has passed
+        # recovery (api.RECOVERY_GRACE_S + a robot report) must finish first: ask until the answer is not RECOVERING
+        asked = []
 
-        req = RequestReservation.Request(request_id="r1", robot_id="robot_1", zone_id="Z_aisle_1",
-                                         entry_vertex="X_1_1", exit_vertex="X_1_3")
-        res = req_cli.call(req)
+        def ask():
+            asked.append(req_cli.call(RequestReservation.Request(
+                request_id=f"r1_{len(asked)}", robot_id="robot_1", zone_id="Z_aisle_1",
+                entry_vertex="X_1_1", exit_vertex="X_1_3")))
+            return asked[-1].reason != "RECOVERING"
+        assert wait(ask, 15.0), "orchestrator stayed in RECOVERING"
+        res = asked[-1]
         assert res.result == RequestReservation.Response.RESULT_GRANTED and res.lease_id
-        time.sleep(0.6)  # a fresh pose (stamped after the grant, outside the zone) has reached the authority
+        granted_at = orch._now()  # a fresh pose (stamped after the grant, outside the zone) must reach the authority
+        assert wait(lambda: orch._state_stamp.get("robot_1", 0.0) > granted_at, 5.0)
         rel_pub.publish(ReservationRelease(robot_id="robot_1", lease_id=res.lease_id,
                                            reason=ReservationRelease.REASON_EXITED))
         assert wait(lambda: [r.state for r in reservations if r.lease_id == res.lease_id] ==
@@ -144,7 +150,6 @@ def test_independent_policy_never_grants(ros, tmp_path):
     threading.Thread(target=ex.spin, daemon=True).start()
     try:
         assert cli.wait_for_service(timeout_sec=10.0)
-        time.sleep(3.0)
         fut = cli.call_async(RequestReservation.Request(request_id="r", robot_id="robot_1", zone_id="Z_aisle_1",
                                                         entry_vertex="X_1_1", exit_vertex="X_1_3"))
         assert wait(fut.done, 5.0)

@@ -15,6 +15,7 @@ from rclpy.executors import MultiThreadedExecutor  # noqa: E402
 from rclpy.parameter import Parameter  # noqa: E402
 from rosgraph_msgs.msg import Clock  # noqa: E402
 
+from swarmflow_core import api  # noqa: E402
 from swarmflow_interfaces.action import DispatchTask  # noqa: E402
 from swarmflow_interfaces.msg import Order, RobotState  # noqa: E402
 from swarmflow_interfaces.srv import RequestReservation  # noqa: E402
@@ -99,7 +100,9 @@ def test_recovery_waits_for_robots_with_sim_clock_at_500(ros):
     try:
         assert cli.wait_for_service(timeout_sec=10.0)
         assert wait(lambda: orch._now() > 400.0, 5.0)
-        time.sleep(4.0)  # more than RECOVERY_GRACE_S of sim time, but no robot has reported
+        # purpose is elapsed sim time: more than api.RECOVERY_GRACE_S has passed, but no robot has reported
+        grace_end = orch._now() + api.RECOVERY_GRACE_S + 1.0
+        assert wait(lambda: orch._now() > grace_end, 10.0)
         r = ask("r1")
         assert r.result == RequestReservation.Response.RESULT_DENIED and r.reason == "RECOVERING"
         publish_state[0] = True
@@ -162,7 +165,7 @@ def test_agent_lost_watchdog_fails_task_once(ros):
 
     h = _Harness("P1", kw)
     try:
-        time.sleep(0.5)
+        assert wait(lambda: h.order_pub.get_subscription_count() > 0, 10.0)  # orchestrator subscribed to /fleet/orders
         h.order_pub.publish(Order(order_id="o1", pickup_vertex="L1", dropoff_vertex="D1", payload_type="small"))
         assert wait(lambda: any(g.order.order_id == "o1" for g in h.goals), 10.0)
         h.publish = False  # robot goes silent
