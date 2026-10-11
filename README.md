@@ -42,9 +42,9 @@ verified in M7 ([`docs/evidence/m7_fresh_clone_compose_up.png`](docs/evidence/m7
 
 What appears:
 
-- A Gazebo window ("Gazebo Sim") through WSLg showing the standard warehouse and three robots.
-- Foxglove data on `ws://localhost:8765` (see [Foxglove](#foxglove)). Ports 8765 and 6080 are published on
-  `127.0.0.1` only (the bridge and the noVNC view have no authentication).
+- No Gazebo window by default: **Foxglove is the main view** (see [Foxglove](#foxglove)), with data on
+  `ws://localhost:8765`. To also open the Gazebo window, add the `gui` profile (next section).
+- Ports 8765 and 6080 are published on `127.0.0.1` only (the bridge and the noVNC view have no authentication).
 - With the default scenario `v1_demo`, orders are released by the scenario engine and the robots deliver them.
 
 Stop with Ctrl+C in the terminal, then `docker compose down` to remove the containers.
@@ -52,7 +52,15 @@ Stop with Ctrl+C in the terminal, then `docker compose down` to remove the conta
 Note that `docker compose up` starts every service except `dev` (which has `replicas: 0` and is only used through
 `docker compose run --rm dev ...`).
 
-### Choosing the GUI route
+### Opening the Gazebo window
+
+The Gazebo GUI is off unless you ask for it with the `gui` profile:
+
+```powershell
+docker compose --profile gui up
+```
+
+`SWARMFLOW_GUI` chooses how the window is shown:
 
 | `SWARMFLOW_GUI` | Behaviour |
 |---|---|
@@ -60,13 +68,18 @@ Note that `docker compose up` starts every service except `dev` (which has `repl
 | `vnc` | GUI rendered in a virtual display and served in the browser at <http://localhost:6080/vnc.html> (software rendering, about 1.4 cores in the M1 spike). |
 | `none` | No GUI; the `gazebo_gui` container exits immediately. Use this for headless runs. |
 
+The Gazebo window shows the SwarmFlow overlay: a ring under each robot coloured by its status (green OK, amber
+waiting or no recent update, red stuck or fault), the robot's path on the floor and its goal disc in the robot's
+colour. The **SwarmFlow robots** panel on the right lists one status line per robot: switch **Echo** on and set
+**Buffer** to the number of robots (Gazebo's text panel cannot be preset).
+
 `SWARMFLOW_GPU_ADAPTER` (default `NVIDIA`) is passed to Mesa as `MESA_D3D12_DEFAULT_ADAPTER_NAME` to pick the GPU
 adapter for the WSLg route; set it to another adapter name if you have no NVIDIA GPU (value format unverified).
 
 Setting variables in PowerShell, for one command:
 
 ```powershell
-$env:SWARMFLOW_GUI="vnc"; docker compose up
+$env:SWARMFLOW_GUI="vnc"; docker compose --profile gui up
 ```
 
 Or persistently, in a `.env` file next to `compose.yaml` (Docker Compose reads it automatically; `.env` is git-ignored):
@@ -118,11 +131,25 @@ Evidence from the build-up (screenshots in [`docs/evidence/`](docs/evidence/)):
 2. In a current Foxglove app (desktop or <https://app.foxglove.dev>), open a connection: Foxglove WebSocket,
    `ws://localhost:8765`. The bridge speaks the current Foxglove protocol (`foxglove.sdk.v1`, verified in M6); the old
    Foxglove Studio 1.x protocol (`foxglove.websocket.v1`) is rejected.
-3. Layouts menu, Import from file, choose [`viz/foxglove/swarmflow_v1.json`](viz/foxglove/swarmflow_v1.json).
+3. Layouts menu, Import from file, choose [`viz/foxglove/swarmflow_v2.json`](viz/foxglove/swarmflow_v2.json)
+   (imported and checked in app.foxglove.dev, T021).
 
-Panels: a 3D view (map, robot, zone and station markers, Nav2 plans), a decision log (`/fleet/decisions`), an order
-table (`/fleet/order_status`) and a plot of robot speeds (`/fleet/robot_states`). The marker topics come from the
-`swarmflow_viz` node (`/fleet/robot_markers`, `/fleet/zone_markers`). See also [`viz/foxglove/README.md`](viz/foxglove/README.md).
+What the layout shows:
+
+- **Warehouse (3D)**: the world read from Gazebo's own `generated/world.sdf` (walls, racks, stations at their real
+  sizes and colours), packages where Gazebo has them, and every robot in its Gazebo colour with its lidar, its
+  footprint outline, the path it is following drawn on the floor and a pin on its current goal. Places carry symbols:
+  pickup (green, arrow up), drop-off (blue, arrow down), home (`H`), waiting spots (yellow discs).
+- **Robots**: one row per robot (mode, goal, order, loaded), green / amber / red; **Robot detail** shows every field
+  of the selected robot (task, order state, next vertex, speed, leases, fault, age of the last update).
+- **Orders** (`/fleet/order_status`), **Last decision** (`/fleet/decisions`).
+- **New order**: edit the JSON (order id, pickup and drop-off station) and press *Publish order*; the bridge accepts
+  client messages on `/fleet/orders` only.
+
+How it works: `tf_relay` merges the robots' separate TF trees into one (`robot_1/base_link`, …) and republishes the
+lidar scans with those frames; `viz_node` builds the scene, overlay and dashboard (`/viz/*` topics). The bridge
+forwards only `/tf`, `/tf_static`, `/viz/*`, `/fleet/*` and the robots' plans, so raw scans, costmaps and maps stay
+off the WebSocket. See also [`viz/foxglove/README.md`](viz/foxglove/README.md).
 
 ## Configuration
 
@@ -131,7 +158,7 @@ quick start.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `SWARMFLOW_GUI` | `wslg` | Gazebo GUI route: `wslg`, `vnc` or `none`. |
+| `SWARMFLOW_GUI` | `wslg` | Gazebo GUI route when started with `--profile gui`: `wslg`, `vnc` or `none`. |
 | `SWARMFLOW_GPU_ADAPTER` | `NVIDIA` | Mesa d3d12 adapter name for the WSLg GUI. |
 | `SWARMFLOW_LAYOUT` | `standard` | Layout name under `layouts/` used by the sim, robots, orchestrator, scenario engine, payload and viz. |
 | `SWARMFLOW_ROBOTS` | `robot_1,robot_2,robot_3` | Robot ids the sim spawns and the orchestrator and payload nodes manage. The `robot_N` compose services are fixed to three; for a scenario with fewer robots start only those services (as `tests/integration/demo_run.sh` does). |
@@ -303,8 +330,7 @@ scripts/ci.sh        # the referee: contract diff, owned files, hygiene, build, 
   leaving the aisle and a robot travelling on the trunk rely on Nav2's local avoidance and can come within the
   footprint padding (the 3 overlaps of the M8 demo, all at the east end of `Z_aisle_1`). Junction zones or moved
   trunks change the layout contract (listed for the user).
-- The Foxglove layout file has been checked against the topics the bridge advertises, but not yet imported into a
-  Foxglove app (unverified).
+- The `viz` container uses about one CPU core (Python TF relay and scene updates for 3 robots; T021 measurement).
 - **Open-RMF** appears only in v2 (Baseline C); v1 has no RMF or free_fleet dependency.
 
 ## Repository layout

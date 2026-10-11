@@ -2,7 +2,7 @@
 id: T021
 title: Foxglove view that matches Gazebo, per-robot overlay and fleet dashboard
 workstream: E
-status: claimed
+status: done
 claimed_by: "claude-lead"
 branch: lead/T021-foxglove-view
 model: opus
@@ -19,7 +19,9 @@ dashboard. The Gazebo window no longer starts by default. Lead-implemented (need
 - src/swarmflow_viz/**
 - viz/foxglove/**
 - docker/compose.yaml
+- docker/gui.sh
 - README.md
+- docs/evidence/T021_*
 - docs/tasks/T021-foxglove-view.md
 
 ## Lead tests (do not edit)
@@ -41,6 +43,8 @@ scripts/ci.sh
 - `viz_node` publishes: the world from `generated/world.sdf` (`/viz/scene`, latched), packages at their Gazebo
   poses, robot bodies/labels/footprints locked to their TF frames, paths and goals per robot (`/viz/robots`),
   and a `diagnostic_msgs/DiagnosticArray` dashboard (`/viz/fleet_dashboard`).
+- Gazebo window (user request, same session): status rings, paths and goals as gz markers; a "SwarmFlow robots"
+  TopicEcho panel with one status line per robot (`config/gazebo_gui.config`, loaded by `docker/gui.sh`).
 - `gazebo_gui` only starts with `--profile gui`; `foxglove_bridge` forwards only the topics the layout uses.
 - `viz/foxglove/swarmflow_v2.json` imports into current Foxglove (checked in Chrome) and shows the above; a
   screenshot comparison Foxglove vs Gazebo at the same moment is in `docs/evidence/`.

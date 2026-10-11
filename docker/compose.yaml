@@ -49,6 +49,8 @@ services:
     networks: [swarmflow]
 
   gazebo_gui:
+    # Off by default (T021: Foxglove is the main view). Start it with `docker compose --profile gui up`.
+    profiles: ["gui"]
     image: swarmflow/sim:latest
     labels:
       swarmflow.sim: "1"
@@ -152,10 +154,11 @@ services:
     networks: [swarmflow]
 
   viz:
-    image: swarmflow/robot:latest
+    image: swarmflow/sim:latest     # gz-transport Python bindings: package poses straight from Gazebo (T021)
     environment:
       <<: *ros-env
       SWARMFLOW_LAYOUTS_ROOT: /ws/layouts
+      SWARMFLOW_ROBOTS: ${SWARMFLOW_ROBOTS:-robot_1,robot_2,robot_3}
     command: ["ros2", "launch", "swarmflow_viz", "viz.launch.py", "layout:=${SWARMFLOW_LAYOUT:-standard}"]
     networks: [swarmflow]
 
@@ -168,7 +171,12 @@ services:
         dev: service:dev
     environment:
       <<: *ros-env
-    command: ["ros2", "launch", "foxglove_bridge", "foxglove_bridge_launch.xml", "port:=8765", "use_sim_time:=true"]
+    # Only what the Foxglove layout shows (T021): raw scans, costmaps, maps and odometry stay off the WebSocket.
+    # Clients may publish orders only; parameter polling of every node is off.
+    command: ["ros2", "launch", "foxglove_bridge", "foxglove_bridge_launch.xml", "port:=8765", "use_sim_time:=true",
+              "topic_whitelist:=['^/tf$', '^/tf_static$', '^/viz/.*', '^/fleet/.*', '^/robot_[0-9]+/plan$']",
+              "client_topic_whitelist:=['^/fleet/orders$']", "service_whitelist:=['^/fleet/.*']",
+              "param_whitelist:=['(?!)']"]
     ports:
       - "127.0.0.1:8765:8765"   # localhost only: the Foxglove bridge is unauthenticated
     networks: [swarmflow]
