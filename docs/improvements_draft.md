@@ -1,6 +1,7 @@
 # SwarmFlow v2 improvements — draft (2026-10-10, rev 2)
 
-Status: **draft, being edited with the user.** Nothing here is a task card yet. Once the open questions (§10)
+Status: **draft, being edited with the user.** Done so far (2026-10-11): `v1.0.0` tagged; the Foxglove view and
+both dashboards (§7: V-01 … V-08, V-05b, V-10) in T021/T022, on `main`. Everything else below is still open. Nothing here is a task card yet. Once the open questions (§10)
 are answered, the lead turns the items into cards under `docs/tasks/`.
 
 Tags: **[contract]** changes a frozen contract (AGENTS.md §2) and needs a `lead/contract-*` branch and the user's
@@ -205,7 +206,10 @@ Use it only as an experiment, not as a way to reduce privilege.
 
 ## 9. Suggested order
 
-1. **Foxglove** (V-01 … V-08): you watch everything else in it. No contract change. *Starting first.*
+0. **Clean-up and baseline first** (§12): X-02, X-03, X-05, X-08 (small tidy-ups), X-01 (cheaper `viz`),
+   X-10 (baseline numbers on the current layout), X-07 (license, needs the user's choice), X-04 (user edits
+   AGENTS.md §3). X-06 (v1.1 robustness) runs alongside the later steps.
+1. **Foxglove** (V-01 … V-10): **done** (T021, T022).
 2. **Contract branch**, approved in one go: new station types and optional zones (L-07), goal-based tasks (O-01),
    multi-pick orders (O-04), pallet orders and modes (F-06).
 3. **New layout** (L-01 … L-06).
@@ -213,6 +217,8 @@ Use it only as an experiment, not as a way to reduce privilege.
 5. **Orchestrator simplification** (O-02, O-03, O-05) and **shelf picking** (P-01, P-02).
 6. **Pallets** (F-01 … F-05).
 7. **Realism ladder and benchmarks** (I-01, E-01, E-02).
+
+The light mode (X-09 / C-03) is built before step 3, so steps 3–6 can be tried in the 2D sim before Gazebo.
 
 ## 10. Decisions (answered 2026-10-10)
 
@@ -227,6 +233,21 @@ Use it only as an experiment, not as a way to reduce privilege.
 9. **Shared lidar:** no. Share position + velocity instead (N-05).
 10. **Dock unloading:** 5 s boxes, 10 s pallets; robots queue in a lane per dock (O-05).
 11. **Navigation overlay** per robot in its colour: footprint, path on the floor, goal; symbols for places (V-05b).
+
+## 12. Further items (lead review, 2026-10-11; all accepted by the user)
+
+| # | Suggestion | Why | Size |
+|---|---|---|---|
+| X-01 | Make the `viz` container cheaper (profile it; move the TF relay to C++ or drop high-rate frames at the source) | It still uses ~0.9 core with 3 robots | S–M |
+| X-02 | Remove the v1 viz leftovers (`/fleet/robot_markers`, `/fleet/zone_markers`, `markers.py`, `swarmflow_v1.json`) | Duplicate work and topics now that v2 views exist | S |
+| X-03 | Update stale design text: §11.1 (Foxglove v1 file, a global `/map` nobody publishes), §8.3 service table (`gazebo_gui` profile, `viz` on the sim image) | Docs no longer match the stack | S |
+| X-04 | Assign `src/swarmflow_gz_panel/` to WS-E in AGENTS.md §3 (only you can edit §3) | New package has no owner | S |
+| X-05 | Housekeeping: 2 stale worktrees, 4 empty folders in `.claude/worktrees/`, 72 unused Docker volumes (~0.4 GB), ~16 GB Docker build cache, duplicate "swarmflow_v2" layouts in your Foxglove account | Disk and clutter | S |
+| X-06 | v1.1 leftovers from the retrospective: container healthchecks + restart policies, 19 fixed sleeps in tests, `ci.sh` branch names like `T018b`, batch scripts that kill their children, a "control loop missed" counter, the undiagnosed GitHub Actions failures | Robustness of runs and CI | M |
+| X-07 | Choose a LICENSE before the repo grows further | Still missing | S |
+| X-08 | Clear the `[U]` (unverified) notes in `payload_node.py`; the code has worked in every run since M4 | Misleading comments | S |
+| X-09 | Run the 2D sim (`sim2d/`) as the planned light mode early, before the new layout, so new assignment logic can be tested without Gazebo | Saves Gazebo time on every later step | M |
+| X-10 | One benchmark scenario on the *current* layout before the rework (baseline numbers to compare v2 against) | Otherwise v2 has nothing to beat | S |
 
 ## 11. Your additions
 
