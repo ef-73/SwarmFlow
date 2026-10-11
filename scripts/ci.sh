@@ -117,7 +117,8 @@ else
   if [ "${CI_IN_CONTAINER:-0}" != 1 ]; then
     for i in $(seq 1 120); do scripts/lock.sh acquire build ci 30 >/dev/null 2>&1 && { lock_held=1; break; }; sleep 10; done
     [ $lock_held = 1 ] || bad "could not acquire build lock in 20 min"
-    trap '[ $lock_held = 1 ] && scripts/lock.sh release build >/dev/null' EXIT
+    # down on exit: removes this project's network (keeps build volumes) so per-worktree networks never pile up
+    trap 'docker compose down --remove-orphans >/dev/null 2>&1; [ $lock_held = 1 ] && scripts/lock.sh release build >/dev/null' EXIT
   fi
 
   # 5. Generated layouts fresh
