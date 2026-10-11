@@ -2,7 +2,7 @@
 id: T025
 title: Light mode - kinematic robots driven by the real orchestrator and robot agents, no Gazebo (X-09 / C-03)
 workstream: C
-status: claimed
+status: review
 claimed_by: "sf-implementer"
 branch: ws-c/T025-light-mode
 model: sonnet
