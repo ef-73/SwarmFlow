@@ -16,11 +16,13 @@ except ImportError:  # running from a checkout without an installed package
 
 import yaml
 
-from swarmflow_core.metrics.clearance import count_violations
+from swarmflow_core.metrics.clearance import count_violations, footprint_distance
 
 COLUMNS = ["run_id", "scenario", "policy", "seed", "duration_s", "deliveries", "throughput_per_min",
-           "mean_latency_s", "total_wait_s", "mean_wait_s", "stuck_events", "failed_orders", "clearance_violations"]
+           "mean_latency_s", "total_wait_s", "mean_wait_s", "stuck_events", "failed_orders", "clearance_violations",
+           "min_separation_m", "near_misses"]
 SPEED_EPS = 0.05
+NEAR_MISS_M = 0.30   # footprint-to-footprint distance counted as a near miss (improvements_v2 §14, M14)
 
 
 def read_jsonl(path: pathlib.Path) -> list:
@@ -96,6 +98,7 @@ def compute(run_dir: pathlib.Path) -> dict:
                     a.get("mode") == "NAVIGATING" and a.get("linear_speed", 0.0) < SPEED_EPS):
                 total_wait += b["t"] - a["t"]
     mean_wait = total_wait / len(by_robot) if by_robot else 0.0
+    min_sep, near = separation(by_t)
 
     return {
         "run_id": run_dir.name, "scenario": scenario, "policy": policy, "seed": seed,
@@ -103,7 +106,26 @@ def compute(run_dir: pathlib.Path) -> dict:
         "mean_latency_s": mean_lat, "total_wait_s": total_wait, "mean_wait_s": mean_wait,
         "stuck_events": sum(1 for d in decisions if d.get("decision_type") == "STUCK_FAIL"),
         "failed_orders": failed, "clearance_violations": count_violations(by_t),
+        "min_separation_m": min_sep, "near_misses": near,
     }
+
+
+def separation(samples) -> tuple:
+    """Smallest footprint-to-footprint distance over the run (nan with < 2 robots) and the number of near-miss
+    episodes: per robot pair, contiguous samples closer than NEAR_MISS_M count once."""
+    best, episodes, active = float("nan"), 0, {}
+    for t in sorted(samples):
+        poses = samples[t]
+        ids = sorted(poses)
+        for i, ra in enumerate(ids):
+            for rb in ids[i + 1:]:
+                d = footprint_distance(poses[ra], poses[rb])
+                best = d if best != best or d < best else best
+                close = d < NEAR_MISS_M
+                if close and not active.get((ra, rb), False):
+                    episodes += 1
+                active[(ra, rb)] = close
+    return best, episodes
 
 
 def main(argv: list) -> int:

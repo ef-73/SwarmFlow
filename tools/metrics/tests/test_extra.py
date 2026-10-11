@@ -62,3 +62,19 @@ def test_scenario_window_from_config(tmp_path):
     text = (d / "metrics.csv").read_text(encoding="utf-8").splitlines()
     row = dict(zip(text[0].split(","), text[1].split(",")))
     assert row["deliveries"] == "2"
+
+
+def test_separation_min_distance_and_near_miss_episodes():
+    import importlib.util
+    import math
+    import pathlib
+    spec = importlib.util.spec_from_file_location("compute_sep", pathlib.Path(__file__).resolve().parents[1] / "compute.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    # footprints 0.70 m long along x: centres 1.0 m apart → 0.30 m gap (not a near miss), 0.9 m → 0.20 m gap
+    gaps = [3.0, 0.9, 0.9, 3.0, 0.9, 1.0]
+    samples = {float(i): {"robot_1": (0.0, 0.0, 0.0), "robot_2": (g, 0.0, 0.0)} for i, g in enumerate(gaps)}
+    best, near = mod.separation(samples)
+    assert abs(best - 0.20) < 1e-9 and near == 2
+    best1, near1 = mod.separation({0.0: {"robot_1": (0.0, 0.0, 0.0)}})
+    assert math.isnan(best1) and near1 == 0
