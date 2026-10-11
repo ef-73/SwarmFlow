@@ -1,7 +1,12 @@
 string task_id
 string robot_id
 swarmflow_interfaces/Order order
-string[] route                          # vertex names, pickup and dropoff included
+string[] route                          # vertex names; meaning set by route_kind
+uint8 ROUTE_WAYPOINTS=0                 # v1: every vertex from the robot's position via pickup to dropoff (traffic control)
+uint8 ROUTE_GOALS=1                     # v2: ordered goal vertices only; the robot's planner finds the paths. Success =
+                                        # the last goal reached (incl. its dwell); a last goal that is not the order's
+                                        # dock (e.g. a dock queue spot) does not deliver the order
+uint8 route_kind
 ---
 bool success
 string failure_reason

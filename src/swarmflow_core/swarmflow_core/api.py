@@ -30,6 +30,24 @@ Order lifecycle (how any backend's observations map to :class:`OrderState`):
   failure the robot gets a move-only task to the nearest free park vertex.
 - A **move-only task** (park) is an :class:`Assignment` with ``order_id == ""``; over ROS its ``DispatchTask.order``
   has an empty ``order_id``.
+
+v2 (API_VERSION 2, contract-v2, decision 002) — all additions are backward compatible; v1 behaviour is unchanged when
+``Assignment.route_kind == ROUTE_WAYPOINTS`` and ``OrderSpec.order_type == ORDER_TRANSPORT``:
+
+- **Goal tasks** (``route_kind == ROUTE_GOALS``): ``route`` is the ordered list of goal vertices (no intermediate
+  vertices); the robot's own planner drives between them. The robot reports the last goal reached in
+  ``last_vertex`` and the current goal in ``next_vertex``. A task succeeds when its last goal is reached (plus that
+  goal's dwell); if the last goal is not the order's dock (a dock queue spot), the order stays ``IN_TRANSIT`` and the
+  orchestrator dispatches a follow-up task.
+- **Shelf orders** (``ORDER_SHELF``): ``ASSIGNED`` → ``PICKING_UP`` when the first pick point is reached (pick =
+  arrival, no dwell) → ``IN_TRANSIT`` when the last pick point is reached → ``DELIVERED`` when the task ending at
+  the dock (``dropoff_vertex``) succeeds after ``UNLOAD_DWELL_BOX_S``.
+- **Pallet orders** (``ORDER_PALLET``): mode ``LIFTING`` at the pallet spot → ``PICKING_UP``; mode ``CARRYING`` →
+  ``IN_TRANSIT``; dock task success after ``UNLOAD_DWELL_PALLET_S`` → ``DELIVERED``.
+- **Blocked** robots (local navigation found no way for ``BLOCKED_REPORT_S``) report ``STUCK`` with
+  ``fault_reason == FAULT_BLOCKED`` and keep trying. After ``BLOCKED_REQUEUE_S`` the orchestrator requeues the
+  order if nothing is on board (and sends the robot home), else retries the robot's next goal up to
+  ``MAX_LOADED_RETRIES`` times before ``FAILED`` (``STUCK_AFTER_PICKUP``).
 """
 
 from __future__ import annotations
@@ -38,7 +56,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Mapping, Optional, Protocol, Sequence, Tuple, runtime_checkable
 
-API_VERSION = 1
+API_VERSION = 2
 
 # ---------------------------------------------------------------------------------------------------------------
 # Protocol constants (design §6.5, §13.3, §13.5). Adapters must use these, never their own literals.
@@ -59,6 +77,13 @@ RECOVERY_GRACE_S = 2.0            #: orchestrator start: collect RobotStates thi
 STUCK_WINDOW_S = 60.0             #: < STUCK_MIN_PROGRESS_M towards the segment goal within this → STUCK (§13.5)
 STUCK_MIN_PROGRESS_M = 0.2
 LOAD_DWELL_S = 3.0                #: dwell in LOADING / UNLOADING (§7.4)
+# v2 (decision 002)
+UNLOAD_DWELL_BOX_S = 5.0          #: dwell at a truck dock for a shelf order (improvements_v2 O-05)
+UNLOAD_DWELL_PALLET_S = 10.0      #: dwell at a truck dock for a pallet order
+GOAL_TOLERANCE_M = 0.25           #: a goal (e.g. a pick point) counts as reached within this distance (P-01)
+BLOCKED_REPORT_S = 10.0           #: local navigation without progress this long → STUCK / FAULT_BLOCKED (N-03)
+BLOCKED_REQUEUE_S = 30.0          #: blocked this long → orchestrator requeues or retries (O-08)
+MAX_LOADED_RETRIES = 3            #: retries of a loaded robot's next goal before the order FAILS (O-08)
 
 
 def lease_hard_expiry(earliest_entry_t: float, expected_exit_t: float) -> float:
@@ -81,6 +106,8 @@ class RobotMode(str, Enum):
     UNLOADING = "UNLOADING"
     STUCK = "STUCK"
     FAULT = "FAULT"
+    LIFTING = "LIFTING"            #: v2 pallets (RobotState.MODE_LIFTING = 7)
+    CARRYING = "CARRYING"          #: v2 pallets (RobotState.MODE_CARRYING = 8)
 
 
 MODE_CODES: Mapping[RobotMode, int] = {m: i for i, m in enumerate(RobotMode)}  #: RobotState.MODE_* values
@@ -144,6 +171,18 @@ FAILURE_STUCK_AFTER_PICKUP = "STUCK_AFTER_PICKUP"
 FAILURE_NAV_PREFIX = "NAV_FAILED:"         #: + failing vertex name (Nav2 failed twice, §6.3 item 5)
 FAILURE_CANCELLED = "CANCELLED"
 FAULT_ORCHESTRATOR_TIMEOUT = "ORCHESTRATOR_TIMEOUT"
+FAULT_BLOCKED = "blocked"                  #: v2: STUCK because local navigation found no way (RobotState.fault_reason)
+
+#: Order types (Order.order_type codes in ORDER_TYPE_CODES).
+ORDER_TRANSPORT = "transport"              #: v1: pickup_vertex → dropoff_vertex
+ORDER_SHELF = "shelf"                      #: v2: pick_vertices, then the dock in dropoff_vertex
+ORDER_PALLET = "pallet"                    #: v2: pallet at pickup_vertex → dock in dropoff_vertex
+ORDER_TYPE_CODES: Mapping[str, int] = {ORDER_TRANSPORT: 0, ORDER_SHELF: 1, ORDER_PALLET: 2}
+
+#: Route kinds (DispatchTask.route_kind codes in ROUTE_KIND_CODES).
+ROUTE_WAYPOINTS = "waypoints"              #: v1: every vertex of the route (traffic control)
+ROUTE_GOALS = "goals"                      #: v2: ordered goal vertices only
+ROUTE_KIND_CODES: Mapping[str, int] = {ROUTE_WAYPOINTS: 0, ROUTE_GOALS: 1}
 
 #: Reservation deny reasons (ReservationDecision.reason / RequestReservation response).
 DENY_UNKNOWN_ZONE = "UNKNOWN_ZONE"
@@ -162,7 +201,7 @@ POLICY_RMF = "rmf"
 # Graph (loaded from generated/nav_graph.yaml + generated/zones.yaml, design §6.1)
 # ---------------------------------------------------------------------------------------------------------------
 
-VertexKind = str  #: "loading" | "delivery" | "park" | "intersection" | "hold"
+VertexKind = str  #: "loading" | "delivery" | "park" | "intersection" | "hold"; v2: "pick" | "dock" | "queue" | "home" | "pallet"
 EdgeKey = Tuple[str, str]  #: (from_vertex_name, to_vertex_name) — edges are always referred to by name pairs
 
 
@@ -246,10 +285,13 @@ class OrderSpec:
     order_id: str
     release_t: float
     deadline_t: Optional[float]   #: None = no deadline
-    pickup_vertex: str            #: e.g. "L1"
-    dropoff_vertex: str           #: e.g. "D3"
+    pickup_vertex: str            #: e.g. "L1"; pallet orders: the pallet spot ("" for shelf orders)
+    dropoff_vertex: str           #: e.g. "D3"; shelf / pallet orders: the truck dock, e.g. "DK2"
     payload_type: str = "small"
     priority: int = 0             #: 0 = normal, higher = more urgent
+    order_type: str = ORDER_TRANSPORT   #: ORDER_* constant (v2)
+    pick_vertices: Tuple[str, ...] = ()  #: shelf orders: 1..N pick points (v2)
+    pallet_id: str = ""                  #: pallet orders: the pallet model (v2)
 
 
 @dataclass(frozen=True)
@@ -266,6 +308,7 @@ class RobotSnapshot:
     held_lease_ids: Tuple[str, ...] = ()
     linear_speed: float = 0.0
     fault_reason: str = ""
+    angular_speed: float = 0.0     #: v2, rad/s
     next_vertex: str = ""
     remaining_route: Tuple[str, ...] = ()
     eta_t: Optional[float] = None
@@ -286,7 +329,9 @@ class Assignment:
     robot_id: str
     order_id: str          #: "" for a move-only (park) task
     task_id: str
-    route: Sequence[str]   #: vertex names from the robot's current vertex via pickup to dropoff, both included
+    route: Sequence[str]   #: ROUTE_WAYPOINTS: vertex names from the robot's current vertex via pickup to dropoff,
+                           #: both included; ROUTE_GOALS: ordered goal vertices only (v2)
+    route_kind: str = ROUTE_WAYPOINTS
 
 
 @dataclass(frozen=True)

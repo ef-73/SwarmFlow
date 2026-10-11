@@ -7,7 +7,7 @@
   "additionalProperties": false,
   "required": ["schema_version", "name", "resolution_m", "bounds", "racks", "stations", "intersections", "holds", "lanes", "zones", "spawn"],
   "properties": {
-    "schema_version": {"const": 1},
+    "schema_version": {"enum": [1, 2], "description": "2 = v2 layouts (station types pick/dock/queue/home/pallet, aisles; contract-v2, decision 002)."},
     "name": {"$ref": "#/$defs/ident", "description": "Layout name; equals the directory name under layouts/."},
     "description": {"type": "string"},
     "resolution_m": {"type": "number", "exclusiveMinimum": 0, "maximum": 0.2, "description": "Nav2 map resolution."},
@@ -42,10 +42,13 @@
         "type": "object", "additionalProperties": false,
         "required": ["name", "type", "pose"],
         "properties": {
-          "name": {"type": "string", "pattern": "^(L|D|P)[1-9][0-9]*$"},
-          "type": {"enum": ["loading", "delivery", "park"]},
+          "name": {"$ref": "#/$defs/station_name"},
+          "type": {"enum": ["loading", "delivery", "park", "pick", "dock", "queue", "home", "pallet"],
+                   "description": "v1: loading (L*), delivery (D*), park (P*). v2: pick (PK_*, shelf pick point), dock (DK*, truck dock drop point), queue (Q_DK*_*, waiting spot in a dock's queue lane), home (HM*, idle robots, first come first served), pallet (PL_*, pallet stand position)."},
           "pose": {"$ref": "#/$defs/pose"},
-          "drop_offset_m": {"type": "number", "default": 0.0, "description": "Delivery stations: package drop pose distance ahead of the station pose along yaw."}
+          "drop_offset_m": {"type": "number", "default": 0.0, "description": "Delivery stations: package drop pose distance ahead of the station pose along yaw."},
+          "queue_of": {"type": "string", "pattern": "^DK[1-9][0-9]*$", "description": "Queue spots: the dock this spot waits for."},
+          "queue_index": {"type": "integer", "minimum": 1, "description": "Queue spots: 1 = next in line."}
         }
       }
     },
@@ -105,8 +108,23 @@
               "properties": {"entry": {"$ref": "#/$defs/vertex"}, "hold": {"type": "string", "pattern": "^H_[0-9A-Za-z_]+$"}}
             }
           },
-          "capacity": {"type": "integer", "const": 1, "description": "v1/v2 zones are exclusive."},
+          "capacity": {"type": "integer", "minimum": 1, "description": "Robots allowed in the zone at once (v1 layouts: 1)."},
           "polygon": {"type": "array", "minItems": 3, "items": {"$ref": "#/$defs/xy"}, "description": "Zone area in the map frame, counter-clockwise."}
+        }
+      }
+    },
+    "aisles": {
+      "description": "v2: keep-right traffic areas (N-09). The generator writes them to the sidecar; the costmap filter makes the left half (relative to the travel direction along axis) cost more.",
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["name", "x_min", "y_min", "x_max", "y_max", "axis"],
+        "properties": {
+          "name": {"$ref": "#/$defs/ident"},
+          "x_min": {"type": "number"}, "y_min": {"type": "number"},
+          "x_max": {"type": "number"}, "y_max": {"type": "number"},
+          "axis": {"enum": ["x", "y"], "description": "Travel axis of the aisle."},
+          "keep": {"enum": ["right"], "default": "right"}
         }
       }
     },
@@ -125,7 +143,8 @@
   },
   "$defs": {
     "ident": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$"},
-    "vertex": {"type": "string", "pattern": "^(L[1-9][0-9]*|D[1-9][0-9]*|P[1-9][0-9]*|X_[0-9]+_[0-9]+|H_[0-9A-Za-z_]+)$"},
+    "station_name": {"type": "string", "pattern": "^(L[1-9][0-9]*|D[1-9][0-9]*|P[1-9][0-9]*|DK[1-9][0-9]*|HM[1-9][0-9]*|Q_DK[1-9][0-9]*_[1-9][0-9]*|PK_[0-9A-Za-z_]+|PL_[0-9A-Za-z_]+)$"},
+    "vertex": {"type": "string", "pattern": "^(L[1-9][0-9]*|D[1-9][0-9]*|P[1-9][0-9]*|DK[1-9][0-9]*|HM[1-9][0-9]*|Q_DK[1-9][0-9]*_[1-9][0-9]*|PK_[0-9A-Za-z_]+|PL_[0-9A-Za-z_]+|X_[0-9]+_[0-9]+|H_[0-9A-Za-z_]+)$"},
     "xy": {"type": "array", "prefixItems": [{"type": "number"}, {"type": "number"}], "minItems": 2, "maxItems": 2},
     "point": {"type": "object", "additionalProperties": false, "required": ["x", "y"], "properties": {"x": {"type": "number"}, "y": {"type": "number"}}},
     "pose": {"type": "object", "additionalProperties": false, "required": ["x", "y", "yaw"], "properties": {"x": {"type": "number"}, "y": {"type": "number"}, "yaw": {"type": "number"}}},
