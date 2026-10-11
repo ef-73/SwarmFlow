@@ -1,8 +1,8 @@
 """rclpy wrapper around :class:`PayloadCore` (design §7.4): feeds it robot states and ground-truth odometry, moves the
 Gazebo package models, publishes ``/<robot>/payload_state``.
 
-The gz-transport calls are marked **[U]** (names taken from the installed gz Python modules, not yet exercised);
-the lead verifies them in sim. gz is imported lazily, so the node runs in the dev image with a fake ``PoseSetter``.
+The gz-transport calls below were verified in sim in M4 and have moved the packages in every run since.
+gz is imported lazily, so the node runs in the dev image with a fake ``PoseSetter``.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ _QOS = QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT)  # best-e
 
 
 class PoseSetter:
-    """Moves Gazebo models via gz-transport. [U] Everything in here is unverified against a running sim."""
+    """Moves Gazebo models via gz-transport (``/world/<world>/set_pose_vector``; verified in sim since M4)."""
 
     def __init__(self, world: str, timeout_ms: int = 300):
         self.world = world
@@ -36,7 +36,7 @@ class PoseSetter:
         self._node = None
 
     def set_poses(self, poses: Mapping[str, Sequence[float]]) -> bool:
-        # [U] gz-transport 13 / gz-msgs 10 Python bindings, as shipped in the sim image
+        # gz-transport 13 / gz-msgs 10 Python bindings, as shipped in the sim image
         from gz.msgs10.boolean_pb2 import Boolean
         from gz.msgs10.pose_v_pb2 import Pose_V
         from gz.transport13 import Node as GzNode
@@ -52,7 +52,6 @@ class PoseSetter:
             p.orientation.y = 0.0
             p.orientation.z = math.sin(yaw / 2.0)
             p.orientation.w = math.cos(yaw / 2.0)
-        # [U] service name and request/response types
         result, rep = self._node.request(f"/world/{self.world}/set_pose_vector", req, Pose_V, Boolean, self.timeout_ms)
         return bool(result) and bool(getattr(rep, "data", False))
 

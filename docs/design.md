@@ -753,16 +753,17 @@ F: `payload`, `scenario_engine`).
 |---|---|---|---|
 | `dev` | dev | `replicas: 0` | build/test shell for agents and `scripts/ci.sh`: `docker compose run --rm dev <cmd>`. `deploy.replicas: 0` (not a profile, so the sim/robot images can build `FROM` it), so plain `up` never starts it. |
 | `gazebo` | sim | ✔ | headless server, `/clock` bridge, spawns robots and packages; label `swarmflow.sim=1` |
-| `gazebo_gui` | sim | ✔ | `gz sim -g` client, shown on Windows (§8.4); can be stopped alone to save CPU; label `swarmflow.sim=1` |
+| `gazebo_gui` | sim | profile `gui` | `gz sim -g` client, shown on Windows (§8.4); off by default since T021 (`docker compose --profile gui up`); label `swarmflow.sim=1` |
 | `robot_1..robot_3` | robot | ✔ | Nav2 (composed) + bridges + SwarmFlow robot agent |
-| `orchestrator` | robot | ✔ | `swarmflow_orchestrator` (FCFS in v1) + global `/map` server (needs `nav2_map_server`, so the robot image) |
+| `orchestrator` | robot | ✔ | `swarmflow_orchestrator` (FCFS in v1) + `global_map_server` on `/map` (needs `nav2_map_server`, so the robot image); Foxglove does not use `/map` (it draws the world from `/viz/scene`) |
 | `scenario_engine` | robot | ✔ | order generator; stress events in v2 (the robot image carries `tools/` and `scenarios/`) |
 | `payload` | sim | ✔ | pose-follower + payload state (needs gz-transport, §7.4) |
-| `foxglove_bridge` | robot | ✔ | `foxglove_bridge`, port 8765 |
+| `viz` | sim | ✔ | `swarmflow_viz`: Foxglove scene, robot overlay, dashboards, TF relay (T021/T022); on the sim image for the gz-transport Python bindings (package poses straight from Gazebo) |
+| `foxglove_bridge` | robot | ✔ | `foxglove_bridge`, port 8765 (localhost only); forwards only the topics the layout uses (`/tf`, `/tf_static`, `/viz/*`, `/fleet/*`, `/robot_N/plan`) |
 | `rmf`, `fleet_adapter`, `rmf_api`, `rmf_dashboard` | fleet / upstream | v2 (profile `baseline-c`) | RMF core, free_fleet + `zenohd`, dashboard ports 8000 / 3000 |
 | `telemetry_api`, `web` | dev / node | v2 | FastAPI + React panel |
 
-`docker compose up` with no other arguments starts the full v1 stack including the GUI. Host networking on Docker
+`docker compose up` with no other arguments starts the full v1 stack without the Gazebo window (Foxglove is the main view); add `--profile gui` for the window. Host networking on Docker
 Desktop for Windows is **not assumed**; if the RMF dashboard needs it in v2 (as upstream suggests [S8]), WS-D documents
 the workaround **[U]**.
 
@@ -881,20 +882,20 @@ Uses: debugging, algorithm evaluation, reproducibility, dashboard explanations, 
 
 # 11. Visualization and Dashboard (C21)
 
-## 11.1 v1: Gazebo GUI + Foxglove
+## 11.1 v1: Foxglove (main view) + optional Gazebo GUI
 
-`foxglove_bridge` (WebSocket, port 8765) exposes ROS topics to Foxglove. Layout file `viz/foxglove/swarmflow_v1.json`
-(WS-E) contains:
+`foxglove_bridge` (WebSocket, `127.0.0.1:8765`) exposes the topics the layout uses. Layout file
+`viz/foxglove/swarmflow_v2.json` (T021/T022, WS-E; verified by import) contains:
 
-- **3D/Map panel:** `/map`, robot poses (from `/fleet/robot_markers`, a `visualization_msgs/MarkerArray` published by a
-  small `swarmflow_viz` node from `/fleet/robot_states`), per-robot Nav2 plans (`/robot_N/plan`), zones (polygons,
-  colored by reservation state), stations.
-- **Decision log panel** on `/fleet/decisions`.
-- **Plots:** deliveries completed, robot speeds, waiting time.
-- **Order table** from `/fleet/order_status`.
+- **3D panel:** the warehouse from `/viz/scene` (generated from the world file, so it matches Gazebo), packages
+  (`/viz/packages`), zones coloured by reservation state (`/viz/zones`), and per robot in its colour (`/viz/robots`):
+  body, Nav2 footprint, the path it is following, its current goal, its lidar scan (`/viz/robot_N/scan`). Frames are
+  prefixed per robot (`robot_N/base_link`) on one global `/tf`.
+- **Fleet dashboard** (`/viz/fleet_dashboard`, `diagnostic_msgs/DiagnosticArray`): one row per robot.
+- **Decision log** on `/fleet/decisions`, **order table** on `/fleet/order_status`, a **Publish** preset for `/fleet/orders`.
 
-The Gazebo GUI (containerized, §8.4) is the 3D showcase; Foxglove is the operational view. The RMF web dashboard
-is used only for Baseline C runs in v2.
+The Gazebo GUI (containerized, §8.4) is optional (`--profile gui`) and shows the same robot dashboard in a gz-gui
+panel (`swarmflow_gz_panel`, T022). The RMF web dashboard is used only for Baseline C runs in v2.
 
 ## 11.2 v2: custom React panel
 
