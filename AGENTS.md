@@ -104,7 +104,7 @@ All commands run from the repo root **inside the `dev` image** (built in milesto
 docs/static checks are possible). Set a per-worktree compose project so each worktree has its own build volumes:
 
 ```bash
-export COMPOSE_PROJECT_NAME=swarmflow-$(basename "$(git rev-parse --show-toplevel)") SWARMFLOW_GUI=none
+export COMPOSE_PROJECT_NAME=swarmflow-$(basename "$(git rev-parse --show-toplevel)" | tr A-Z a-z) SWARMFLOW_GUI=none
 docker compose run --rm dev colcon build --symlink-install --parallel-workers 2
 docker compose run --rm dev colcon test --packages-select <pkg>
 docker compose run --rm dev pytest src/swarmflow_core -q

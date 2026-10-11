@@ -265,7 +265,7 @@ Full architecture: [design section 6](docs/design.md).
 Everything builds and tests inside the `dev` image. Set a per-worktree compose project first (AGENTS.md section 6):
 
 ```bash
-export COMPOSE_PROJECT_NAME=swarmflow-$(basename "$(git rev-parse --show-toplevel)") SWARMFLOW_GUI=none
+export COMPOSE_PROJECT_NAME=swarmflow-$(basename "$(git rev-parse --show-toplevel)" | tr A-Z a-z) SWARMFLOW_GUI=none
 docker compose run --rm dev colcon build --symlink-install --parallel-workers 2
 docker compose run --rm dev colcon test --packages-select <pkg>
 docker compose run --rm dev pytest src/swarmflow_core -q
