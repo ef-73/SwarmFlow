@@ -2,7 +2,7 @@
 id: T029
 title: Robot agent goal mode (ROUTE_GOALS, dwell by vertex kind, blocked reporting, pallet modes, angular speed)
 workstream: D
-status: claimed
+status: review
 claimed_by: "sf-implementer"
 branch: ws-d/T029-agent-goals
 model: sonnet

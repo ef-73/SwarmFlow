@@ -36,6 +36,8 @@ _QOS10 =QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE)
 _QOS_LATCHED = QoSProfile(depth=100, reliability=ReliabilityPolicy.RELIABLE,
                           durability=DurabilityPolicy.TRANSIENT_LOCAL)
 _LEASE_STATES = {code: st for st, code in api.LEASE_STATE_CODES.items()}
+_ROUTE_KINDS = {code: kind for kind, code in api.ROUTE_KIND_CODES.items()}
+_ORDER_TYPES = {code: kind for kind, code in api.ORDER_TYPE_CODES.items()}
 _RELEASE_CODES = {api.ReleaseReason.EXITED: ReservationRelease.REASON_EXITED,
                   api.ReleaseReason.TASK_CANCELLED: ReservationRelease.REASON_TASK_CANCELLED,
                   api.ReleaseReason.FAULT: ReservationRelease.REASON_FAULT}
@@ -46,6 +48,11 @@ def _to_time_msg(t: float):
     t = max(0.0, t)
     sec = int(t)
     return Time(sec=sec, nanosec=int((t - sec) * 1e9))
+
+
+def _angle_diff(a: float, b: float) -> float:
+    """a - b wrapped to (-pi, pi]."""
+    return math.atan2(math.sin(a - b), math.cos(a - b))
 
 
 def _yaw_of(q) -> float:
@@ -79,6 +86,8 @@ class AgentNode(Node):
         self._last_pose_t = 0.0
         self._pose_stamp = 0.0        #: TF stamp of the newest valid pose (stamps RobotState)
         self._speed = 0.0
+        self._last_yaw = None
+        self._angular = 0.0           #: rad/s, from the yaw change between consecutive new poses
         self._waiting_zone_last = ""
 
         # TF (launch remaps /tf -> tf per robot namespace)
@@ -236,13 +245,16 @@ class AgentNode(Node):
                 x, y = tf.transform.translation.x, tf.transform.translation.y
                 pt = stamp if stamp > 0.0 else t                  # static transform (stamp 0): use now
                 if pt < self._pose_stamp - 1.0:                   # clock went backwards (sim restart): start over
-                    self._pose_stamp, self._last_xy = 0.0, None
+                    self._pose_stamp, self._last_xy, self._last_yaw = 0.0, None, None
                 if stamp <= 0.0 or stamp > self._pose_stamp:      # only a TF that advanced counts as a new pose
+                    yaw = _yaw_of(tf.transform.rotation)
                     if self._last_xy is not None and pt > self._last_pose_t:
                         self._speed = math.hypot(x - self._last_xy[0], y - self._last_xy[1]) / (pt - self._last_pose_t)
-                    self._last_xy, self._last_pose_t = (x, y), pt
+                        if self._last_yaw is not None:
+                            self._angular = _angle_diff(yaw, self._last_yaw) / (pt - self._last_pose_t)
+                    self._last_xy, self._last_pose_t, self._last_yaw = (x, y), pt, yaw
                     self._pose_stamp = pt
-                    self._run(self.core.on_pose(x, y, _yaw_of(tf.transform.rotation), self._speed, pt))
+                    self._run(self.core.on_pose(x, y, yaw, self._speed, pt, angular_speed=self._angular))
             self._run(self.core.tick(t))
 
     def _publish_state(self) -> None:
@@ -255,6 +267,7 @@ class AgentNode(Node):
             m.header.frame_id = "map"
             m.robot_id = s.robot_id
             m.x, m.y, m.yaw, m.linear_speed = s.x, s.y, s.yaw, s.linear_speed
+            m.angular_speed = s.angular_speed
             m.mode = api.MODE_CODES[s.mode]
             m.fault_reason, m.task_id, m.order_id = s.fault_reason, s.task_id, s.order_id
             m.last_vertex, m.next_vertex = s.last_vertex, s.next_vertex
@@ -285,7 +298,9 @@ class AgentNode(Node):
             self._result = None
             try:
                 self._run(self.core.start_task(goal.task_id, goal.order.order_id, list(goal.route), self._now(),
-                                               pickup=goal.order.pickup_vertex, dropoff=goal.order.dropoff_vertex))
+                                               pickup=goal.order.pickup_vertex, dropoff=goal.order.dropoff_vertex,
+                                               route_kind=_ROUTE_KINDS[goal.route_kind],
+                                               order_type=_ORDER_TYPES[goal.order.order_type]))
             except Exception as exc:  # noqa: BLE001 - any failure to start must free the agent again
                 self._goal_reserved = False
                 try:

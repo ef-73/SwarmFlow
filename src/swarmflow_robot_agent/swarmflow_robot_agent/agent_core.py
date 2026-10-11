@@ -28,6 +28,9 @@ ZONE_SPEED_MPS = 0.5          #: assumed speed through a zone when estimating ``
 POSE_STALE_S = 1.0            #: a pose older than this makes ``state()`` report FAULT / STALE_POSE
 ENTERED_MARGIN_M = 0.2        #: "entered" needs the pose this far inside the polygon (entry vertices lie on it)
 REACH_RADIUS_M = 0.6          #: pose within this of a route vertex counts as having reached it
+PALLET_LIFT_S = 3.0           #: v2 goal mode: dwell (mode LIFTING) when picking up a pallet
+GOAL_RETRY_MIN_S = 1.0        #: v2 goal mode: a failed Navigate is re-sent after a uniform delay in this range
+GOAL_RETRY_MAX_S = 3.0
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -156,10 +159,21 @@ class AgentCore:
         self._last_contact: Optional[float] = None
         self._leases: List[_Lease] = []
         self._lost_ids: deque = deque(maxlen=64)    #: lease ids reported lost (possibly before their grant arrived)
+        self._angular_speed = 0.0
+        # v2 goal mode (ROUTE_GOALS); all of this is inert for waypoint tasks
+        self._goal_mode = False
+        self._goal_i = 0                       #: index of the current goal in the route
+        self._order_type = api.ORDER_TRANSPORT
+        self._carrying = False                 #: pallet order: the pallet is on board
+        self._nav_inflight = False
+        self._goal_retry_at: Optional[float] = None
+        self._gref_d: Optional[float] = None   #: blocked detection: distance to the goal at the last progress
+        self._gref_t = 0.0
 
     # -- queries -------------------------------------------------------------------------------------------------
     def can_accept(self) -> bool:
-        return self._have_pose and not self._stale and self._mode in (RobotMode.IDLE, RobotMode.STUCK)
+        return (self._have_pose and not self._stale and not self._route
+                and self._mode in (RobotMode.IDLE, RobotMode.STUCK))
 
     def has_pose(self) -> bool:
         return self._have_pose
@@ -188,21 +202,37 @@ class AgentCore:
             mode, overlay = RobotMode.FAULT, "STALE_POSE"
         return api.RobotSnapshot(
             robot_id=self.robot_id, x=self._x, y=self._y, yaw=self._yaw, mode=mode,
-            last_vertex=self._route[self._reach] if active else self._last_vertex,
+            angular_speed=self._angular_speed,
+            last_vertex=self._route[self._reach] if active and not self._goal_mode else self._last_vertex,
             task_id=self._task_id, order_id=self._order_id,
             held_lease_ids=tuple(self.heartbeat_lease_ids()), linear_speed=self._speed,
             fault_reason=overlay or self._fault or (self._fault_reason_stuck if self._mode == RobotMode.STUCK else ""),
-            next_vertex=self._route[self._reach + 1] if active and self._reach + 1 < len(self._route) else "",
-            remaining_route=tuple(self._route[self._reach + 1:]) if active else ())
+            next_vertex=self._next_vertex(), remaining_route=self._remaining_route())
+
+    def _next_vertex(self) -> str:
+        if not self._route:
+            return ""
+        i = self._goal_i if self._goal_mode else self._reach + 1
+        return self._route[i] if i < len(self._route) else ""
+
+    def _remaining_route(self) -> Tuple[str, ...]:
+        if not self._route:
+            return ()
+        return tuple(self._route[self._goal_i if self._goal_mode else self._reach + 1:])
 
     # -- events --------------------------------------------------------------------------------------------------
     def start_task(self, task_id: str, order_id: str, route: Sequence[str], t: float, pickup: str = "",
-                   dropoff: str = "") -> List[object]:
-        if self._mode not in (RobotMode.IDLE, RobotMode.STUCK):
+                   dropoff: str = "", route_kind: str = api.ROUTE_WAYPOINTS,
+                   order_type: str = api.ORDER_TRANSPORT) -> List[object]:
+        if self._mode not in (RobotMode.IDLE, RobotMode.STUCK) or self._route:
             raise RuntimeError(f"{self.robot_id} is busy ({self._mode.value})")
         route = list(route)
         if not route:
             raise ValueError("empty route")
+        if route_kind == api.ROUTE_GOALS:
+            return self._start_goal_task(task_id, order_id, route, t, order_type)
+        if route_kind != api.ROUTE_WAYPOINTS:
+            raise ValueError(f"unknown route kind {route_kind!r}")
         for v in route:
             if v not in self.graph.vertices:
                 raise ValueError(f"unknown vertex {v!r}")
@@ -239,11 +269,15 @@ class AgentCore:
             self._holds = self._find_holds(route, self._end_idx)
         return self._arrive(t)
 
-    def on_pose(self, x: float, y: float, yaw: float, speed: float, t: float) -> List[object]:
+    def on_pose(self, x: float, y: float, yaw: float, speed: float, t: float,
+                angular_speed: float = 0.0) -> List[object]:
         self._x, self._y, self._yaw, self._speed = x, y, yaw, speed
+        self._angular_speed = angular_speed
         self._have_pose = True
         self._pose_t = t
         self._stale = False
+        if self._goal_mode and self._route:
+            return self._goal_on_pose(t)
         if self._route:
             if self._mode == RobotMode.NAVIGATING:
                 for k in range(self._seg_end, self._reach, -1):
@@ -260,6 +294,8 @@ class AgentCore:
         return []
 
     def on_nav_result(self, success: bool, t: float) -> List[object]:
+        if self._goal_mode and self._route:
+            return self._goal_nav_result(success, t)
         if self._mode != RobotMode.NAVIGATING or not self._route:
             return []
         if success:
@@ -392,6 +428,8 @@ class AgentCore:
         self._stale = (self._have_pose and t - self._pose_t > POSE_STALE_S
                        and self._mode in (RobotMode.IDLE, RobotMode.STUCK, RobotMode.NAVIGATING))
         acts = self._check_release()
+        if self._goal_mode and self._route:
+            return acts + self._goal_tick(t)
         if self._mode in (RobotMode.LOADING, RobotMode.UNLOADING):
             if t >= self._dwell_until:
                 if self._mode == RobotMode.LOADING:
@@ -417,7 +455,7 @@ class AgentCore:
         if not self._route:
             return []
         acts: List[object] = []
-        if self._mode == RobotMode.NAVIGATING:
+        if self._mode == RobotMode.NAVIGATING or (self._goal_mode and self._nav_inflight):
             acts.append(CancelNav())
         acts += self._release_all(ReleaseReason.TASK_CANCELLED)
         task = self._task_id
@@ -611,8 +649,15 @@ class AgentCore:
         return [TaskFinished(task, True, "")]
 
     def _clear_task(self, mode: RobotMode) -> None:
-        if self._route:
+        if self._route and not self._goal_mode:
             self._last_vertex = self._route[self._reach]
+        self._goal_mode = False
+        self._goal_i = 0
+        self._order_type = api.ORDER_TRANSPORT
+        self._carrying = False
+        self._nav_inflight = False
+        self._goal_retry_at = None
+        self._gref_d = None
         for lease in self._leases:
             lease.exit_idx = None
         self._route = []
@@ -626,3 +671,164 @@ class AgentCore:
         self._fault_reason_stuck = ""
         self._reach = 0
         self._mode = mode
+
+    # -- v2 goal mode (ROUTE_GOALS) --------------------------------------------------------------------------------
+    # Kept apart from the v1 waypoint logic above: no holds, no reservations, no edge checks, no STUCK_TIMEOUT.
+    # Phases: moving (NAVIGATING / CARRYING, or STUCK when blocked) with one single-pose Navigate in flight, or a
+    # dwell (LOADING / UNLOADING / LIFTING) at a goal that Nav2 has reached.
+
+    def _start_goal_task(self, task_id: str, order_id: str, route: List[str], t: float,
+                         order_type: str) -> List[object]:
+        for v in route:
+            if v not in self.graph.vertices:
+                raise ValueError(f"unknown vertex {v!r}")
+        self._init_time(t)
+        self._task_id, self._order_id, self._route = task_id, order_id, route
+        self._reach = 0
+        self._handled = set()
+        self._granted = set()
+        self._holds = {}
+        self._pickup_idx = None
+        self._has_order = bool(order_id)
+        self._fault = ""
+        self._fault_reason_stuck = ""
+        self._pending = None
+        self._retry_at = None
+        self._goal_mode = True
+        self._goal_i = 0
+        self._order_type = order_type
+        # a pallet order whose route has no pallet goal (follow-up task) already has the pallet on board
+        self._carrying = (order_type == api.ORDER_PALLET
+                          and not any(self.graph.vertices[v].kind == "pallet" for v in route))
+        self._nav_inflight = False
+        self._goal_retry_at = None
+        self._gref_d = None
+        self._mode = self._moving_mode()
+        return self._goal_begin(t)
+
+    def _moving_mode(self) -> RobotMode:
+        return RobotMode.CARRYING if self._carrying else RobotMode.NAVIGATING
+
+    def _goal_dwell(self, name: str) -> Optional[Tuple[RobotMode, float]]:
+        """Dwell (mode, seconds) at a goal vertex by its kind, or None for a no-dwell goal."""
+        kind = self.graph.vertices[name].kind
+        if kind == "dock":
+            secs = api.UNLOAD_DWELL_PALLET_S if self._order_type == api.ORDER_PALLET else api.UNLOAD_DWELL_BOX_S
+            return RobotMode.UNLOADING, secs
+        if kind == "loading":
+            return RobotMode.LOADING, api.LOAD_DWELL_S
+        if kind == "delivery":
+            return RobotMode.UNLOADING, api.LOAD_DWELL_S
+        if kind == "pallet" and self._order_type == api.ORDER_PALLET:
+            return RobotMode.LIFTING, PALLET_LIFT_S
+        return None
+
+    def _near_goal(self, name: str) -> bool:
+        v = self.graph.vertices[name]
+        return self._have_pose and math.hypot(v.x - self._x, v.y - self._y) <= api.GOAL_TOLERANCE_M
+
+    def _goal_navigate(self, name: str) -> Navigate:
+        v = self.graph.vertices[name]
+        if v.yaw is not None:
+            yaw = v.yaw
+        elif self._have_pose:
+            yaw = math.atan2(v.y - self._y, v.x - self._x)
+        else:
+            yaw = 0.0
+        return Navigate((name,), ((v.x, v.y, yaw),))
+
+    def _goal_begin(self, t: float) -> List[object]:
+        """Start the goal at ``_goal_i``; no-dwell goals the robot already stands at are passed at once."""
+        while True:
+            if self._goal_i >= len(self._route):
+                return self._finish_ok()
+            name = self._route[self._goal_i]
+            if self._goal_dwell(name) is None and self._near_goal(name):
+                self._last_vertex = name
+                self._goal_i += 1
+                continue
+            break
+        self._mode = self._moving_mode()
+        self._fault_reason_stuck = ""
+        self._goal_retry_at = None
+        self._nav_inflight = True
+        self._gref_t = t
+        self._gref_d = self._goal_dist()
+        return [self._goal_navigate(name)]
+
+    def _goal_dist(self) -> Optional[float]:
+        if not self._have_pose or self._goal_i >= len(self._route):
+            return None
+        v = self.graph.vertices[self._route[self._goal_i]]
+        return math.hypot(v.x - self._x, v.y - self._y)
+
+    def _goal_moving(self) -> bool:
+        return self._mode in (RobotMode.NAVIGATING, RobotMode.CARRYING, RobotMode.STUCK)
+
+    def _goal_set_blocked(self) -> None:
+        self._mode = RobotMode.STUCK
+        self._fault_reason_stuck = api.FAULT_BLOCKED
+
+    def _goal_clear_blocked(self) -> None:
+        if self._mode == RobotMode.STUCK:
+            self._mode = self._moving_mode()
+        self._fault_reason_stuck = ""
+
+    def _goal_on_pose(self, t: float) -> List[object]:
+        if not self._goal_moving() or self._goal_i >= len(self._route):
+            return []
+        name = self._route[self._goal_i]
+        if not self._near_goal(name):
+            return []
+        self._last_vertex = name
+        if self._goal_dwell(name) is not None:
+            return []                                     # dwell goals wait for Nav2 success
+        acts: List[object] = [CancelNav()] if self._nav_inflight else []
+        self._nav_inflight = False
+        self._goal_clear_blocked()
+        self._goal_i += 1
+        return acts + self._goal_begin(t)
+
+    def _goal_nav_result(self, success: bool, t: float) -> List[object]:
+        if not self._goal_moving() or self._goal_i >= len(self._route):
+            return []                                     # late/duplicate result (dwell, finished task)
+        self._nav_inflight = False
+        if not success:
+            self._goal_set_blocked()
+            self._goal_retry_at = t + self._rng.uniform(GOAL_RETRY_MIN_S, GOAL_RETRY_MAX_S)
+            return []
+        name = self._route[self._goal_i]
+        self._last_vertex = name
+        self._goal_retry_at = None
+        self._goal_clear_blocked()
+        dwell = self._goal_dwell(name)
+        if dwell is None:
+            self._goal_i += 1
+            return self._goal_begin(t)
+        self._mode, secs = dwell
+        self._dwell_until = t + secs
+        return []
+
+    def _goal_tick(self, t: float) -> List[object]:
+        if self._mode in (RobotMode.LOADING, RobotMode.UNLOADING, RobotMode.LIFTING):
+            if t < self._dwell_until:
+                return []
+            if self._mode == RobotMode.LIFTING:
+                self._carrying = True
+            self._goal_i += 1
+            return self._goal_begin(t)
+        if not self._goal_moving() or self._goal_i >= len(self._route):
+            return []
+        d = self._goal_dist()
+        if d is not None:
+            if self._gref_d is None or self._gref_d - d >= api.STUCK_MIN_PROGRESS_M:
+                self._gref_d, self._gref_t = d, t
+                if self._goal_retry_at is None:           # a failed Navigate stays reported until it is re-sent
+                    self._goal_clear_blocked()
+            elif self._mode != RobotMode.STUCK and t - self._gref_t >= api.BLOCKED_REPORT_S:
+                self._goal_set_blocked()                  # keep the task, do not cancel navigation
+        if self._goal_retry_at is not None and t >= self._goal_retry_at:
+            self._goal_retry_at = None
+            self._nav_inflight = True
+            return [self._goal_navigate(self._route[self._goal_i])]
+        return []
