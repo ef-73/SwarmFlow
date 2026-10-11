@@ -1,0 +1,181 @@
+{
+  "configById": {
+    "3D!fleet": {
+      "foxglovePanelTitle": "Warehouse",
+      "followTf": "map",
+      "followMode": "follow-none",
+      "cameraState": {
+        "perspective": true,
+        "distance": 26,
+        "phi": 38,
+        "thetaOffset": 0,
+        "targetOffset": [
+          9.5,
+          6.15,
+          0
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "scene": {
+        "enableStats": false,
+        "backgroundColor": "#20242b",
+        "labelScaleFactor": 1,
+        "transforms": {
+          "visible": false
+        }
+      },
+      "transforms": {
+        "showLabel": false,
+        "editable": false
+      },
+      "layers": {},
+      "topics": {
+        "/viz/scene": {
+          "visible": true
+        },
+        "/viz/zones": {
+          "visible": true
+        },
+        "/viz/packages": {
+          "visible": true
+        },
+        "/viz/robots": {
+          "visible": true
+        },
+        "/viz/robot_1/scan": {
+          "visible": true,
+          "colorMode": "flat",
+          "flatColor": "#1a73d9cc",
+          "pointSize": 3,
+          "pointShape": "circle"
+        },
+        "/robot_1/plan": {
+          "visible": false
+        },
+        "/viz/robot_2/scan": {
+          "visible": true,
+          "colorMode": "flat",
+          "flatColor": "#f28c1acc",
+          "pointSize": 3,
+          "pointShape": "circle"
+        },
+        "/robot_2/plan": {
+          "visible": false
+        },
+        "/viz/robot_3/scan": {
+          "visible": true,
+          "colorMode": "flat",
+          "flatColor": "#33b34dcc",
+          "pointSize": 3,
+          "pointShape": "circle"
+        },
+        "/robot_3/plan": {
+          "visible": false
+        },
+        "/viz/robot_4/scan": {
+          "visible": true,
+          "colorMode": "flat",
+          "flatColor": "#bf33b3cc",
+          "pointSize": 3,
+          "pointShape": "circle"
+        },
+        "/robot_4/plan": {
+          "visible": false
+        }
+      },
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26
+      },
+      "imageMode": {}
+    },
+    "DiagnosticSummary!fleet": {
+      "foxglovePanelTitle": "Robots",
+      "topicToRender": "/viz/fleet_dashboard",
+      "pinnedIds": [],
+      "hardwareIdFilter": "",
+      "sortByLevel": false
+    },
+    "DiagnosticStatusPanel!robot": {
+      "foxglovePanelTitle": "Robot detail",
+      "topicToRender": "/viz/fleet_dashboard",
+      "selectedHardwareId": "robot_1",
+      "selectedName": "robot_1",
+      "collapsedSections": [],
+      "splitFraction": 0.5,
+      "numericPrecision": 2
+    },
+    "Table!orders": {
+      "foxglovePanelTitle": "Orders",
+      "topicPath": "/fleet/order_status"
+    },
+    "RawMessages!decisions": {
+      "foxglovePanelTitle": "Last decision",
+      "topicPath": "/fleet/decisions",
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "expansion": "all"
+    },
+    "Publish!order": {
+      "foxglovePanelTitle": "New order",
+      "topicName": "/fleet/orders",
+      "datatype": "swarmflow_interfaces/msg/Order",
+      "buttonText": "Publish order",
+      "buttonTooltip": "Send this order to the orchestrator",
+      "buttonColor": "#1a73d9",
+      "advancedView": true,
+      "value": "{\n  \"order_id\": \"manual_001\",\n  \"release_time\": {\n    \"sec\": 0,\n    \"nanosec\": 0\n  },\n  \"deadline\": {\n    \"sec\": 0,\n    \"nanosec\": 0\n  },\n  \"pickup_vertex\": \"L1\",\n  \"dropoff_vertex\": \"D3\",\n  \"payload_type\": \"small\",\n  \"priority\": 0\n}"
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "layout": {
+    "direction": "row",
+    "splitPercentage": 66,
+    "first": "3D!fleet",
+    "second": {
+      "direction": "column",
+      "splitPercentage": 34,
+      "first": "DiagnosticSummary!fleet",
+      "second": {
+        "direction": "column",
+        "splitPercentage": 40,
+        "first": "DiagnosticStatusPanel!robot",
+        "second": {
+          "direction": "row",
+          "splitPercentage": 50,
+          "first": {
+            "direction": "column",
+            "splitPercentage": 55,
+            "first": "Table!orders",
+            "second": "RawMessages!decisions"
+          },
+          "second": "Publish!order"
+        }
+      }
+    }
+  }
+}
