@@ -5,7 +5,7 @@
   <version>0.1.0</version>
   <description>SwarmFlow orchestrator: rclpy adapter around the swarmflow_core fleet core and reservation authority, run record writer, launch file with the global map server (design 6.5, 6.6, 13.5).</description>
   <maintainer email="lead@swarmflow.invalid">SwarmFlow WS-B</maintainer>
-  <license>Apache-2.0</license>
+  <license>MIT</license>
 
   <exec_depend>rclpy</exec_depend>
   <exec_depend>swarmflow_interfaces</exec_depend>

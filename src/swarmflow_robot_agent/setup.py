@@ -15,7 +15,7 @@ setup(
     maintainer="SwarmFlow WS-D",
     maintainer_email="lead@swarmflow.invalid",
     description="SwarmFlow robot agent: fleet route to Nav2 NavigateThroughPoses bridge (design 6.3)",
-    license="Apache-2.0",
+    license="MIT",
     tests_require=["pytest"],
     entry_points={
         "console_scripts": [

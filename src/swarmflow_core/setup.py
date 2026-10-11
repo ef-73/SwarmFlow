@@ -15,6 +15,6 @@ setup(
     maintainer="SwarmFlow lead",
     maintainer_email="lead@swarmflow.invalid",
     description="SwarmFlow orchestrator library (pure Python, design §6.7)",
-    license="Apache-2.0",
+    license="MIT",
     tests_require=["pytest"],
 )

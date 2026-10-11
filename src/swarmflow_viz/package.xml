@@ -5,7 +5,7 @@
   <version>0.1.0</version>
   <description>SwarmFlow visualization: robot, zone and station markers for Foxglove (design 11.1).</description>
   <maintainer email="lead@swarmflow.invalid">SwarmFlow WS-E</maintainer>
-  <license>Apache-2.0</license>
+  <license>MIT</license>
 
   <exec_depend>rclpy</exec_depend>
   <exec_depend>swarmflow_interfaces</exec_depend>

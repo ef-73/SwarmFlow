@@ -16,7 +16,7 @@ setup(
     maintainer="SwarmFlow WS-F",
     maintainer_email="lead@swarmflow.invalid",
     description="SwarmFlow package pose-follower (design 7.4)",
-    license="Apache-2.0",
+    license="MIT",
     tests_require=["pytest"],
     entry_points={
         "console_scripts": [
