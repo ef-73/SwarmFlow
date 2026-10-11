@@ -5,7 +5,7 @@
   <version>0.1.0</version>
   <description>SwarmFlow robot agent: pure-Python AgentCore state machine, rclpy AgentNode (fleet to Nav2 bridge) and a fake NavigateThroughPoses server (design 6.3).</description>
   <maintainer email="lead@swarmflow.invalid">SwarmFlow WS-D</maintainer>
-  <license>Apache-2.0</license>
+  <license>MIT</license>
 
   <exec_depend>rclpy</exec_depend>
   <exec_depend>swarmflow_interfaces</exec_depend>

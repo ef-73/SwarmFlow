@@ -46,7 +46,7 @@ Anything else: ask in your log entry.
 | B | Orchestrator library (FCFS v1, predictive v2) + ROS adapter | `src/swarmflow_core/` (except `api.py`), `src/swarmflow_orchestrator/` | `ws-b/` |
 | C | 2D kinematic sim + benchmark harness | `sim2d/`, `tools/bench/` | `ws-c/` |
 | D | Robot agent (v1); Open-RMF + free_fleet Baseline C and RMF state bridge (v2) | `src/swarmflow_robot_agent/`; `src/swarmflow_rmf/`, `config/rmf/` (v2) | `ws-d/` |
-| E | Foxglove layouts + viz node; v2 web panel + telemetry API (mock data first) | `viz/`, `src/swarmflow_viz/`, `web/`, `src/swarmflow_telemetry/` | `ws-e/` |
+| E | Foxglove layouts + viz node, Gazebo dashboard panel; v2 web panel + telemetry API (mock data first) | `viz/`, `src/swarmflow_viz/`, `src/swarmflow_gz_panel/`, `web/`, `src/swarmflow_telemetry/` | `ws-e/` |
 | F | Layout generator, scenario/order generator, package pose-follower | `layouts/` (except `layouts/schema/`), `tools/layoutgen/`, `tools/scenarios/`, `scenarios/`, `src/swarmflow_scenarios/`, `src/swarmflow_payload/` | `ws-f/` |
 | Lead | Contracts, CI, docs, tasks, integration | contract paths (§2, before freeze / via contract branch), `.github/`, `scripts/ci.sh`, `docs/`, `README.md`, `AGENTS.md`, `CLAUDE.md`, `.claude/agents/`, `.gitattributes`, `.gitignore`, `tools/metrics/`, `tests/` | `lead/` |
 

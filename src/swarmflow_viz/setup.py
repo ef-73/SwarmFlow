@@ -17,7 +17,7 @@ setup(
     maintainer="SwarmFlow WS-E",
     maintainer_email="lead@swarmflow.invalid",
     description="SwarmFlow marker publisher for Foxglove (design 11.1)",
-    license="Apache-2.0",
+    license="MIT",
     tests_require=["pytest"],
     entry_points={
         "console_scripts": [

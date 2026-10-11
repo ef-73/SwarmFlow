@@ -18,7 +18,7 @@ setup(
     maintainer="SwarmFlow WS-B",
     maintainer_email="lead@swarmflow.invalid",
     description="SwarmFlow orchestrator: rclpy adapter around swarmflow_core FleetCore (design 6.5, 6.6)",
-    license="Apache-2.0",
+    license="MIT",
     tests_require=["pytest"],
     entry_points={
         "console_scripts": [

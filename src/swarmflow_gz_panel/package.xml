@@ -5,7 +5,7 @@
   <version>0.1.0</version>
   <description>SwarmFlow robot dashboard panel for the Gazebo GUI (gz-gui 8 plugin, T022).</description>
   <maintainer email="lead@swarmflow.invalid">SwarmFlow WS-E</maintainer>
-  <license>Apache-2.0</license>
+  <license>MIT</license>
   <buildtool_depend>ament_cmake</buildtool_depend>
   <!-- gz-gui 8 / gz-transport 13 / gz-msgs 10 come from the vendor packages in the sim image; where they are missing
        (the dev image used by CI) the package builds nothing. -->

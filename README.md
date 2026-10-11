@@ -356,4 +356,4 @@ scripts/ci.sh        # the referee: contract diff, owned files, hygiene, build, 
 
 ## License
 
-Apache-2.0 (see the `package.xml` files).
+MIT, see [`LICENSE`](LICENSE). `src/swarmflow_viz/config/gazebo_gui.config` is based on Gazebo's default GUI config (Apache-2.0, Open Robotics).

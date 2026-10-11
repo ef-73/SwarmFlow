@@ -16,7 +16,7 @@ setup(
     maintainer="SwarmFlow WS-F",
     maintainer_email="lead@swarmflow.invalid",
     description="SwarmFlow scenario_engine: publishes seeded orders in sim time and writes the run record (design 13.5)",
-    license="Apache-2.0",
+    license="MIT",
     tests_require=["pytest"],
     entry_points={
         "console_scripts": [

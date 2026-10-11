@@ -207,8 +207,7 @@ Use it only as an experiment, not as a way to reduce privilege.
 ## 9. Suggested order
 
 0. **Clean-up and baseline first** (§12): X-02, X-03, X-05, X-08 (small tidy-ups), X-01 (cheaper `viz`),
-   X-10 (baseline numbers on the current layout), X-07 (license, needs the user's choice), X-04 (user edits
-   AGENTS.md §3). X-06 (v1.1 robustness) runs alongside the later steps.
+   X-10 (baseline numbers on the current layout). X-04 and X-07 are done. X-06 (v1.1 robustness) runs alongside the later steps.
 1. **Foxglove** (V-01 … V-10): **done** (T021, T022).
 2. **Contract branch**, approved in one go: new station types and optional zones (L-07), goal-based tasks (O-01),
    multi-pick orders (O-04), pallet orders and modes (F-06).
@@ -227,7 +226,7 @@ The light mode (X-09 / C-03) is built before step 3, so steps 3–6 can be tried
 3. **Fleet size:** 4–5 robots is fine. CPU: a light mode (C-03); no hard core cap and no reduced-quality settings.
 4. **Docks:** every order names its truck dock.
 5. **Lidar:** 360° with one lidar in a sensor slot (N-06).
-6. **v1.0.0:** tag the current version before the rework. Rule change: the lead may create tags after explicit approval of each tag (AGENTS.md §4).
+6. **v1.0.0:** tag the current version before the rework (done). Rule change: the lead may create tags after explicit approval of each tag (AGENTS.md §4).
 7. **Keep right** in all aisles (N-09).
 8. **Map:** assume the warehouse was scanned beforehand; no SLAM needed (§6).
 9. **Shared lidar:** no. Share position + velocity instead (N-05).
@@ -241,13 +240,15 @@ The light mode (X-09 / C-03) is built before step 3, so steps 3–6 can be tried
 | X-01 | Make the `viz` container cheaper (profile it; move the TF relay to C++ or drop high-rate frames at the source) | It still uses ~0.9 core with 3 robots | S–M |
 | X-02 | Remove the v1 viz leftovers (`/fleet/robot_markers`, `/fleet/zone_markers`, `markers.py`, `swarmflow_v1.json`) | Duplicate work and topics now that v2 views exist | S |
 | X-03 | Update stale design text: §11.1 (Foxglove v1 file, a global `/map` nobody publishes), §8.3 service table (`gazebo_gui` profile, `viz` on the sim image) | Docs no longer match the stack | S |
-| X-04 | Assign `src/swarmflow_gz_panel/` to WS-E in AGENTS.md §3 (only you can edit §3) | New package has no owner | S |
+| X-04 | **Done** (user approved): `src/swarmflow_gz_panel/` added to WS-E in AGENTS.md §3 | New package has no owner | S |
 | X-05 | Housekeeping: 2 stale worktrees, 4 empty folders in `.claude/worktrees/`, 72 unused Docker volumes (~0.4 GB), ~16 GB Docker build cache, duplicate "swarmflow_v2" layouts in your Foxglove account | Disk and clutter | S |
 | X-06 | v1.1 leftovers from the retrospective: container healthchecks + restart policies, 19 fixed sleeps in tests, `ci.sh` branch names like `T018b`, batch scripts that kill their children, a "control loop missed" counter, the undiagnosed GitHub Actions failures | Robustness of runs and CI | M |
-| X-07 | Choose a LICENSE before the repo grows further | Still missing | S |
+| X-07 | **Done:** MIT (user decision 2026-10-11), `LICENSE` + all package manifests | Still missing | S |
 | X-08 | Clear the `[U]` (unverified) notes in `payload_node.py`; the code has worked in every run since M4 | Misleading comments | S |
 | X-09 | Run the 2D sim (`sim2d/`) as the planned light mode early, before the new layout, so new assignment logic can be tested without Gazebo | Saves Gazebo time on every later step | M |
 | X-10 | One benchmark scenario on the *current* layout before the rework (baseline numbers to compare v2 against) | Otherwise v2 has nothing to beat | S |
+
+Non-blocking actions for the user live in [`docs/user_todo.md`](user_todo.md).
 
 ## 11. Your additions
 
