@@ -9,7 +9,7 @@ Publishes
   ``tf_relay``), path on the floor and current goal, all in the robot's Gazebo colour;
 - ``/viz/fleet_dashboard``: ``diagnostic_msgs/DiagnosticArray``, one status per robot;
 - inside the Gazebo window, when one is open (``gz_overlay``): status rings, paths and goals, and the status
-  board for the "SwarmFlow robots" panel;
+  board (JSON) for the "SwarmFlow robots" panel of ``swarmflow_gz_panel``;
 - ``/fleet/robot_markers`` and ``/fleet/zone_markers``: the v1 marker topics, unchanged.
 """
 
@@ -32,7 +32,7 @@ from swarmflow_core.graph import load_layout
 from swarmflow_interfaces.msg import Order, OrderStatus, PayloadState, RobotState, ZoneReservation
 
 from . import fleet_view as fv
-from .gz_overlay import GzOverlay, board_lines, build_overlay
+from .gz_overlay import GzOverlay, board_json, build_overlay
 from .markers import robot_markers, station_markers, zone_markers
 from .world_scene import Shape, load_world
 
@@ -225,7 +225,7 @@ class VizNode(Node):
         if self._overlay is not None:
             goals = {rid: self._goal(rid, s)[0] for rid, s in self._states.items() if s.get("task_id")}
             levels = {st.name: fv.level_of(st) for st in dash.status}
-            board = board_lines([f"{st.name}: {st.message}" for st in dash.status])
+            board = board_json(t, dash, rows)
             self._overlay.update(build_overlay(self._robots, rows, levels, self._paths, goals), board)
 
     def destroy_node(self):

@@ -2,7 +2,7 @@
 id: T022
 title: Gazebo robot dashboard panel (C++ gz-gui plugin)
 workstream: E
-status: claimed
+status: done
 claimed_by: "claude-lead"
 branch: lead/T022-gazebo-dashboard
 model: opus

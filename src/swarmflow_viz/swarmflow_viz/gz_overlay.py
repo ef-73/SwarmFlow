@@ -2,9 +2,9 @@
 
 In the 3D view (gz markers): a ring under each robot coloured by its status (green OK, amber waiting or stale, red
 stuck / fault), its path on the floor and its goal disc in the robot's colour. Text markers do not render with
-Gazebo's ogre2 engine, so the status board (one line per robot) is published as text on the gz topic ``/echo`` and
-shown, one message per robot, by the "SwarmFlow robots" TopicEcho panel (``config/gazebo_gui.config``). Markers are served by the Gazebo
-GUI; without a GUI the requests fail quietly and are retried every few seconds, so a headless run pays almost
+Gazebo's ogre2 engine, so the status board is published as JSON on the gz topic ``/swarmflow/dashboard`` and shown
+by the "SwarmFlow robots" panel (C++ gz-gui plugin in ``swarmflow_gz_panel``, T022). Markers are served by the
+Gazebo GUI; without a GUI the requests fail quietly and are retried every few seconds, so a headless run pays almost
 nothing.
 
 ``build_overlay`` is pure (plain dicts, testable without Gazebo); ``GzOverlay`` sends them with the gz-transport
@@ -13,6 +13,7 @@ Python bindings from a background thread so the ROS executor never blocks on Gaz
 
 from __future__ import annotations
 
+import json
 import threading
 import time
 from typing import Dict, List, Mapping, Optional, Sequence, Tuple
@@ -21,7 +22,7 @@ from .fleet_view import ERROR, OK, WARN, robot_rgba
 
 RGBA = Tuple[float, float, float, float]
 NS = "swarmflow"
-BOARD_TOPIC = "/echo"           #: TopicEcho's default topic: the panel works without typing a topic name
+BOARD_TOPIC = "/swarmflow/dashboard"   #: read by the SwarmFlowDashboard gz-gui panel (swarmflow_gz_panel)
 LEVEL_RGBA = {OK: (0.15, 0.75, 0.25, 0.9), WARN: (0.95, 0.70, 0.10, 0.9), ERROR: (0.90, 0.15, 0.10, 0.95)}
 
 
@@ -55,11 +56,27 @@ def build_overlay(robots: Sequence[str], states: Mapping[str, Mapping], levels: 
     return out
 
 
-def board_lines(lines: Sequence[str]) -> List[str]:
-    """One plain-ASCII message per robot: TopicEcho prints each message on one line and escapes newlines and
-    non-ASCII characters. With the panel's buffer set to the number of robots it reads as one line per robot."""
-    table = str.maketrans({"·": "|", "→": "->"})
-    return [ln.translate(table).encode("ascii", "replace").decode("ascii") for ln in lines]
+def _hex(rgba: RGBA) -> str:
+    return "#{:02x}{:02x}{:02x}".format(*(max(0, min(255, round(c * 255))) for c in rgba[:3]))
+
+
+def board_json(t: float, dashboard, rows: Mapping[str, Mapping]) -> str:
+    """The panel's data: ``{"t": sim s, "robots": [{name, color, level, mode, goal, order, order_state, loaded,
+    speed, age, fault}]}``. ``dashboard`` is the ``DiagnosticArray`` from ``fleet_view.dashboard``."""
+    from .fleet_view import level_of
+
+    robots = []
+    for st in dashboard.status:
+        vals = {kv.key: kv.value for kv in st.values}
+        r = rows.get(st.name, {})
+        robots.append({
+            "name": st.name, "color": _hex(robot_rgba(st.name)), "level": level_of(st),
+            "mode": vals.get("mode", "") or st.message, "goal": vals.get("goal", ""),
+            "order": vals.get("order", ""), "order_state": vals.get("order state", ""),
+            "loaded": vals.get("loaded") == "yes", "speed": float(r.get("speed", 0.0)),
+            "age": float(vals.get("last update s ago", "0") or 0.0), "fault": vals.get("fault", ""),
+        })
+    return json.dumps({"t": round(float(t), 1), "robots": robots})
 
 
 class GzOverlay:
@@ -68,7 +85,7 @@ class GzOverlay:
     def __init__(self, period_s: float = 0.5, retry_s: float = 5.0, timeout_ms: int = 1000, logger=None):
         self._period, self._retry, self._timeout = period_s, retry_s, timeout_ms
         self._log = logger
-        self._latest: Optional[Tuple[List[Dict], List[str]]] = None
+        self._latest: Optional[Tuple[List[Dict], str]] = None
         self._cv = threading.Condition()
         self._stop = False
         self._thread = threading.Thread(target=self._run, name="gz_overlay", daemon=True)
@@ -87,7 +104,7 @@ class GzOverlay:
         self._thread.start()
         return True
 
-    def update(self, markers: List[Dict], board: List[str]) -> None:
+    def update(self, markers: List[Dict], board: str) -> None:
         with self._cv:
             self._latest = (markers, board)
             self._cv.notify()
@@ -116,8 +133,7 @@ class GzOverlay:
             if latest is None:
                 continue
             markers, board = latest
-            for line in board:
-                board_pub.publish(StringMsg(data=line))
+            board_pub.publish(StringMsg(data=board))
             if time.monotonic() < next_try:
                 continue
             req = Marker_V()

@@ -133,7 +133,9 @@ def test_dashboard_levels_and_stale_robots():
 # ---- Gazebo overlay -----------------------------------------------------------------------------------------------
 
 def test_gazebo_overlay_status_rings_paths_goals_and_board():
-    from swarmflow_viz.gz_overlay import LEVEL_RGBA, board_lines, build_overlay
+    import json
+
+    from swarmflow_viz.gz_overlay import LEVEL_RGBA, board_json, build_overlay
     states = {"robot_1": {"x": 1.0, "y": 2.0, "mode": "NAVIGATING", "task_id": "t1"},
               "robot_2": {"x": 5.0, "y": 2.0, "mode": "STUCK", "task_id": ""}}
     out = build_overlay(["robot_1", "robot_2", "robot_3"], states, {"robot_1": 0, "robot_2": 2},
@@ -146,4 +148,10 @@ def test_gazebo_overlay_status_rings_paths_goals_and_board():
     assert by[2]["type"] == "cylinder" and by[2]["pose"][:2] == (3.0, 2.0)
     assert by[11]["type"] == "delete" and by[12]["type"] == "delete"          # no task: no path, no goal
     assert [by[20 + k]["type"] for k in range(3)] == ["delete"] * 3            # robot without state
-    assert board_lines(["robot_1: NAVIGATING · → L1 pickup o1"]) == ["robot_1: NAVIGATING | -> L1 pickup o1"]
+    dash = fv.dashboard(10.0, {"robot_1": {"mode": "NAVIGATING", "stamp": 9.5, "goal": "L1 pickup o1",
+                                           "order_id": "o1", "order_state": "ASSIGNED", "speed": 0.4}}, ["robot_1"])
+    board = json.loads(board_json(10.0, dash, {"robot_1": {"speed": 0.4}}))
+    assert board["t"] == 10.0
+    assert board["robots"] == [{"name": "robot_1", "color": "#1a73d9", "level": 0, "mode": "NAVIGATING",
+                                "goal": "L1 pickup o1", "order": "o1", "order_state": "ASSIGNED", "loaded": False,
+                                "speed": 0.4, "age": 0.5, "fault": ""}]
