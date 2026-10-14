@@ -2,7 +2,7 @@
 id: T041
 title: Pallet-stand models in the v2 world and a pallet follower in the payload node (F-01, F-03)
 workstream: F
-status: open
+status: claimed
 claimed_by: "sf-implementer"
 branch: ws-f/T041-pallets
 model: sonnet
