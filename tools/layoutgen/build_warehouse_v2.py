@@ -122,7 +122,7 @@ def build():
     centre = node(10, PALLET_Y)
     chain(["PL_W1", "PL_W2", centre, "PL_E1", "PL_E2"], 3.0)
 
-    spawn = [{"robot_id": f"robot_{k}", "vertex": f"HM{k}", "yaw": HALF_PI} for k in range(1, 6)]
+    spawn = [{"robot_id": f"robot_{k}", "vertex": f"HM{k}", "yaw": HALF_PI} for k in range(1, 9)]
     return {"schema_version": 2, "name": "warehouse_v2",
             "description": "v2 warehouse: two rack blocks, central aisle, 4 truck docks with queue lanes, 8 home slots, "
                            "4 pallet stands, keep-right aisles.",
