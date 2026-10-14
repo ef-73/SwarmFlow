@@ -40,13 +40,22 @@ service) survived `docker compose down` and carried its AMCL and Nav2 state into
   along them. A lost robot is also a safety hazard: the others avoid it where it is *reported* (OtherRobotsLayer).
   No contact happened (padded footprints never overlapped), mostly because lost robots stopped.
 
-## I-03 decision: AMCL is the default on v2 layouts
+## I-03 decision: ground truth stays the default
 
-The criterion was "switch to AMCL if its throughput is within 10 % of ground truth". It is (rungs 2–3), with no
-localisation failure in 6 runs, so `SWARMFLOW_LOCALIZATION` now defaults to `auto`: AMCL (tuned v2 profile) on v2
-layouts, ground truth on the v1 `standard` layout, whose results and nav profile were recorded with it (T056).
-Ground truth stays one variable away for benchmarks that should exclude localisation.
+The criterion was "switch to AMCL if its throughput is within 10 % of ground truth". On the ladder scenario it is
+(rungs 2–3, no localisation failure in 6 runs), and the default was switched (T056). The release check then ran the
+saturating `v2_demo` (≈ 4.5 orders/min, 4 robots) once with each setting, back to back, 2026-10-14:
 
-Follow-up (logged, not built): localisation health monitoring — a robot reports FAULT/LOCALIZATION when its AMCL
-covariance or scan match is bad, and the OtherRobotsLayer stamps a larger uncertainty area around it. Needed before
-running with a lidar as poor as rung 4.
+| Run | Localization | Deliveries | Stuck / failed | Clearance violations | Nav2 "control loop missed" warnings | Localisation error mean (worst) per robot (m) |
+|---|---|---|---|---|---|---|
+| `g7_amcl_1` | AMCL (tuned) | 6 | 6 / 6 | 1 | 347 (robot_1, robot_3) | 0.19 (0.53), 0.51 (1.17), 0.06 (0.33), **2.65 (10.96)** |
+| `g7_gt_1` | ground truth | 16 | 0 / 0 | 4 | 2 | — |
+
+Under saturating traffic AMCL lost robot_4 and the controllers of two robots ran at 9–11 Hz instead of 15 Hz (AMCL
+plus the error recorder in robot_1 cost CPU; the cause of the rate loss is not isolated). One run each, but the
+difference is too large to ship AMCL as the default: **the switch was reverted (T057); ground truth stays the
+default, AMCL stays one variable away** (`SWARMFLOW_LOCALIZATION=amcl`).
+
+Follow-ups (logged, not built): localisation health monitoring (a robot reports FAULT/LOCALIZATION when its AMCL
+covariance or scan match is bad, and the OtherRobotsLayer stamps a larger uncertainty area around it); AMCL CPU
+budget per robot; repeat the AMCL `v2_demo` run (n = 3) once both exist.
