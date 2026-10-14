@@ -8,6 +8,8 @@ x-ros-env: &ros-env
   GZ_SIM_RESOURCE_PATH: /ws/install/swarmflow_description/share:/ws/install/swarmflow_gazebo/share
   # realism ladder rung 3 (I-01): netem arguments for the robot containers' egress, e.g. "delay 50ms 10ms loss 1%"
   SWARMFLOW_NETEM: ${SWARMFLOW_NETEM:-}
+  # E-01: other robots' predicted positions (OtherRobotsLayer horizon, s); empty = the profile default (2.0)
+  SWARMFLOW_PREDICTION_HORIZON: ${SWARMFLOW_PREDICTION_HORIZON:-}
 
 services:
   dev:
