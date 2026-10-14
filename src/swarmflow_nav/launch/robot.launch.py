@@ -64,6 +64,12 @@ def setup(context):
         # (M14 session 5: both costmaps fell back to Nav2's default layers)
         base = yaml.safe_load(open(source, encoding="utf-8"))
         _deep_merge(base, yaml.safe_load(open(os.path.join(share, "config", "nav2_params_v2.yaml"), encoding="utf-8")))
+        # keep-right aisles (N-09) from the layout sidecar: x_min, y_min, x_max, y_max, axis (0 = x, 1 = y) per aisle
+        side = yaml.safe_load(open(os.path.join(gen, "zones.yaml"), encoding="utf-8"))
+        flat = [float(v) for a in side.get("aisles", []) for v in
+                (a["x_min"], a["y_min"], a["x_max"], a["y_max"], 0.0 if a["axis"] == "x" else 1.0)]
+        for cm in ("local_costmap", "global_costmap"):
+            base[cm][cm]["ros__parameters"]["keep_right"]["aisles"] = flat
         source = os.path.join(tempfile.gettempdir(), f"swarmflow_{rid}_nav2_params_v2.yaml")
         with open(source, "w", encoding="utf-8") as f:
             yaml.safe_dump(base, f, sort_keys=False)

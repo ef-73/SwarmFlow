@@ -6,6 +6,8 @@
 # - N-03: no Spin recovery (navigate_v2.xml).
 # - N-05a: other robots come from /fleet/robot_states (swarmflow_nav::OtherRobotsLayer), because the slot lidars
 #   look through each other's sensor slot; current footprint lethal + 2 s constant-velocity prediction.
+# - N-09: keep right (swarmflow_nav::KeepRightLayer): left half of each layout aisle, relative to the heading,
+#   costs 70 (non-lethal).
 # - C-01: idle Nav2 used ~0.8 core per robot (measured 2026-10-13): no voxel map topic, costmap updates instead of
 #   full maps on every publish (Foxglove does not show costmaps by default, V-06).
 local_costmap:
@@ -14,9 +16,11 @@ local_costmap:
       width: 6
       height: 6
       always_send_full_costmap: false
-      plugins: [voxel_layer, other_robots, inflation_layer]
+      plugins: [voxel_layer, other_robots, keep_right, inflation_layer]
       other_robots:
         plugin: swarmflow_nav::OtherRobotsLayer
+      keep_right:
+        plugin: swarmflow_nav::KeepRightLayer   # aisles filled in by robot.launch.py from zones.yaml
       voxel_layer:
         publish_voxel_map: false
         scan:
@@ -27,9 +31,11 @@ global_costmap:
     ros__parameters:
       update_frequency: 2.0
       always_send_full_costmap: false
-      plugins: [static_layer, obstacle_layer, other_robots, inflation_layer]
+      plugins: [static_layer, obstacle_layer, other_robots, keep_right, inflation_layer]
       other_robots:
         plugin: swarmflow_nav::OtherRobotsLayer
+      keep_right:
+        plugin: swarmflow_nav::KeepRightLayer
       obstacle_layer:
         footprint_clearing_enabled: true
         scan:

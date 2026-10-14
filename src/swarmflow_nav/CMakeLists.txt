@@ -8,7 +8,7 @@ find_package(swarmflow_interfaces REQUIRED)
 find_package(tf2 REQUIRED)
 
 # costmap layer: other robots' footprints from /fleet/robot_states (N-05a)
-add_library(swarmflow_nav_layers SHARED src/other_robots_layer.cpp)
+add_library(swarmflow_nav_layers SHARED src/other_robots_layer.cpp src/keep_right_layer.cpp)
 target_compile_features(swarmflow_nav_layers PUBLIC cxx_std_17)
 ament_target_dependencies(swarmflow_nav_layers rclcpp nav2_costmap_2d pluginlib swarmflow_interfaces tf2)
 pluginlib_export_plugin_description_file(nav2_costmap_2d plugins.xml)
