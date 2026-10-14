@@ -267,11 +267,11 @@ Each milestone ends like v1 (§2.1): ff-merge to `main`, push, §5 row updated, 
 | M7 | ✅ done 2026-10-09 — corridor n=3: FCFS 6.0 vs independent 3.0 deliveries, wait 56 vs 118 s; fresh clone + one-command up verified; cold build 10 min |
 | M8 | ✅ done 2026-10-10 — controller starvation and in-aisle reversals fixed; corridor n=3: FCFS 7.0 ± 0.0 vs independent 3.3 deliveries, 0 stuck; 10-min demo 15 deliveries, 0 stuck; §15.4 checked (tag + video with the user) |
 | M9 | ✅ done 2026-10-10 — retrospective (`docs/retrospective_v1.md`); T018–T020 safety hardening (each reviewed twice), CI referee fixes, docs/ports; M9 demo 15 deliveries, 0 stuck; §15.4 re-checked; G5 passed (`v1.0.0` tagged 2026-10-11) |
-| M10 | ⏳ mostly done 2026-10-14 — clean-up, CI fixes, X-02, X-05, X-10 baseline 15/15/15 (`docs/results/v1_baseline.md`); X-06 partial (test waits, ci.sh ids, batch children, loop-missed count done; **healthchecks / restart policies open**); X-01 partial (joint states; viz 0.7 core → C++ relay) |
+| M10 | ⏳ mostly done 2026-10-14 — clean-up, CI fixes, X-02, X-05, X-10 baseline 15/15/15 (`docs/results/v1_baseline.md`); X-06 done (test waits, ci.sh ids, batch children, loop-missed count, healthchecks + restart policies); X-01: C++ TF/scan relay (T054), viz CPU in the G7 notes |
 | M11 | ✅ light mode (T025, T036, T037): 3 robots 0.32 core, 8 robots on v2_demo 0.59 core (layout has 8 home slots, so 8 instead of 10); 0.6 m/s like the robots |
 | M12 | ✅ contract-v2 (decision 002, reviewed); v1 regression passed in the X-10 baseline |
-| M13 | ⏳ warehouse_v2 (T026), v2 order generator (T027); Gazebo world loads, 2-robot sessions run on it; **Foxglove-vs-Gazebo screenshot pair open** |
+| M13 | ✅ 2026-10-14 — warehouse_v2 (T026), v2 order generator (T027); Gazebo/Foxglove screenshot pair `docs/evidence/M13_*` |
 | M14 | ✅ 2026-10-14 — head_on / pass_parked / crossing 3/3, dead_end 5/5 (≤ 27 s), blocked reported in ~10.6 s, keep-right 95–100 %; 360° lidar; OtherRobotsLayer + KeepRightLayer; decision 003 (costmap params). N-04 probe not built, N-05 stage b deferred |
 | M15 | ✅ 2026-10-14 — v2_steady 4 robots: 10/10 delivered, every dock ≥ 1, 0 stuck / failed / clearance violations, min 0.31 m; manual orders (CLI verified end to end in light mode, Foxglove template) |
 | M16 | ✅ 2026-10-14 — 8/8 pallet deliveries in Gazebo, docking 0.0 cm lateral / ≤ 1.9 cm, footprint switch each time, pallets rest flat, truck clears docks; mixed run with physical pallets in M17 |
-| M17 | ✅ 2026-10-14 — realism ladder 12 runs (`docs/results/v2_realism_ladder.md`, AMCL not default: lost robot), E-01/E-02/C-01 (`docs/results/v2_benchmarks.md`) → **G7 waiting for the user** |
+| M17 | ✅ 2026-10-14 — realism ladder 12 runs (`docs/results/v2_realism_ladder.md`), I-03: AMCL default on v2 layouts (T056), E-01/E-02/C-01 (`docs/results/v2_benchmarks.md`); 14 runs redone after the harness bug (T055) → **G7 waiting for the user** |
