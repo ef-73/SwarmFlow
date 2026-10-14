@@ -78,3 +78,25 @@ def test_separation_min_distance_and_near_miss_episodes():
     assert abs(best - 0.20) < 1e-9 and near == 2
     best1, near1 = mod.separation({0.0: {"robot_1": (0.0, 0.0, 0.0)}})
     assert math.isnan(best1) and near1 == 0
+
+
+def test_short_run_uses_covered_sim_span(tmp_path):
+    """A run whose sim time stopped at 300 s of a 600 s window reports rates over 300 s (X-10 finding)."""
+    import json
+    d = tmp_path / "v1_demo-fcfs-s1-short"
+    d.mkdir()
+    (d / "config.yaml").write_text("scenario: {name: v1_demo, seed: 1, duration_s: 600, policy: fcfs}\n"
+                                   "start_time_sim_s: 10.0\nstart_delay_s: 0.0\n", encoding="utf-8")
+    (d / "orders.jsonl").write_text("".join(json.dumps(r) + "\n" for r in [
+        {"t": 20.0, "order_id": "o1", "state": "QUEUED", "robot_id": "", "failure_reason": ""},
+        {"t": 200.0, "order_id": "o1", "state": "DELIVERED", "robot_id": "robot_1", "failure_reason": ""}]),
+        encoding="utf-8")
+    (d / "decisions.jsonl").write_text("", encoding="utf-8")
+    (d / "robot_states.jsonl").write_text("".join(
+        json.dumps({"t": 10.0 + k, "robot_id": "robot_1", "x": 0.0, "y": 0.0, "yaw": 0.0, "mode": "IDLE",
+                    "linear_speed": 0.0}) + "\n" for k in range(0, 301, 10)), encoding="utf-8")
+    r = subprocess.run([sys.executable, str(COMPUTE), str(d)], capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    header, row = (d / "metrics.csv").read_text(encoding="utf-8").splitlines()[:2]
+    m = dict(zip(header.split(","), row.split(",")))
+    assert abs(float(m["duration_s"]) - 300.0) < 1e-6 and abs(float(m["throughput_per_min"]) - 0.2) < 1e-6

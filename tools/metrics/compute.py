@@ -71,6 +71,10 @@ def compute(run_dir: pathlib.Path) -> dict:
         orders = [o for o in orders if o["t"] <= t1]
         decisions = [d for d in decisions if d.get("t", t0) <= t1]
         states = [s for s in states if t0 <= s["t"] <= t1]
+        # a run stopped before the window ended (sim slower than real time, X-10): rates use the covered span
+        covered = max((s["t"] for s in states), default=t0) - t0
+        if 0.0 < covered < duration - 1.0:
+            duration = covered
 
     first_queued, last_state, delivered_t = {}, {}, {}
     for o in sorted(orders, key=lambda r: r["t"]):
