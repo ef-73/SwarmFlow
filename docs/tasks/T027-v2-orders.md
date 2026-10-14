@@ -2,7 +2,7 @@
 id: T027
 title: v2 order generator (shelf + pallet orders) and scenario engine fields
 workstream: F
-status: claimed
+status: review
 claimed_by: "sf-implementer"
 branch: ws-f/T027-v2-orders
 model: sonnet

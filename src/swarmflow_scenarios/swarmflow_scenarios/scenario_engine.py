@@ -17,6 +17,7 @@ from builtin_interfaces.msg import Time
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy
 
+from swarmflow_core import api
 from swarmflow_core.graph import load_layout
 from swarmflow_interfaces.msg import Order
 
@@ -113,10 +114,15 @@ class ScenarioEngineNode(Node):
             msg.dropoff_vertex = spec.dropoff_vertex
             msg.payload_type = spec.payload_type
             msg.priority = spec.priority
+            msg.order_type = api.ORDER_TYPE_CODES[spec.order_type]
+            msg.pick_vertices = list(spec.pick_vertices)
+            msg.pallet_id = spec.pallet_id
             self._pub.publish(msg)
             self._append_event({"t": now, "type": "order_released", "order_id": spec.order_id,
                                 "pickup": spec.pickup_vertex, "dropoff": spec.dropoff_vertex,
-                                "payload_type": spec.payload_type, "scheduled_t": spec.release_t})
+                                "payload_type": spec.payload_type, "scheduled_t": spec.release_t,
+                                "order_type": spec.order_type, "pick_vertices": list(spec.pick_vertices),
+                                "pallet_id": spec.pallet_id})
             self._next += 1
         if self.done:
             self._timer.cancel()
