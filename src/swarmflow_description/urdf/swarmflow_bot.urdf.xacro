@@ -7,6 +7,11 @@
   <xacro:arg name="robot_id" default="robot_1"/>
   <xacro:arg name="namespace" default="robot_1"/>
   <xacro:arg name="color" default="0.10 0.45 0.85 1"/>
+  <!-- lidar: front (v1: 180° front lidar outside the hull) | slot360 (v2, N-06: one 360° lidar in the centre at
+       0.20 m, in a horizontal sensor slot around the body; the top deck rests on 4 thin corner posts, which lie
+       inside the Nav2 footprint, so the costmaps' footprint clearing removes their returns) -->
+  <xacro:arg name="lidar" default="front"/>
+  <xacro:property name="slot360" value="${'$(arg lidar)' == 'slot360'}"/>
   <xacro:property name="ns" value="$(arg namespace)"/>
 
   <xacro:property name="body_l" value="0.60"/>
@@ -30,11 +35,37 @@
   </joint>
 
   <link name="base_link">
-    <visual>
-      <origin xyz="0 0 ${body_z}"/>
-      <geometry><box size="${body_l} ${body_w} ${body_h}"/></geometry>
-      <material name="body"/>
-    </visual>
+    <xacro:unless value="${slot360}">
+      <visual>
+        <origin xyz="0 0 ${body_z}"/>
+        <geometry><box size="${body_l} ${body_w} ${body_h}"/></geometry>
+        <material name="body"/>
+      </visual>
+    </xacro:unless>
+    <xacro:if value="${slot360}">
+      <!-- lower chassis 0.05-0.17 m, slot 0.17-0.23 m, top deck 0.23-0.30 m (heights above the ground) -->
+      <visual>
+        <origin xyz="0 0 ${0.11 - wheel_r}"/>
+        <geometry><box size="${body_l} ${body_w} 0.12"/></geometry>
+        <material name="body"/>
+      </visual>
+      <visual>
+        <origin xyz="0 0 ${0.265 - wheel_r}"/>
+        <geometry><box size="${body_l} ${body_w} 0.07"/></geometry>
+        <material name="body"/>
+      </visual>
+      <xacro:macro name="post" params="x y">
+        <visual>
+          <origin xyz="${x} ${y} ${0.20 - wheel_r}"/>
+          <geometry><box size="0.02 0.02 0.06"/></geometry>
+          <material name="body"/>
+        </visual>
+      </xacro:macro>
+      <xacro:post x="${body_l / 2 - 0.01}" y="${body_w / 2 - 0.01}"/>
+      <xacro:post x="${body_l / 2 - 0.01}" y="${-body_w / 2 + 0.01}"/>
+      <xacro:post x="${-body_l / 2 + 0.01}" y="${body_w / 2 - 0.01}"/>
+      <xacro:post x="${-body_l / 2 + 0.01}" y="${-body_w / 2 + 0.01}"/>
+    </xacro:if>
     <!-- coloured top plate = cargo platform + ID colour -->
     <visual>
       <origin xyz="0 0 ${body_z + body_h / 2 + 0.005}"/>
@@ -102,7 +133,7 @@
   </link>
   <joint name="lidar_joint" type="fixed">
     <parent link="base_link"/><child link="lidar_link"/>
-    <origin xyz="${body_l / 2 + 0.035} 0 ${0.20 - wheel_r}"/>
+    <origin xyz="${0.0 if slot360 else body_l / 2 + 0.035} 0 ${0.20 - wheel_r}"/>
   </joint>
 
   <gazebo reference="lidar_link">
@@ -113,8 +144,14 @@
       <always_on>1</always_on>
       <visualize>false</visualize>
       <lidar>
-        <scan><horizontal><samples>181</samples><resolution>1</resolution>
-          <min_angle>-1.5708</min_angle><max_angle>1.5708</max_angle></horizontal></scan>
+        <xacro:if value="${slot360}">
+          <scan><horizontal><samples>360</samples><resolution>1</resolution>
+            <min_angle>-3.14159</min_angle><max_angle>3.12414</max_angle></horizontal></scan>
+        </xacro:if>
+        <xacro:unless value="${slot360}">
+          <scan><horizontal><samples>181</samples><resolution>1</resolution>
+            <min_angle>-1.5708</min_angle><max_angle>1.5708</max_angle></horizontal></scan>
+        </xacro:unless>
         <range><min>0.12</min><max>8.0</max><resolution>0.01</resolution></range>
         <noise><type>gaussian</type><mean>0.0</mean><stddev>0.01</stddev></noise>
       </lidar>

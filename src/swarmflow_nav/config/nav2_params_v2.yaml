@@ -1,0 +1,42 @@
+# v2 navigation profile (improvements_v2 M14: N-01, N-02, N-03), applied ON TOP of nav2_params.yaml for v2 layouts
+# (robot.launch.py, nav_profile auto -> v2 when layout.yaml schema_version is 2). Only the differences live here.
+# - N-01: global costmap gets the lidar obstacle layer back (360° lidar clears all around, so marks of robots that
+#   moved do not go stale as they did with the 180° lidar in M8); A* (Smac 2D) planner; replanning at 1 Hz (BT).
+# - N-02: local costmap 6 x 6 m so a way around another robot is visible.
+# - N-03: no Spin recovery (navigate_v2.xml).
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      width: 6
+      height: 6
+      voxel_layer:
+        scan:
+          raytrace_max_range: 6.0
+          obstacle_max_range: 5.0
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      update_frequency: 2.0
+      plugins: [static_layer, obstacle_layer, inflation_layer]
+      obstacle_layer:
+        footprint_clearing_enabled: true
+        scan:
+          raytrace_max_range: 8.0
+          obstacle_max_range: 6.0
+planner_server:
+  ros__parameters:
+    GridBased:
+      plugin: nav2_smac_planner::SmacPlanner2D
+      tolerance: 0.5
+      downsample_costmap: false
+      allow_unknown: true
+      max_iterations: 1000000
+      max_on_approach_iterations: 1000
+      max_planning_time: 0.5
+      cost_travel_multiplier: 2.0
+      use_final_approach_orientation: false
+      smoother:
+        max_iterations: 1000
+        w_smooth: 0.3
+        w_data: 0.2
+        tolerance: 1.0e-10
