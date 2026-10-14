@@ -1,0 +1,13 @@
+# v2 steady-load scenario for 4 robots (T040, M15/E-01): order rate the fleet can serve.
+# Modelled on v2_demo.yaml; first Gazebo v2_demo run left a backlog of 27 orders at ~4.5 orders/min.
+name: v2_steady
+seed: 2
+duration_s: 600
+layout: warehouse_v2
+policy: assign
+robots: [robot_1, robot_2, robot_3, robot_4]
+orders:
+  mode: v2_rate
+  docks: [DK1, DK2, DK3, DK4]
+  shelf: {rate_per_min: 1.6, picks: [1, 2], slots: all, popularity: zipf, zipf_s: 1.0}
+  pallet: {rate_per_min: 0.25}
