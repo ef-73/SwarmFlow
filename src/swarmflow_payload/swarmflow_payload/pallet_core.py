@@ -11,6 +11,8 @@ from typing import Dict, List, Mapping, Tuple
 from swarmflow_core import api
 
 LIFT_Z = 0.05
+TRUCK_AFTER_S = 30.0          # the truck takes a pallet set down at a dock this long afterwards
+POOL_SPACING = 1.5
 CARRY_FOOTPRINT: List[Tuple[float, float]] = [(0.625, 0.525), (0.625, -0.525), (-0.625, -0.525), (-0.625, 0.525)]
 
 Pose4 = Tuple[float, float, float, float]
@@ -28,7 +30,10 @@ class _Robot:
 
 
 class PalletCore:
-    def __init__(self, spots: Mapping[str, Pose4]):
+    def __init__(self, spots: Mapping[str, Pose4], pool_origin: Tuple[float, float] = (-3.0, 0.0)):
+        self.pool_origin = (float(pool_origin[0]), float(pool_origin[1]))
+        self._set_down_t: Dict[str, float] = {}             # pallet -> set-down time, until the truck takes it
+        self._taken = 0
         self.spots: Dict[str, Pose4] = {k: tuple(v) for k, v in spots.items()}
         self._orders: Dict[str, str] = {}                   # pallet order id -> pallet model name
         self._robots: Dict[str, _Robot] = {}
@@ -61,11 +66,12 @@ class PalletCore:
         if mode == "UNLOADING":
             r.unloading = True
         elif r.unloading:
-            self._set_down(r)           # left UNLOADING for any mode: set the pallet down where the robot is
+            self._set_down(r, t)         # left UNLOADING for any mode: set the pallet down where the robot is
 
-    def _set_down(self, r: _Robot) -> None:
+    def _set_down(self, r: _Robot, t: float) -> None:
         x, y, yaw = r.pose
         self._pending[r.pallet] = (x, y, 0.0, yaw)
+        self._set_down_t[r.pallet] = t
         self._done.add(r.pallet)
         r.pallet = None
         r.order_id = ""
@@ -73,13 +79,20 @@ class PalletCore:
 
     def tick(self, t: float) -> Dict[str, Pose4]:
         out: Dict[str, Pose4] = {}
+        carried = set()
         for r in self._robots.values():
             if r.pallet is not None and r.pose is not None:
                 x, y, yaw = r.pose
                 out[r.pallet] = (x, y, LIFT_Z, yaw)
+                carried.add(r.pallet)
         out.update(self._pending)
         self._pending.clear()
-        moved = {k: v for k, v in out.items() if self._emitted.get(k) != v}
+        for pallet, t0 in list(self._set_down_t.items()):
+            if t >= t0 + TRUCK_AFTER_S and pallet not in out:
+                out[pallet] = (self.pool_origin[0], self.pool_origin[1] + POOL_SPACING * self._taken, 0.0, 0.0)
+                self._taken += 1
+                del self._set_down_t[pallet]
+        moved = {k: v for k, v in out.items() if k in carried or self._emitted.get(k) != v}   # carried: every tick
         self._emitted.update(moved)
         return moved
 

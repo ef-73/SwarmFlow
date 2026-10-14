@@ -2,7 +2,7 @@
 id: T047
 title: The truck takes a delivered pallet away (pallet leaves the dock after TRUCK_AFTER_S)
 workstream: F
-status: claimed
+status: review
 claimed_by: "sf-implementer"
 branch: ws-f/T047-truck-takes-pallet
 model: sonnet
