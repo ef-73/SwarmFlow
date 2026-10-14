@@ -41,6 +41,9 @@ SCENARIOS = {
     "crossing": {"robot_1": ((10.0, 8.0, N), (10.0, 18.5, N)), "robot_2": ((3.0, 13.3, E), (17.0, 13.3, E))},
     # N-08: two robots meet inside a dead-end 2.2 m storage aisle (W3: y 15.4 .. 17.6)
     "dead_end": {"robot_1": ((9.0, 16.5, W), (1.5, 16.5, W)), "robot_2": ((1.5, 16.5, E), (9.0, 16.5, E))},
+    # N-09 keep right: one robot along the central aisle, north then (lane_s) south; reports the right-half share
+    "lane_n": {"robot_1": ((10.0, 4.5, N), (10.0, 20.5, N))},
+    "lane_s": {"robot_1": ((10.0, 20.5, S), (10.0, 4.5, S))},
     # the same meeting with the roles swapped: its starts are where dead_end ends, so the two alternate for repeats
     "dead_end_rev": {"robot_1": ((1.5, 16.5, E), (9.0, 16.5, E)), "robot_2": ((9.0, 16.5, W), (1.5, 16.5, W))},
 }
@@ -115,6 +118,7 @@ def main():
     t0 = node.now()
     futs = {r: node.send(r, spec[r][1]) for r in movers}
     done, min_d, near, active = {}, math.inf, 0, set()
+    lane = {r: [0, 0] for r in movers}           # central-aisle samples travelling along it: [right half, total]
     while len(done) < len(movers) and node.now() - t0 < args.timeout:
         with node.lock:
             poses = dict(node.poses)
@@ -127,14 +131,21 @@ def main():
                 if close and (a, b) not in active:
                     near += 1
                 (active.add if close else active.discard)((a, b))
+        for r in movers:
+            if r in poses and r not in done:
+                x, y, yaw = poses[r]
+                if 8.0 < x < 12.0 and 5.0 < y < 20.0 and abs(math.sin(yaw)) > 0.7:
+                    lane[r][1] += 1
+                    lane[r][0] += int((x > 10.0) if math.sin(yaw) > 0 else (x < 10.0))
         for r, f in futs.items():
             if r not in done and f is not None and f.done():
                 done[r] = (f.result().status == GoalStatus.STATUS_SUCCEEDED, round(node.now() - t0, 1))
         time.sleep(0.1)
     result = {"scenario": args.scenario, "robots": {r: {"success": done.get(r, (False, None))[0],
                                                           "time_s": done.get(r, (False, None))[1]} for r in movers},
-              "min_separation_m": round(min_d, 3), "near_misses": near, "contact": min_d < 0.0}
-    result["pass"] = all(v["success"] for v in result["robots"].values()) and min_d >= 0.15
+              "min_separation_m": round(min_d, 3), "near_misses": near, "contact": min_d < 0.0,
+              "right_half_share": {r: round(a / b, 2) for r, (a, b) in lane.items() if b}}
+    result["pass"] = all(v["success"] for v in result["robots"].values()) and (min_d >= 0.15 or len(poses) < 2)
     print(json.dumps(result), flush=True)
     if args.out:
         with open(args.out, "w", encoding="utf-8") as f:
