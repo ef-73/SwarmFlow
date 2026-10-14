@@ -141,10 +141,10 @@
       "topicName": "/fleet/orders",
       "datatype": "swarmflow_interfaces/msg/Order",
       "buttonText": "Publish order",
-      "buttonTooltip": "Send this order to the orchestrator",
+      "buttonTooltip": "Send this order to the orchestrator (order_type 1 = shelf: pick_vertices + dock in dropoff_vertex; 2 = pallet: pickup_vertex PL_*, pallet_id pallet_PL_*; 0 = v1 transport L*/D*). Change order_id for every order.",
       "buttonColor": "#1a73d9",
       "advancedView": true,
-      "value": "{\n  \"order_id\": \"manual_001\",\n  \"release_time\": {\n    \"sec\": 0,\n    \"nanosec\": 0\n  },\n  \"deadline\": {\n    \"sec\": 0,\n    \"nanosec\": 0\n  },\n  \"pickup_vertex\": \"L1\",\n  \"dropoff_vertex\": \"D3\",\n  \"payload_type\": \"small\",\n  \"priority\": 0\n}"
+      "value": "{\n  \"order_id\": \"manual_001\",\n  \"release_time\": {\n    \"sec\": 0,\n    \"nanosec\": 0\n  },\n  \"deadline\": {\n    \"sec\": 0,\n    \"nanosec\": 0\n  },\n  \"pickup_vertex\": \"\",\n  \"dropoff_vertex\": \"DK2\",\n  \"payload_type\": \"small\",\n  \"priority\": 0,\n  \"order_type\": 1,\n  \"pick_vertices\": [\n    \"PK_W1_S_01\",\n    \"PK_E2_N_03\"\n  ],\n  \"pallet_id\": \"\"\n}"
     }
   },
   "globalVariables": {},
