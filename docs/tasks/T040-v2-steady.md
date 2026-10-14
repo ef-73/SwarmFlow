@@ -2,7 +2,7 @@
 id: T040
 title: Steady-load v2 scenario for 4 robots (scenarios/v2_steady.yaml)
 workstream: F
-status: open
+status: review
 claimed_by: "sf-mechanical"
 branch: ws-f/T040-v2-steady
 model: haiku
