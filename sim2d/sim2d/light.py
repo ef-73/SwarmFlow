@@ -94,8 +94,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     from rclpy.node import Node
     from rosgraph_msgs.msg import Clock
 
+    from swarmflow_core.graph import load_layout
+
     from ._light_ros import RobotNav
 
+    graph = load_layout(layout_dir)
     spawns = spawn_poses(layout_dir, robots)
     world = LightWorld(max_speed=args.speed, max_turn=args.turn)
     for rid, (x, y, yaw) in spawns.items():
@@ -105,7 +108,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     lock = threading.Lock()
     clock_node = Node("light_clock")
     clock_pub = clock_node.create_publisher(Clock, "/clock", 10)
-    navs = {rid: RobotNav(rid, world, lock, spawns[rid]) for rid in robots}
+    navs = {rid: RobotNav(rid, world, lock, spawns[rid], graph) for rid in robots}
     ex = MultiThreadedExecutor(num_threads=2 + len(robots))
     ex.add_node(clock_node)
     for n in navs.values():

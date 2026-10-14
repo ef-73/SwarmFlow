@@ -16,6 +16,7 @@ from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 from tf2_msgs.msg import TFMessage
 
+from .light_paths import expand
 from .light_world import LightWorld
 
 POLL_S = 0.02
@@ -28,9 +29,11 @@ def _stamp(msg_stamp, t: float) -> None:
 
 
 class RobotNav(Node):
-    def __init__(self, rid: str, world: LightWorld, lock: threading.Lock, spawn: Tuple[float, float, float]):
+    def __init__(self, rid: str, world: LightWorld, lock: threading.Lock, spawn: Tuple[float, float, float],
+                 graph=None):
         super().__init__("light_nav", namespace=rid)
         self.rid, self._world, self._lock = rid, world, lock
+        self._graph = graph
         self._gen = 0
         self.stopping = False
         self._ticks = 0
@@ -82,10 +85,15 @@ class RobotNav(Node):
                 self._world.cancel(self.rid)
             else:
                 goals = []
+                cur = self._world.pose(self.rid)[:2]
                 for k, p in enumerate(poses):
                     last = k == len(poses) - 1
                     q = p.pose.orientation
-                    goals.append((p.pose.position.x, p.pose.position.y, 2.0 * math.atan2(q.z, q.w) if last else None))
+                    gx, gy = p.pose.position.x, p.pose.position.y
+                    pts = expand(self._graph, cur, (gx, gy)) if self._graph is not None else [(gx, gy)]
+                    goals.extend((px, py, None) for px, py in pts[:-1])
+                    goals.append((gx, gy, 2.0 * math.atan2(q.z, q.w) if last else None))
+                    cur = (gx, gy)
                 self._world.set_goals(self.rid, goals)
         if not poses:
             goal_handle.abort()
