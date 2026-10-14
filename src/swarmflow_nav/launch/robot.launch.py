@@ -5,7 +5,7 @@ Runs in a `robot_N` service (robot image). Every node uses sim time and the name
 (/robot_N/tf, /robot_N/tf_static) with unprefixed frame names.
 
 Args: robot_id (robot_1), layout (standard), layouts_root (/ws/layouts),
-      localization (auto | ground_truth | amcl; auto = amcl with the v2 profile, else ground_truth),
+      localization (ground_truth | amcl; design §15.3 cut 1 = ground_truth),
       agent (true|false), traffic_control (true|false, Baseline A = false).
 """
 
@@ -57,8 +57,6 @@ def setup(context):
     profile = LaunchConfiguration("nav_profile").perform(context)
     if profile == "auto":                     # v2 layouts get the v2 navigation profile (M14)
         profile = "v2" if int(lay.get("schema_version", 1)) >= 2 else "v1"
-    if localization == "auto":                # I-03: AMCL is the v2 default (realism ladder), v1 keeps ground truth
-        localization = "amcl" if profile == "v2" else "ground_truth"
     share = get_package_share_directory("swarmflow_nav")
 
     import xacro
@@ -192,7 +190,7 @@ def generate_launch_description():
         DeclareLaunchArgument("robot_id", default_value="robot_1"),
         DeclareLaunchArgument("layout", default_value="standard"),
         DeclareLaunchArgument("layouts_root", default_value="/ws/layouts"),
-        DeclareLaunchArgument("localization", default_value="auto"),
+        DeclareLaunchArgument("localization", default_value="ground_truth"),
         DeclareLaunchArgument("agent", default_value="false"),
         DeclareLaunchArgument("traffic_control", default_value="true"),
         DeclareLaunchArgument("nav_profile", default_value="auto"),   # auto | v1 | v2 (M14)

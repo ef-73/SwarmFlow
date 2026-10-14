@@ -180,7 +180,7 @@ quick start.
 | `SWARMFLOW_LAYOUT` | `standard` | Layout name under `layouts/` used by the sim, robots, orchestrator, scenario engine, payload and viz. |
 | `SWARMFLOW_ROBOTS` | `robot_1,robot_2,robot_3` | Robot ids the sim spawns and the orchestrator and payload nodes manage. The `robot_N` compose services are fixed to three; for a scenario with fewer robots start only those services (as `tests/integration/demo_run.sh` does). |
 | `SWARMFLOW_RTF` | `1.0` | Real-time-factor cap for Gazebo (lower it if the CPU is hot; metrics are in sim time). |
-| `SWARMFLOW_LOCALIZATION` | `auto` | Robot localization: `ground_truth` (Gazebo pose) or `amcl`; `auto` = `amcl` on v2 layouts ([realism ladder](docs/results/v2_realism_ladder.md)), `ground_truth` on `standard` (v1). |
+| `SWARMFLOW_LOCALIZATION` | `ground_truth` | Robot localization: `ground_truth` (Gazebo pose) or `amcl` (see limitations). |
 | `SWARMFLOW_AGENT` | `true` | Start the robot agent inside each robot container. |
 | `SWARMFLOW_TRAFFIC_CONTROL` | `true` | Robot agent honours zone reservations. `false` makes robots drive straight into aisles. |
 | `SWARMFLOW_POLICY` | `fcfs` | Orchestrator policy: `fcfs` (Baseline B) or `independent` (Baseline A). |
@@ -329,9 +329,9 @@ scripts/ci.sh        # the referee: contract diff, owned files, hygiene, build, 
 
 ## Known limitations (v1)
 
-- **Ground-truth localization** on the v1 `standard` layout ([decision 001](docs/decisions/001-ground-truth-localization.md));
-  v2 layouts default to AMCL with the tuned v2 profile (I-03). AMCL has no health monitoring: with a degraded lidar
-  (realism rung 4) a robot can get lost, and the other robots then avoid it where it is reported, not where it is.
+- **Ground-truth localization** by default (`SWARMFLOW_LOCALIZATION=ground_truth`): wheel odometry drifted by metres in
+  testing, and three AMCL instances are costly on the target laptop. AMCL mode exists but is untested
+  ([decision 001](docs/decisions/001-ground-truth-localization.md)).
 - **Front 180 degree LiDAR**, front-centre at 0.20 m height (design section 7.1 as built): robots cannot sense behind
   them, so the reverse speed is limited to 0.15 m/s.
 - **Packages are kinematic**: a pose-follower moves them with the robot; there is no contact physics.
