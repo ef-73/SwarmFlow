@@ -272,6 +272,6 @@ Each milestone ends like v1 (§2.1): ff-merge to `main`, push, §5 row updated, 
 | M12 | ✅ contract-v2 (decision 002, reviewed); v1 regression passed in the X-10 baseline |
 | M13 | ⏳ warehouse_v2 (T026), v2 order generator (T027); Gazebo world loads, 2-robot sessions run on it; **Foxglove-vs-Gazebo screenshot pair open** |
 | M14 | ✅ 2026-10-14 — head_on / pass_parked / crossing 3/3, dead_end 5/5 (≤ 27 s), blocked reported in ~10.6 s, keep-right 95–100 %; 360° lidar; OtherRobotsLayer + KeepRightLayer; decision 003 (costmap params). N-04 probe not built, N-05 stage b deferred |
-| M15 | ⏳ FleetCoreV2 (T028), agent goal mode (T029), orchestrator node (T030) on main; Gazebo 4-robot v2 run in progress |
-| M16 | open |
-| M17 | open |
+| M15 | ✅ 2026-10-14 — v2_steady 4 robots: 10/10 delivered, every dock ≥ 1, 0 stuck / failed / clearance violations, min 0.31 m; manual orders (CLI + Foxglove); open: 10-robot light check (layout spawns 5) |
+| M16 | ✅ 2026-10-14 — 8/8 pallet deliveries in Gazebo, docking 0.0 cm lateral / ≤ 1.9 cm, footprint switch each time, pallets rest flat, truck clears docks; mixed run with physical pallets in M17 |
+| M17 | ⏳ realism ladder infrastructure on main (T048); runs in progress |
