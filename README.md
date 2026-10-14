@@ -7,6 +7,23 @@ corridor when. It does not recreate any company's internal warehouse software or
 universally; it is an extensible, measurable implementation of warehouse coordination techniques
 ([design](docs/design.md), section 19).
 
+**v2** (release candidate, [improvements_v2](docs/improvements_v2.md), results in
+[v2_benchmarks](docs/results/v2_benchmarks.md) and [v2_realism_ladder](docs/results/v2_realism_ladder.md)):
+
+- A 20 × 32 m warehouse (`layouts/warehouse_v2`): two blocks of 5 rack rows, a 4 m central aisle, 64 pick points,
+  4 truck docks with queue lanes, 8 home slots, pallet stands.
+- The orchestrator only **assigns** (shelf orders with 1–3 picks, pallet moves; nearest-next picks, congestion cost,
+  dock queues, blocked-robot handling). No aisle reservations.
+- Robots handle each other locally: Nav2 with a 360° lidar, robots shared as predicted footprints in every costmap,
+  keep-right lanes, no spin recovery. Robots drive under pallets, lift and carry them.
+- Light mode (no Gazebo, ~0.6 core for 8 robots), manual orders (CLI and Foxglove), a realism ladder (AMCL, network
+  delay/loss, lidar noise).
+- Run it: with `SWARMFLOW_LAYOUT=warehouse_v2 SWARMFLOW_POLICY=assign SWARMFLOW_SCENARIO=v2_steady
+  SWARMFLOW_ROBOTS=robot_1,robot_2,robot_3,robot_4 SWARMFLOW_TRAFFIC_CONTROL=false` set,
+  `docker compose up gazebo orchestrator scenario_engine payload viz foxglove_bridge robot_1 robot_2 robot_3 robot_4`, or
+  `tests/integration/demo_run.sh <id> 10 v2_steady assign 0` (headless, with metrics). Light mode:
+  `docker compose -f docker/compose.light.yaml up` (see `sim2d/README.md`).
+
 **v1 scope** (design sections 2.1 and 4.1):
 
 - Standard warehouse layout only, generated from one layout definition (`layouts/standard/layout.yaml`).
