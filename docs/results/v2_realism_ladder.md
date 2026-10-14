@@ -7,10 +7,10 @@ Raw records `runs/ladder_r<rung>_<k>/` (not committed); table by `tools/metrics/
 
 | Rung | Runs | Deliveries / 600 s | Orders / min | Mean latency (s) | Stuck | Failed | Clearance violations | Near misses (< 0.30 m) | Min footprint distance (m) | Localisation error mean / worst max (m) |
 |---|---|---|---|---|---|---|---|---|---|---|
-| 1 | 3 | 7.00 ± 1.00 | 0.70 ± 0.10 | 92.79 ± 1.70 | 0.00 ± 0.00 | 0.00 ± 0.00 | 0.00 ± 0.00 | 1.00 ± 1.00 | 0.17 ± 0.13 | 0 (ground truth) |
-| 2 | 3 | 7.67 ± 1.53 | 0.77 ± 0.15 | 89.66 ± 4.72 | 0.00 ± 0.00 | 0.00 ± 0.00 | 0.33 ± 0.58 | 1.33 ± 0.58 | 0.11 ± 0.17 | 4.06 / 23.75 |
-| 3 | 3 | 8.00 ± 0.00 | 0.80 ± 0.00 | 98.12 ± 6.41 | 0.00 ± 0.00 | 0.00 ± 0.00 | 0.33 ± 0.58 | 1.67 ± 0.58 | 0.06 ± 0.09 | 2.17 / 20.91 |
-| 4 | 3 | 7.00 ± 1.73 | 0.70 ± 0.17 | 83.62 ± 7.04 | 0.00 ± 0.00 | 0.00 ± 0.00 | 0.00 ± 0.00 | 1.67 ± 2.08 | 0.16 ± 0.17 | 1.37 / 39.01 |
+| 1 | 3 | 8.00 ± 0.00 | 0.81 ± 0.02 | 91.17 ± 3.75 | 0.00 ± 0.00 | 0.00 ± 0.00 | 0.00 ± 0.00 | 1.33 ± 0.58 | 0.15 ± 0.07 | 0 (ground truth) |
+| 2 | 3 | 7.33 ± 1.15 | 0.73 ± 0.12 | 90.03 ± 4.96 | 0.00 ± 0.00 | 0.00 ± 0.00 | 0.33 ± 0.58 | 0.67 ± 0.58 | 0.12 ± 0.22 | 0.12 / 0.49 |
+| 3 | 3 | 8.00 ± 0.00 | 0.80 ± 0.00 | 96.52 ± 5.87 | 0.00 ± 0.00 | 0.00 ± 0.00 | 0.33 ± 0.58 | 1.67 ± 0.58 | 0.16 ± 0.16 | 0.12 / 0.45 |
+| 4 | 3 | 5.00 ± 1.73 | 0.50 ± 0.17 | 88.58 ± 6.19 | 1.67 ± 1.53 | 1.67 ± 1.53 | 0.00 ± 0.00 | 0.00 ± 0.00 | 0.37 ± 0.06 | 3.44 / 27.33 |
 
 - Rung 1: localization=ground_truth, netem=, lidar_noise=0.01, lidar_range=8.0
 - Rung 2: localization=amcl, netem=, lidar_noise=0.01, lidar_range=8.0
@@ -19,28 +19,34 @@ Raw records `runs/ladder_r<rung>_<k>/` (not committed); table by `tools/metrics/
 
 Localisation error = |reported pose (AMCL, via the robot agent) − Gazebo ground truth| over all `/fleet/robot_states`
 samples (`tests/integration/loc_error.py`). AMCL is the tuned v2 profile (`nav2_params_v2.yaml`): Nav2 defaults
-lost a robot in the first 4-robot trial (1 delivery, 5 stuck, 5 failed; mean error of one robot 3.5 m), while a
+lost a robot in the first 4-robot trial (1 delivery, 5 stuck, 5 failed; mean error of one robot 3.5 m; that trial
+predates the harness fix below and was not repeated), while a
 single robot alone stayed within 0.03–0.38 m and its wheel odometry matched ground truth to 0.1 m over 54 m.
 
 ## What it shows
 
-- **Throughput does not separate the rungs.** `v2_steady` is demand-limited (≈ 8 orders released in the window), so
-  every rung delivers what is released: 7.0 / 7.7 / 8.0 / 7.0 orders, 0 stuck, 0 failed in all 12 runs. A
-  saturating scenario would be needed to see a capacity cost.
-- **Localisation is where realism bites.** With good odometry most robots stay at 0.13–0.21 m mean error (rungs 2–3)
-  — already close to the 0.25 m goal tolerance. With the degraded lidar (rung 4, 3 cm noise, 5 m range) errors of
-  1.0–3.8 m appear on two to four of the four robots.
-- **A lost robot is a safety hazard, not a throughput loss.** In 4 of the 6 rung-2/3 runs one robot (always robot_4)
-  was reported 21–24 m from its true pose for the whole run while it stood idle; deliveries were unaffected because
-  it received no task. Other robots avoid a robot where it is *reported* (OtherRobotsLayer), so a lost robot is
-  invisible to them. Cause not diagnosed (suspected: AMCL converging wrongly at start among the identical home
-  slots, and no correction while the robot never moves).
-- **Network delay and loss (rung 3: 50 ± 20 ms, 2 % loss on robot egress) changed nothing measurable** at this
-  load: shared positions at 5 Hz tolerate it.
+These numbers replace a first version that was contaminated by a harness bug: `robot_4` (a profiled compose
+service) survived `docker compose down` and carried its AMCL and Nav2 state into the next run, which showed up as
+"robot_4 lost 21–24 m". Every run now starts from recreated containers (T055); 7 of the 12 ladder runs were redone.
 
-## I-03 decision: ground truth stays the default
+- **AMCL with a good lidar is as good as ground truth here.** Rungs 2–3: every robot's mean error 0.02–0.18 m, the
+  worst single sample 0.49 m in all 6 runs; deliveries 7.3 and 8.0 vs 8.0 (−8 % and 0 %), 0 stuck, 0 failed.
+  `v2_steady` is demand-limited (≈ 8 orders released per window), so this says "no capacity cost at this load".
+- **Network delay and loss (rung 3: 50 ± 20 ms, 2 % loss on robot egress) changed nothing measurable**: shared
+  positions at 5 Hz tolerate it.
+- **A degraded lidar breaks AMCL (rung 4: 3 cm noise, 5 m range).** In all 3 runs two or three of the four robots
+  lost their position (mean errors 2.4–12.4 m, worst 27 m); deliveries fell to 5.0 ± 1.7 with 1.7 stuck robots and
+  failed orders per run. At 5 m range many poses in the long aisles see only parallel rack faces, and AMCL slides
+  along them. A lost robot is also a safety hazard: the others avoid it where it is *reported* (OtherRobotsLayer).
+  No contact happened (padded footprints never overlapped), mostly because lost robots stopped.
 
-The criterion was "switch to AMCL if its throughput is within 10 % of ground truth". Throughput is within 10 %, but
-the lost-robot result makes AMCL unsafe as a default until localisation health is monitored (e.g. a robot reports
-FAULT/LOCALIZATION when its AMCL covariance or scan match is bad, and the OtherRobotsLayer then stamps a large
-uncertainty area). Logged as a follow-up, not built.
+## I-03 decision: AMCL is the default on v2 layouts
+
+The criterion was "switch to AMCL if its throughput is within 10 % of ground truth". It is (rungs 2–3), with no
+localisation failure in 6 runs, so `SWARMFLOW_LOCALIZATION` now defaults to `auto`: AMCL (tuned v2 profile) on v2
+layouts, ground truth on the v1 `standard` layout, whose results and nav profile were recorded with it (T056).
+Ground truth stays one variable away for benchmarks that should exclude localisation.
+
+Follow-up (logged, not built): localisation health monitoring — a robot reports FAULT/LOCALIZATION when its AMCL
+covariance or scan match is bad, and the OtherRobotsLayer stamps a larger uncertainty area around it. Needed before
+running with a lidar as poor as rung 4.
