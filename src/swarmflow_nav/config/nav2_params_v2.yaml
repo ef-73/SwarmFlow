@@ -66,3 +66,17 @@ amcl:
   ros__parameters:
     laser_min_range: 0.45       # the slot lidar sees its own 4 deck posts at ~0.38 m (N-06): not map features
     laser_max_range: 8.0
+    # tuned for the realism ladder (M17, 2026-10-14): Nav2 defaults lost robot_1 in a 4-robot run (mean error 3.5 m)
+    # while one robot alone stayed within 0.4 m; wheel odometry matched ground truth to 0.1 m over 54 m
+    alpha1: 0.05
+    alpha2: 0.05
+    alpha3: 0.05
+    alpha4: 0.05
+    max_beams: 120
+    update_min_d: 0.10
+    update_min_a: 0.10
+    z_hit: 0.6
+    z_rand: 0.35                # other robots and pallets are not in the map: allow more unexplained returns
+    sigma_hit: 0.1
+    recovery_alpha_slow: 0.001
+    recovery_alpha_fast: 0.1
