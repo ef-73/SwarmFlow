@@ -1778,6 +1778,21 @@
       "robot_id": "robot_5",
       "vertex": "HM5",
       "yaw": 1.570796
+    },
+    {
+      "robot_id": "robot_6",
+      "vertex": "HM6",
+      "yaw": 1.570796
+    },
+    {
+      "robot_id": "robot_7",
+      "vertex": "HM7",
+      "yaw": 1.570796
+    },
+    {
+      "robot_id": "robot_8",
+      "vertex": "HM8",
+      "yaw": 1.570796
     }
   ],
   "vertices": {

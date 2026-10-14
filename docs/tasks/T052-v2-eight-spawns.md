@@ -2,7 +2,7 @@
 id: T052
 title: warehouse_v2 spawns robot_1 ... robot_8 (one per home slot)
 workstream: F
-status: claimed
+status: review
 claimed_by: "sf-mechanical"
 branch: ws-f/T052-v2-eight-spawns
 model: haiku
