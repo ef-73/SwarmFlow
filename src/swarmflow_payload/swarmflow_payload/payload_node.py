@@ -98,7 +98,11 @@ class PayloadNode(Node):
         self.core = core
         if pallet_core is None:
             spots = _pallet_spots(self.get_parameter("layout_file").value)
-            pallet_core = PalletCore(spots) if spots else None
+            pool = None
+            if spots:
+                b = _bounds_and_offsets(self.get_parameter("layout_file").value)[0]
+                pool = (b[0] - 3.0, b[1])
+            pallet_core = PalletCore(spots, pool_origin=pool) if spots else None
         self.pallets = pallet_core
         self._odom: Dict[str, tuple] = {}            # robot -> latest ground-truth (x, y, yaw)
         self._last_state: Dict[str, dict] = {}       # robot -> latest {robot_id, mode, order_id}
