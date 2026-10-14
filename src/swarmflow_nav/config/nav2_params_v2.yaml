@@ -62,3 +62,7 @@ planner_server:
         w_smooth: 0.3
         w_data: 0.2
         tolerance: 1.0e-10
+amcl:
+  ros__parameters:
+    laser_min_range: 0.45       # the slot lidar sees its own 4 deck posts at ~0.38 m (N-06): not map features
+    laser_max_range: 8.0

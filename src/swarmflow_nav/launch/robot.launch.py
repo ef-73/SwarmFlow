@@ -118,11 +118,19 @@ def setup(context):
         f"{ns}/joint_states@sensor_msgs/msg/JointState[gz.msgs.Model",
         f"{ns}/wheel_odom@nav_msgs/msg/Odometry[gz.msgs.Odometry",
     ]
+    bridge_remaps = []
+    if localization == "amcl":
+        # realism ladder rung 2 (I-01): Nav2 and AMCL see the DiffDrive wheel odometry (it drifts with slip, M4) instead
+        # of Gazebo's ground-truth odometry, which stays available on <ns>/odom_gt for the localisation-error metric
+        bridge_args.append(f"{ns}/wheel_tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V")
+        bridge_args.remove(f"{ns}/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V")
+        bridge_remaps = [(f"{ns}/odom", f"{ns}/odom_gt"), (f"{ns}/wheel_odom", f"{ns}/odom"),
+                         (f"{ns}/wheel_tf", f"{ns}/tf")]
     actions = [
         Node(package="robot_state_publisher", executable="robot_state_publisher", namespace=rid, output="screen",
              parameters=[{"robot_description": desc, "use_sim_time": True}], remappings=TF),
         Node(package="ros_gz_bridge", executable="parameter_bridge", name="gz_bridge", namespace=rid,
-             output="screen", arguments=bridge_args, parameters=[sim]),
+             output="screen", arguments=bridge_args, parameters=[sim], remappings=bridge_remaps),
     ]
 
     loc_nodes = [ComposableNode(package="nav2_map_server", plugin="nav2_map_server::MapServer", name="map_server",

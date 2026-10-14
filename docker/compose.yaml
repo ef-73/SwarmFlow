@@ -6,6 +6,8 @@ x-ros-env: &ros-env
   ROS_DOMAIN_ID: "0"
   GZ_PARTITION: swarmflow
   GZ_SIM_RESOURCE_PATH: /ws/install/swarmflow_description/share:/ws/install/swarmflow_gazebo/share
+  # realism ladder rung 3 (I-01): netem arguments for the robot containers' egress, e.g. "delay 50ms 10ms loss 1%"
+  SWARMFLOW_NETEM: ${SWARMFLOW_NETEM:-}
 
 services:
   dev:
@@ -38,6 +40,8 @@ services:
       swarmflow.sim: "1"
     environment:
       <<: *ros-env
+      SWARMFLOW_LIDAR_NOISE: ${SWARMFLOW_LIDAR_NOISE:-0.01}
+      SWARMFLOW_LIDAR_RANGE: ${SWARMFLOW_LIDAR_RANGE:-8.0}
     command: ["ros2", "launch", "swarmflow_gazebo", "sim.launch.py", "layout:=${SWARMFLOW_LAYOUT:-standard}",
               "robots:=${SWARMFLOW_ROBOTS:-robot_1,robot_2,robot_3}", "rtf:=${SWARMFLOW_RTF:-1.0}"]
     healthcheck:   # world loaded and sim time advancing
@@ -94,7 +98,8 @@ services:
     environment:
       <<: *ros-env
       ROBOT_ID: robot_1
-    command: ["bash", "-c", "ros2 launch swarmflow_nav robot.launch.py robot_id:=$$ROBOT_ID layout:=${SWARMFLOW_LAYOUT:-standard} localization:=${SWARMFLOW_LOCALIZATION:-ground_truth} agent:=${SWARMFLOW_AGENT:-true} traffic_control:=${SWARMFLOW_TRAFFIC_CONTROL:-true}"]
+    cap_add: [NET_ADMIN]          # tc netem for SWARMFLOW_NETEM (realism ladder)
+    command: ["bash", "-c", "if [ -n \"$$SWARMFLOW_NETEM\" ]; then tc qdisc replace dev eth0 root netem $$SWARMFLOW_NETEM && echo netem: $$SWARMFLOW_NETEM; fi; ros2 launch swarmflow_nav robot.launch.py robot_id:=$$ROBOT_ID layout:=${SWARMFLOW_LAYOUT:-standard} localization:=${SWARMFLOW_LOCALIZATION:-ground_truth} agent:=${SWARMFLOW_AGENT:-true} traffic_control:=${SWARMFLOW_TRAFFIC_CONTROL:-true}"]
     # X-06: restart a crashed service (not one stopped by `down`); cheap process check, no ROS CLI
     restart: on-failure:3
     healthcheck:

@@ -24,6 +24,9 @@ def robot_xacro(robot_id: str, lidar: str = "front") -> str:
     import xacro
     path = os.path.join(get_package_share_directory("swarmflow_description"), "urdf", "swarmflow_bot.urdf.xacro")
     return xacro.process_file(path, mappings={"robot_id": robot_id, "namespace": robot_id, "lidar": lidar,
+                                              # realism ladder rung 4 (I-01)
+                                              "lidar_noise": os.environ.get("SWARMFLOW_LIDAR_NOISE", "0.01"),
+                                              "lidar_range": os.environ.get("SWARMFLOW_LIDAR_RANGE", "8.0"),
                                               "color": COLORS.get(robot_id, "0.5 0.5 0.5 1")}).toxml()
 
 

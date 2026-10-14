@@ -11,6 +11,9 @@
        0.20 m, in a horizontal sensor slot around the body; the top deck rests on 4 thin corner posts, which lie
        inside the Nav2 footprint, so the costmaps' footprint clearing removes their returns) -->
   <xacro:arg name="lidar" default="front"/>
+  <!-- realism ladder rung 4 (I-01): lidar noise (m, gaussian stddev) and max range (m) -->
+  <xacro:arg name="lidar_noise" default="0.01"/>
+  <xacro:arg name="lidar_range" default="8.0"/>
   <xacro:property name="slot360" value="${'$(arg lidar)' == 'slot360'}"/>
   <xacro:property name="ns" value="$(arg namespace)"/>
 
@@ -152,8 +155,8 @@
           <scan><horizontal><samples>181</samples><resolution>1</resolution>
             <min_angle>-1.5708</min_angle><max_angle>1.5708</max_angle></horizontal></scan>
         </xacro:unless>
-        <range><min>0.12</min><max>8.0</max><resolution>0.01</resolution></range>
-        <noise><type>gaussian</type><mean>0.0</mean><stddev>0.01</stddev></noise>
+        <range><min>0.12</min><max>$(arg lidar_range)</max><resolution>0.01</resolution></range>
+        <noise><type>gaussian</type><mean>0.0</mean><stddev>$(arg lidar_noise)</stddev></noise>
       </lidar>
     </sensor>
   </gazebo>
