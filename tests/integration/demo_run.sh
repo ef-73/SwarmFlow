@@ -11,13 +11,17 @@ export SWARMFLOW_RUN_ID="$run_id" SWARMFLOW_SCENARIO="$scenario" SWARMFLOW_POLIC
 export SWARMFLOW_GUI=wslg SWARMFLOW_GIT_SHA="$(git rev-parse HEAD)"
 robots="$(python3 -c "import yaml,sys; print(','.join(yaml.safe_load(open('scenarios/$scenario.yaml'))['robots']))" 2>/dev/null \
   || python -c "import yaml,sys; print(','.join(yaml.safe_load(open('scenarios/$scenario.yaml'))['robots']))")"
-export SWARMFLOW_ROBOTS="$robots"
-[ "$policy" = independent ] && export SWARMFLOW_TRAFFIC_CONTROL=false || export SWARMFLOW_TRAFFIC_CONTROL=true
+robots="${DEMO_ROBOTS:-$robots}"            # e.g. DEMO_ROBOTS=robot_1,robot_2,robot_3,robot_4 (thermal budget)
+layout="$(python3 -c "import yaml; print(yaml.safe_load(open('scenarios/$scenario.yaml'))['layout'])" 2>/dev/null   || python -c "import yaml; print(yaml.safe_load(open('scenarios/$scenario.yaml'))['layout'])")"
+export SWARMFLOW_ROBOTS="$robots" SWARMFLOW_LAYOUT="$layout"
+# reservations only for the v1 FCFS policy; independent (Baseline A) and assign (v2) run without traffic control
+[ "$policy" = fcfs ] && export SWARMFLOW_TRAFFIC_CONTROL=true || export SWARMFLOW_TRAFFIC_CONTROL=false
 rm -rf "runs/$run_id"; mkdir -p "runs/$run_id"
-scripts/sim_lock.sh acquire "demo:$run_id" $(( minutes + 6 )) >/dev/null || exit 2
+scripts/sim_lock.sh acquire "demo:$run_id" $(( minutes * 2 + 6 )) >/dev/null || exit 2
 cleanup() { docker compose down >/dev/null 2>&1; scripts/sim_lock.sh release >/dev/null; }
 trap cleanup EXIT
-services="gazebo orchestrator scenario_engine payload viz foxglove_bridge"
+services="gazebo orchestrator scenario_engine viz foxglove_bridge"
+[ "$layout" = standard ] && services="$services payload"     # the v2 layout has no package models
 for r in ${robots//,/ }; do services="$services $r"; done
 docker compose up -d $services >/dev/null 2>&1
 echo "[$(date -u +%H:%M:%S)] up: $services"
