@@ -267,11 +267,11 @@ Each milestone ends like v1 (§2.1): ff-merge to `main`, push, §5 row updated, 
 | M7 | ✅ done 2026-10-09 — corridor n=3: FCFS 6.0 vs independent 3.0 deliveries, wait 56 vs 118 s; fresh clone + one-command up verified; cold build 10 min |
 | M8 | ✅ done 2026-10-10 — controller starvation and in-aisle reversals fixed; corridor n=3: FCFS 7.0 ± 0.0 vs independent 3.3 deliveries, 0 stuck; 10-min demo 15 deliveries, 0 stuck; §15.4 checked (tag + video with the user) |
 | M9 | ✅ done 2026-10-10 — retrospective (`docs/retrospective_v1.md`); T018–T020 safety hardening (each reviewed twice), CI referee fixes, docs/ports; M9 demo 15 deliveries, 0 stuck; §15.4 re-checked; G5 passed (`v1.0.0` tagged 2026-10-11) |
-| M10 | ⏳ in progress — clean-up, CI fixes, X-05, X-06 (T023) on main; X-01 / X-10 need the Gazebo runs |
-| M11 | ⏳ light mode (T025) on main: 0.32 core for 3 robots; 10-robot check moves to the v2 layout (M15) |
-| M12 | ⏳ contract-v2 on main (G6 pre-approved, reviewed); v1 regression run pending |
-| M13 | ⏳ warehouse_v2 (T026) on main; order generator (T027) in CI; Gazebo world check pending |
-| M14 | open |
-| M15 | ⏳ FleetCoreV2 (T028) on main; robot goal mode (T029) in CI; orchestrator node (T030) in progress |
+| M10 | ⏳ mostly done 2026-10-14 — clean-up, CI fixes, X-02, X-05, X-10 baseline 15/15/15 (`docs/results/v1_baseline.md`); X-06 partial (test waits, ci.sh ids, batch children, loop-missed count done; **healthchecks / restart policies open**); X-01 partial (joint states; viz 0.7 core → C++ relay) |
+| M11 | ✅ light mode (T025, T036, T037): 3 robots 0.32 core, 5 robots v2 0.61 core (10-robot check open: layout has 8 homes, 5 spawns); 0.6 m/s like the robots |
+| M12 | ✅ contract-v2 (decision 002, reviewed); v1 regression passed in the X-10 baseline |
+| M13 | ⏳ warehouse_v2 (T026), v2 order generator (T027); Gazebo world loads, 2-robot sessions run on it; **Foxglove-vs-Gazebo screenshot pair open** |
+| M14 | ✅ 2026-10-14 — head_on / pass_parked / crossing 3/3, dead_end 5/5 (≤ 27 s), blocked reported in ~10.6 s, keep-right 95–100 %; 360° lidar; OtherRobotsLayer + KeepRightLayer; decision 003 (costmap params). N-04 probe not built, N-05 stage b deferred |
+| M15 | ⏳ FleetCoreV2 (T028), agent goal mode (T029), orchestrator node (T030) on main; Gazebo 4-robot v2 run in progress |
 | M16 | open |
 | M17 | open |
