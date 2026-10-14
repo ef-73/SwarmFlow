@@ -148,8 +148,11 @@
       <dimensions>2</dimensions>
       <odom_publish_frequency>30</odom_publish_frequency>
     </plugin>
+    <!-- X-01: without update_rate the plugin publishes on every physics step (~1 kHz); robot_state_publisher then
+         floods /<robot>/tf with wheel transforms that every TF listener (Nav2, agent, viz relay) must decode -->
     <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher">
       <topic>${ns}/joint_states</topic>
+      <update_rate>20</update_rate>
     </plugin>
   </gazebo>
 </robot>
