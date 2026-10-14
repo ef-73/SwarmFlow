@@ -2,7 +2,7 @@
 id: T054
 title: C++ TF / scan relay for the viz container (X-01)
 workstream: E
-status: claimed
+status: review
 claimed_by: "sf-implementer"
 branch: ws-e/T054-cpp-relay
 model: sonnet
