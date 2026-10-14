@@ -32,6 +32,8 @@ from swarmflow_interfaces.srv import RequestReservation as RequestReservationSrv
 from .agent_core import AgentCore, CancelNav, Navigate, Release, RequestReservation, TaskFinished
 
 MAX_POSE_AGE_S = 1.0
+POSE_STALE_S = 1.0
+MAX_ANGULAR_RADPS = 3.0
 _QOS10 =QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE)
 _QOS_LATCHED = QoSProfile(depth=100, reliability=ReliabilityPolicy.RELIABLE,
                           durability=DurabilityPolicy.TRANSIENT_LOCAL)
@@ -246,15 +248,20 @@ class AgentNode(Node):
                 pt = stamp if stamp > 0.0 else t                  # static transform (stamp 0): use now
                 if pt < self._pose_stamp - 1.0:                   # clock went backwards (sim restart): start over
                     self._pose_stamp, self._last_xy, self._last_yaw = 0.0, None, None
+                    self._angular = 0.0
                 if stamp <= 0.0 or stamp > self._pose_stamp:      # only a TF that advanced counts as a new pose
                     yaw = _yaw_of(tf.transform.rotation)
                     if self._last_xy is not None and pt > self._last_pose_t:
                         self._speed = math.hypot(x - self._last_xy[0], y - self._last_xy[1]) / (pt - self._last_pose_t)
-                        if self._last_yaw is not None:
-                            self._angular = _angle_diff(yaw, self._last_yaw) / (pt - self._last_pose_t)
+                        dt = pt - self._last_pose_t
+                        if self._last_yaw is not None and dt >= 0.02:     # else keep the previous estimate
+                            self._angular = max(-MAX_ANGULAR_RADPS, min(
+                                MAX_ANGULAR_RADPS, _angle_diff(yaw, self._last_yaw) / dt))
                     self._last_xy, self._last_pose_t, self._last_yaw = (x, y), pt, yaw
                     self._pose_stamp = pt
                     self._run(self.core.on_pose(x, y, yaw, self._speed, pt, angular_speed=self._angular))
+            if t - self._last_pose_t > POSE_STALE_S:
+                self._angular = 0.0                   # no fresh pose: do not keep publishing an old turn rate
             self._run(self.core.tick(t))
 
     def _publish_state(self) -> None:
@@ -267,7 +274,7 @@ class AgentNode(Node):
             m.header.frame_id = "map"
             m.robot_id = s.robot_id
             m.x, m.y, m.yaw, m.linear_speed = s.x, s.y, s.yaw, s.linear_speed
-            m.angular_speed = s.angular_speed
+            m.angular_speed = self._angular        # zeroed when the pose is stale
             m.mode = api.MODE_CODES[s.mode]
             m.fault_reason, m.task_id, m.order_id = s.fault_reason, s.task_id, s.order_id
             m.last_vertex, m.next_vertex = s.last_vertex, s.next_vertex
