@@ -48,18 +48,26 @@ def main():
     while n.get_clock().now().nanoseconds == 0:
         time.sleep(0.1)
     t0 = n.get_clock().now().nanoseconds * 1e-9
+    def dump():
+        out = {}
+        with lock:
+            for r, e in err.items():
+                s = sorted(e)
+                out[r] = {"samples": len(s), "mean_m": round(sum(s) / len(s), 3) if s else None,
+                          "p95_m": round(s[int(0.95 * (len(s) - 1))], 3) if s else None,
+                          "max_m": round(s[-1], 3) if s else None}
+        with open(args.out, "w", encoding="utf-8") as f:
+            json.dump(out, f, indent=1)
+        return out
+
+    # written every 30 s: the run may be torn down before the duration ends
+    last = time.time()
     while n.get_clock().now().nanoseconds * 1e-9 - t0 < args.duration:
         time.sleep(1.0)
-    out = {}
-    with lock:
-        for r, e in err.items():
-            s = sorted(e)
-            out[r] = {"samples": len(s), "mean_m": round(sum(s) / len(s), 3) if s else None,
-                      "p95_m": round(s[int(0.95 * (len(s) - 1))], 3) if s else None,
-                      "max_m": round(s[-1], 3) if s else None}
-    with open(args.out, "w", encoding="utf-8") as f:
-        json.dump(out, f, indent=1)
-    print(json.dumps(out))
+        if time.time() - last > 30.0:
+            dump()
+            last = time.time()
+    print(json.dumps(dump()))
     ex.shutdown()
     rclpy.try_shutdown()
 
