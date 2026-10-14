@@ -20,10 +20,10 @@ COLORS = {"robot_1": "0.10 0.45 0.85 1", "robot_2": "0.95 0.55 0.10 1", "robot_3
           "robot_4": "0.75 0.20 0.70 1"}
 
 
-def robot_xacro(robot_id: str) -> str:
+def robot_xacro(robot_id: str, lidar: str = "front") -> str:
     import xacro
     path = os.path.join(get_package_share_directory("swarmflow_description"), "urdf", "swarmflow_bot.urdf.xacro")
-    return xacro.process_file(path, mappings={"robot_id": robot_id, "namespace": robot_id,
+    return xacro.process_file(path, mappings={"robot_id": robot_id, "namespace": robot_id, "lidar": lidar,
                                               "color": COLORS.get(robot_id, "0.5 0.5 0.5 1")}).toxml()
 
 
@@ -33,6 +33,7 @@ def setup(context):
     wanted = [r for r in LaunchConfiguration("robots").perform(context).split(",") if r]
     rtf = float(LaunchConfiguration("rtf").perform(context))
     lay = yaml.safe_load(open(os.path.join(root, layout, "layout.yaml"), encoding="utf-8"))
+    lidar = "slot360" if int(lay.get("schema_version", 1)) >= 2 else "front"   # v2 robots: 360° lidar (N-06)
     world = os.path.join(root, layout, "generated", "world.sdf")
     if rtf != 1.0:  # cap the real-time factor (thermal budget) on a copy of the world
         txt = open(world, encoding="utf-8").read().replace(
@@ -55,7 +56,7 @@ def setup(context):
         p = poses[s["vertex"]]
         spawns.append(Node(
             package="ros_gz_sim", executable="create", name=f"spawn_{rid}", output="screen",
-            arguments=["-world", lay["name"], "-name", rid, "-string", robot_xacro(rid),
+            arguments=["-world", lay["name"], "-name", rid, "-string", robot_xacro(rid, lidar),
                        "-x", str(p["x"]), "-y", str(p["y"]), "-z", "0.02", "-Y", str(s.get("yaw", 0.0))]))
     actions.append(TimerAction(period=3.0, actions=spawns))
     return actions
