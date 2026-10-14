@@ -787,15 +787,10 @@
       <pose>2.5 5.5 0 0 0 1.570796</pose>
       <link name="link">
         <gravity>false</gravity>
-        <collision name="deck_collision"><pose>0 0 0.41 0 0 0</pose><geometry><box><size>1.2 1 0.06</size></box></geometry></collision>
         <visual name="deck_visual"><pose>0 0 0.41 0 0 0</pose><geometry><box><size>1.2 1 0.06</size></box></geometry><material><ambient>0.6 0.2 0.7 1</ambient><diffuse>0.6 0.2 0.7 1</diffuse></material></visual>
-        <collision name="leg0_collision"><pose>0.56 0.46 0.19 0 0 0</pose><geometry><box><size>0.08 0.08 0.38</size></box></geometry></collision>
         <visual name="leg0_visual"><pose>0.56 0.46 0.19 0 0 0</pose><geometry><box><size>0.08 0.08 0.38</size></box></geometry><material><ambient>0.45 0.15 0.5 1</ambient><diffuse>0.45 0.15 0.5 1</diffuse></material></visual>
-        <collision name="leg1_collision"><pose>0.56 -0.46 0.19 0 0 0</pose><geometry><box><size>0.08 0.08 0.38</size></box></geometry></collision>
         <visual name="leg1_visual"><pose>0.56 -0.46 0.19 0 0 0</pose><geometry><box><size>0.08 0.08 0.38</size></box></geometry><material><ambient>0.45 0.15 0.5 1</ambient><diffuse>0.45 0.15 0.5 1</diffuse></material></visual>
-        <collision name="leg2_collision"><pose>-0.56 0.46 0.19 0 0 0</pose><geometry><box><size>0.08 0.08 0.38</size></box></geometry></collision>
         <visual name="leg2_visual"><pose>-0.56 0.46 0.19 0 0 0</pose><geometry><box><size>0.08 0.08 0.38</size></box></geometry><material><ambient>0.45 0.15 0.5 1</ambient><diffuse>0.45 0.15 0.5 1</diffuse></material></visual>
-        <collision name="leg3_collision"><pose>-0.56 -0.46 0.19 0 0 0</pose><geometry><box><size>0.08 0.08 0.38</size></box></geometry></collision>
         <visual name="leg3_visual"><pose>-0.56 -0.46 0.19 0 0 0</pose><geometry><box><size>0.08 0.08 0.38</size></box></geometry><material><ambient>0.45 0.15 0.5 1</ambient><diffuse>0.45 0.15 0.5 1</diffuse></material></visual>
       </link>
     </model>
@@ -804,15 +799,10 @@
       <pose>5.5 5.5 0 0 0 1.570796</pose>
       <link name="link">
         <gravity>false</gravity>
-        <collision name="deck_collision"><pose>0 0 0.41 0 0 0</pose><geometry><box><size>1.2 1 0.06</size></box></geometry></collision>
         <visual name="deck_visual"><pose>0 0 0.41 0 0 0</pose><geometry><box><size>1.2 1 0.06</size></box></geometry><material><ambient>0.6 0.2 0.7 1</ambient><diffuse>0.6 0.2 0.7 1</diffuse></material></visual>
-        <collision name="leg0_collision"><pose>0.56 0.46 0.19 0 0 0</pose><geometry><box><size>0.08 0.08 0.38</size></box></geometry></collision>
         <visual name="leg0_visual"><pose>0.56 0.46 0.19 0 0 0</pose><geometry><box><size>0.08 0.08 0.38</size></box></geometry><material><ambient>0.45 0.15 0.5 1</ambient><diffuse>0.45 0.15 0.5 1</diffuse></material></visual>
-        <collision name="leg1_collision"><pose>0.56 -0.46 0.19 0 0 0</pose><geometry><box><size>0.08 0.08 0.38</size></box></geometry></collision>
         <visual name="leg1_visual"><pose>0.56 -0.46 0.19 0 0 0</pose><geometry><box><size>0.08 0.08 0.38</size></box></geometry><material><ambient>0.45 0.15 0.5 1</ambient><diffuse>0.45 0.15 0.5 1</diffuse></material></visual>
-        <collision name="leg2_collision"><pose>-0.56 0.46 0.19 0 0 0</pose><geometry><box><size>0.08 0.08 0.38</size></box></geometry></collision>
         <visual name="leg2_visual"><pose>-0.56 0.46 0.19 0 0 0</pose><geometry><box><size>0.08 0.08 0.38</size></box></geometry><material><ambient>0.45 0.15 0.5 1</ambient><diffuse>0.45 0.15 0.5 1</diffuse></material></visual>
-        <collision name="leg3_collision"><pose>-0.56 -0.46 0.19 0 0 0</pose><geometry><box><size>0.08 0.08 0.38</size></box></geometry></collision>
         <visual name="leg3_visual"><pose>-0.56 -0.46 0.19 0 0 0</pose><geometry><box><size>0.08 0.08 0.38</size></box></geometry><material><ambient>0.45 0.15 0.5 1</ambient><diffuse>0.45 0.15 0.5 1</diffuse></material></visual>
       </link>
     </model>
@@ -821,15 +811,10 @@
       <pose>14.5 5.5 0 0 0 1.570796</pose>
       <link name="link">
         <gravity>false</gravity>
-        <collision name="deck_collision"><pose>0 0 0.41 0 0 0</pose><geometry><box><size>1.2 1 0.06</size></box></geometry></collision>
         <visual name="deck_visual"><pose>0 0 0.41 0 0 0</pose><geometry><box><size>1.2 1 0.06</size></box></geometry><material><ambient>0.6 0.2 0.7 1</ambient><diffuse>0.6 0.2 0.7 1</diffuse></material></visual>
-        <collision name="leg0_collision"><pose>0.56 0.46 0.19 0 0 0</pose><geometry><box><size>0.08 0.08 0.38</size></box></geometry></collision>
         <visual name="leg0_visual"><pose>0.56 0.46 0.19 0 0 0</pose><geometry><box><size>0.08 0.08 0.38</size></box></geometry><material><ambient>0.45 0.15 0.5 1</ambient><diffuse>0.45 0.15 0.5 1</diffuse></material></visual>
-        <collision name="leg1_collision"><pose>0.56 -0.46 0.19 0 0 0</pose><geometry><box><size>0.08 0.08 0.38</size></box></geometry></collision>
         <visual name="leg1_visual"><pose>0.56 -0.46 0.19 0 0 0</pose><geometry><box><size>0.08 0.08 0.38</size></box></geometry><material><ambient>0.45 0.15 0.5 1</ambient><diffuse>0.45 0.15 0.5 1</diffuse></material></visual>
-        <collision name="leg2_collision"><pose>-0.56 0.46 0.19 0 0 0</pose><geometry><box><size>0.08 0.08 0.38</size></box></geometry></collision>
         <visual name="leg2_visual"><pose>-0.56 0.46 0.19 0 0 0</pose><geometry><box><size>0.08 0.08 0.38</size></box></geometry><material><ambient>0.45 0.15 0.5 1</ambient><diffuse>0.45 0.15 0.5 1</diffuse></material></visual>
-        <collision name="leg3_collision"><pose>-0.56 -0.46 0.19 0 0 0</pose><geometry><box><size>0.08 0.08 0.38</size></box></geometry></collision>
         <visual name="leg3_visual"><pose>-0.56 -0.46 0.19 0 0 0</pose><geometry><box><size>0.08 0.08 0.38</size></box></geometry><material><ambient>0.45 0.15 0.5 1</ambient><diffuse>0.45 0.15 0.5 1</diffuse></material></visual>
       </link>
     </model>
@@ -838,15 +823,10 @@
       <pose>17.5 5.5 0 0 0 1.570796</pose>
       <link name="link">
         <gravity>false</gravity>
-        <collision name="deck_collision"><pose>0 0 0.41 0 0 0</pose><geometry><box><size>1.2 1 0.06</size></box></geometry></collision>
         <visual name="deck_visual"><pose>0 0 0.41 0 0 0</pose><geometry><box><size>1.2 1 0.06</size></box></geometry><material><ambient>0.6 0.2 0.7 1</ambient><diffuse>0.6 0.2 0.7 1</diffuse></material></visual>
-        <collision name="leg0_collision"><pose>0.56 0.46 0.19 0 0 0</pose><geometry><box><size>0.08 0.08 0.38</size></box></geometry></collision>
         <visual name="leg0_visual"><pose>0.56 0.46 0.19 0 0 0</pose><geometry><box><size>0.08 0.08 0.38</size></box></geometry><material><ambient>0.45 0.15 0.5 1</ambient><diffuse>0.45 0.15 0.5 1</diffuse></material></visual>
-        <collision name="leg1_collision"><pose>0.56 -0.46 0.19 0 0 0</pose><geometry><box><size>0.08 0.08 0.38</size></box></geometry></collision>
         <visual name="leg1_visual"><pose>0.56 -0.46 0.19 0 0 0</pose><geometry><box><size>0.08 0.08 0.38</size></box></geometry><material><ambient>0.45 0.15 0.5 1</ambient><diffuse>0.45 0.15 0.5 1</diffuse></material></visual>
-        <collision name="leg2_collision"><pose>-0.56 0.46 0.19 0 0 0</pose><geometry><box><size>0.08 0.08 0.38</size></box></geometry></collision>
         <visual name="leg2_visual"><pose>-0.56 0.46 0.19 0 0 0</pose><geometry><box><size>0.08 0.08 0.38</size></box></geometry><material><ambient>0.45 0.15 0.5 1</ambient><diffuse>0.45 0.15 0.5 1</diffuse></material></visual>
-        <collision name="leg3_collision"><pose>-0.56 -0.46 0.19 0 0 0</pose><geometry><box><size>0.08 0.08 0.38</size></box></geometry></collision>
         <visual name="leg3_visual"><pose>-0.56 -0.46 0.19 0 0 0</pose><geometry><box><size>0.08 0.08 0.38</size></box></geometry><material><ambient>0.45 0.15 0.5 1</ambient><diffuse>0.45 0.15 0.5 1</diffuse></material></visual>
       </link>
     </model>
