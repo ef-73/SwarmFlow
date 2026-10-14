@@ -21,7 +21,7 @@ FIX = pathlib.Path(__file__).resolve().parents[3] / "tests" / "fixtures" / "stan
 
 
 def _two_robots(g):
-    return len([m for m in g.markers if m.ns == "robots"]) == 2
+    return len([m for m in g.markers if m.ns == "robot_body"]) == 2
 
 
 def test_two_states_give_two_robot_markers():
@@ -34,8 +34,8 @@ def test_two_states_give_two_robot_markers():
                          durability=DurabilityPolicy.TRANSIENT_LOCAL)
         pub = t.create_publisher(RobotState, "/fleet/robot_states", qos)
         got, zones = [], []
-        t.create_subscription(MarkerArray, "/fleet/robot_markers", got.append, 10)
-        t.create_subscription(MarkerArray, "/fleet/zone_markers", zones.append, 10)
+        t.create_subscription(MarkerArray, "/viz/robots", got.append, 10)
+        t.create_subscription(MarkerArray, "/viz/zones", zones.append, qos)
         for rid, x in (("robot_1", 1.0), ("robot_2", 2.0)):
             pub.publish(RobotState(robot_id=rid, x=x, y=1.0, mode=RobotState.MODE_IDLE))
         ex = MultiThreadedExecutor(num_threads=2)

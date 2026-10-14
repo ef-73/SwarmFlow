@@ -25,7 +25,7 @@ FIX = pathlib.Path(__file__).resolve().parents[3] / "tests" / "fixtures" / "stan
 
 
 def _robot_markers(ma):
-    return [m for m in ma.markers if m.ns == "robots"]
+    return [m for m in ma.markers if m.ns == "robot_body"]
 
 
 def test_default_qos_robot_states_give_two_robot_markers():
@@ -39,7 +39,7 @@ def test_default_qos_robot_states_give_two_robot_markers():
                          durability=DurabilityPolicy.VOLATILE)
         pub = t.create_publisher(RobotState, "/fleet/robot_states", qos)
         got = []
-        t.create_subscription(MarkerArray, "/fleet/robot_markers", got.append, 10)
+        t.create_subscription(MarkerArray, "/viz/robots", got.append, 10)
         ex = MultiThreadedExecutor(num_threads=2)
         ex.add_node(viz)
         ex.add_node(t)

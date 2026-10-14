@@ -10,7 +10,6 @@ Publishes
 - ``/viz/fleet_dashboard``: ``diagnostic_msgs/DiagnosticArray``, one status per robot;
 - inside the Gazebo window, when one is open (``gz_overlay``): status rings, paths and goals, and the status
   board (JSON) for the "SwarmFlow robots" panel of ``swarmflow_gz_panel``;
-- ``/fleet/robot_markers`` and ``/fleet/zone_markers``: the v1 marker topics, unchanged.
 """
 
 from __future__ import annotations
@@ -33,7 +32,7 @@ from swarmflow_interfaces.msg import Order, OrderStatus, PayloadState, RobotStat
 
 from . import fleet_view as fv
 from .gz_overlay import GzOverlay, board_json, build_overlay
-from .markers import robot_markers, station_markers, zone_markers
+from .zones import zone_markers
 from .world_scene import Shape, load_world
 
 _MODE_NAMES = {RobotState.MODE_IDLE: "IDLE", RobotState.MODE_NAVIGATING: "NAVIGATING",
@@ -89,14 +88,11 @@ class VizNode(Node):
             self.create_subscription(PayloadState, f"/{r}/payload_state", self._on_payload, 10)
             self.create_subscription(Path, f"/{r}/plan", lambda m, r=r: self._on_plan(r, m), 10)
 
-        self._robot_pub = self.create_publisher(MarkerArray, "/fleet/robot_markers", 10)
-        self._zone_pub = self.create_publisher(MarkerArray, "/fleet/zone_markers", 10)
         self._scene_pub = self.create_publisher(MarkerArray, "/viz/scene", _LATCHED)
         self._zones_pub = self.create_publisher(MarkerArray, "/viz/zones", _LATCHED)
         self._pkg_pub = self.create_publisher(MarkerArray, "/viz/packages", 10)
         self._robots_pub = self.create_publisher(MarkerArray, "/viz/robots", 10)
         self._dash_pub = self.create_publisher(DiagnosticArray, "/viz/fleet_dashboard", 10)
-        self.create_timer(0.2, self._pub_robots)
         self.create_timer(1.0, self._pub_zones)
         self.create_timer(0.5, self._pub_fleet)      # robot shapes are frame-locked: TF moves them smoothly
         self.create_timer(0.1, self._pub_packages)
@@ -233,18 +229,11 @@ class VizNode(Node):
             self._overlay.stop()
         return super().destroy_node()
 
-    def _pub_robots(self) -> None:
-        self._robot_pub.publish(robot_markers(list(self._states.values()), self._now()))
-
     def _pub_zones(self) -> None:
         if self._graph is None:
             return
         now = self._now()
-        zones = zone_markers(self._graph, self._leases, now)
-        self._zones_pub.publish(zones)
-        ma = zone_markers(self._graph, self._leases, now)
-        ma.markers.extend(station_markers(self._graph, now).markers)
-        self._zone_pub.publish(ma)
+        self._zones_pub.publish(zone_markers(self._graph, self._leases, now))
 
 
 def main(args=None) -> None:
