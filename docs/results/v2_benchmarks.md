@@ -1,7 +1,7 @@
 # v2 benchmarks (E-01, E-02, C-01)
 
-All runs 2026-10-14, Gazebo headless, full 600 sim-s window, ground-truth localization (the AMCL default came after
-these runs, I-03). Every run starts from freshly created containers: an earlier version of these tables was
+All runs 2026-10-14, Gazebo headless, full 600 sim-s window, ground-truth localization (I-03: AMCL
+was tried as the default and reverted, see the realism ladder). Every run starts from freshly created containers: an earlier version of these tables was
 contaminated by a harness bug (below) and has been replaced. Raw records in `runs/` (not committed). v1 numbers: [`v1_baseline.md`](v1_baseline.md); realism: [`v2_realism_ladder.md`](v2_realism_ladder.md).
 
 ## Throughput and safety
@@ -45,7 +45,8 @@ foxglove_bridge rises from ~10 to ~31 % while a Foxglove client is connected (th
 |---|---|---|---|
 | gazebo | 198–210 | 190 | 200–208 |
 | each robot (Nav2 + agent + bridge) | 99–125 | 104–110 | 109–146 |
-| viz | 67–71 | 73 | 70–73 |
+| viz (Python TF relay) | 67–71 | 73 | 70–73 |
+| viz (C++ relay, T054) | 35–39 | — | 35 |
 | orchestrator | 45–47 | 43 | 51 |
 | scenario_engine | 17–18 | 16 | 20 |
 | foxglove_bridge | 10–31 | 33 | 31–32 |
@@ -56,7 +57,8 @@ Each robot costs ~1.1–1.2 cores (Nav2 ~0.8, robot agent ~0.35 in Python); the 
 
 ## Known limits
 
-- viz stays at ~0.65 core (target 0.3, X-01): needs a C++ TF/scan relay (package choice in `docs/user_todo.md`).
+- viz with the C++ TF/scan relay (T054): 0.35–0.39 core (`g7_*` runs), half of before but above the 0.3 target;
+  the rest is the Python `viz_node`.
 - AMCL has no localisation health monitor: with a degraded lidar (realism rung 4) robots got lost, and a lost robot
   is avoided where it is reported, not where it is.
 
