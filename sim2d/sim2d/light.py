@@ -29,6 +29,7 @@ import yaml
 from .light_world import LightWorld
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
+MAX_LAG_S = 0.5          # most sim time one loop iteration may catch up
 START_T = 1.0            # sim time at start (a stamp of 0 means "static" to the agent)
 
 
@@ -73,9 +74,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--run-dir", required=True)
     ap.add_argument("--rtf", type=float, default=1.0, help="sim seconds per real second")
     ap.add_argument("--duration-s", type=float, default=0.0, help="stop after this many sim seconds (0 = until ^C)")
-    ap.add_argument("--dt", type=float, default=0.05, help="sim step in seconds")
-    ap.add_argument("--speed", type=float, default=0.5)
+    ap.add_argument("--dt", type=float, default=0.1, help="sim step in seconds (also /clock and tf period)")
+    ap.add_argument("--speed", type=float, default=1.0,
+                    help="max linear speed, m/s (the real robot is limited to 0.6, design 8.2; 1.0 lets a 300 s v2 run "
+                         "deliver enough orders)")
     ap.add_argument("--turn", type=float, default=1.5)
+    ap.add_argument("--trace", default="", help="write a 1 Hz world trace (poses, states, goals) to this jsonl file")
     ap.add_argument("--startup-timeout-s", type=float, default=90.0)
     args = ap.parse_args(argv)
 
@@ -95,6 +99,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     from rosgraph_msgs.msg import Clock
 
     from swarmflow_core.graph import load_layout
+    from swarmflow_core.metrics.clearance import footprint_distance
 
     from ._light_ros import RobotNav
 
@@ -152,6 +157,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                     p.kill()
 
     code = 0
+    trace = open(args.trace, "w", encoding="utf-8") if args.trace else None
+    min_sep = float('inf')                    # true minimum footprint distance seen in the world (diagnostic)
     sim_t, t0_wall, wall, self_cpu = START_T, time.monotonic(), 0.0, 0.0
     try:
         # wait for every child node to appear on the graph before time starts
@@ -172,12 +179,25 @@ def main(argv: Optional[List[str]] = None) -> int:
         t0_cpu = time.process_time()
         t0_wall = time.monotonic()
         sim_t, dt = START_T, args.dt
+        ref = t0_wall                         # sim time = START_T + (now - ref) * rtf; moved forward after a stall
         while rclpy.ok():
-            target = START_T + (time.monotonic() - t0_wall) * args.rtf
+            target = START_T + (time.monotonic() - ref) * args.rtf
+            if target - sim_t > MAX_LAG_S:        # the host stalled: slow down instead of jumping, or the agents'
+                ref += (target - sim_t - MAX_LAG_S) / args.rtf      # heartbeats would time out in sim time
+                target = sim_t + MAX_LAG_S
             n = 0
             while sim_t + dt <= target and n < 200:
                 with lock:
                     world.step(dt)
+                    ids = world.robot_ids()
+                    poses = [world.pose(i) for i in ids]
+                if trace is not None and int(sim_t + dt) != int(sim_t):
+                    with lock:
+                        trace.write(json.dumps({"t": round(sim_t + dt, 2), "robots": {i: world.debug(i) for i in ids}}) + "\n")
+                for ia in range(len(poses)):
+                    for ib in range(ia + 1, len(poses)):
+                        if abs(poses[ia][0] - poses[ib][0]) < 2.0 and abs(poses[ia][1] - poses[ib][1]) < 2.0:
+                            min_sep = min(min_sep, footprint_distance(poses[ia], poses[ib]))
                 sim_t += dt
                 n += 1
                 msg = Clock()
@@ -190,7 +210,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             for name, p in children:
                 if p.poll() is not None:
                     raise RuntimeError(f"{name} exited with {p.returncode}; see {run_dir / 'logs' / (name + '.log')}")
-            time.sleep(max(0.0, min(0.05, (sim_t + dt - START_T) / args.rtf - (time.monotonic() - t0_wall))))
+            time.sleep(max(0.0, min(0.05, (sim_t + dt - START_T) / args.rtf - (time.monotonic() - ref))))
         wall = time.monotonic() - t0_wall
         self_cpu = time.process_time() - t0_cpu
     except KeyboardInterrupt:
@@ -210,7 +230,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     kids = t.children_user + t.children_system
     if wall > 0:
         print(f"sim2d.light: sim {sim_t - START_T:.1f} s in {wall:.1f} s wall (rtf {args.rtf:g}); cpu this process "
-              f"{self_cpu:.1f} s, children {kids:.1f} s -> {(self_cpu + kids) / wall:.2f} cores average")
+              f"{self_cpu:.1f} s, children {kids:.1f} s -> {(self_cpu + kids) / wall:.2f} cores average; "
+              f"min footprint distance in the world {min_sep:.3f} m")
     sys.stdout.flush()
     sys.stderr.flush()
     os._exit(code)          # leftover executor threads must not delay the exit
