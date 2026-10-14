@@ -58,10 +58,10 @@ class Runner(Node):
     def __init__(self, robots):
         super().__init__("nav_scenarios", parameter_overrides=[rclpy.parameter.Parameter("use_sim_time", value=True)])
         self.poses, self.lock = {}, threading.Lock()
-        self.clients = {}
+        self.nav_clients = {}
         for r in robots:
             self.create_subscription(Odometry, f"/{r}/odom", lambda m, r=r: self._odom(r, m), 10)
-            self.clients[r] = ActionClient(self, NavigateThroughPoses, f"/{r}/navigate_through_poses")
+            self.nav_clients[r] = ActionClient(self, NavigateThroughPoses, f"/{r}/navigate_through_poses")
 
     def _odom(self, r, m):
         q = m.pose.pose.orientation
@@ -75,7 +75,7 @@ class Runner(Node):
     def send(self, r, xyyaw):
         goal = NavigateThroughPoses.Goal()
         goal.poses = [pose_msg(self, *xyyaw)]
-        fut = self.clients[r].send_goal_async(goal)
+        fut = self.nav_clients[r].send_goal_async(goal)
         while not fut.done():
             time.sleep(0.05)
         gh = fut.result()
@@ -94,7 +94,7 @@ def main():
     ex = MultiThreadedExecutor(num_threads=4)
     ex.add_node(node)
     threading.Thread(target=ex.spin, daemon=True).start()
-    for r, c in node.clients.items():
+    for r, c in node.nav_clients.items():
         if not c.wait_for_server(timeout_sec=90.0):
             print(f"{r}: navigate_through_poses not available"); sys.exit(2)
     # staging: one robot at a time to its start pose (parked robots first)
