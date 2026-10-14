@@ -25,6 +25,15 @@ TF = [("/tf", "tf"), ("/tf_static", "tf_static")]
 NAV_NODES = ["controller_server", "planner_server", "behavior_server", "bt_navigator", "velocity_smoother"]
 
 
+def _deep_merge(base: dict, over: dict) -> None:
+    """Overlay values win; nested dicts merge; lists and scalars are replaced."""
+    for k, v in over.items():
+        if isinstance(v, dict) and isinstance(base.get(k), dict):
+            _deep_merge(base[k], v)
+        else:
+            base[k] = v
+
+
 def setup(context):
     rid = LaunchConfiguration("robot_id").perform(context)
     layout = LaunchConfiguration("layout").perform(context)
@@ -48,19 +57,38 @@ def setup(context):
         os.path.join(get_package_share_directory("swarmflow_description"), "urdf", "swarmflow_bot.urdf.xacro"),
         mappings={"robot_id": rid, "namespace": rid, "lidar": "slot360" if profile == "v2" else "front"}).toxml()
 
+    source = os.path.join(share, "config", "nav2_params.yaml")
+    container_args = []          # v1 keeps running exactly as recorded in the baseline (see the comment below)
+    if profile == "v2":
+        # one merged file: a second parameter file did not replace list parameters such as costmap `plugins`
+        # (M14 session 5: both costmaps fell back to Nav2's default layers)
+        base = yaml.safe_load(open(source, encoding="utf-8"))
+        _deep_merge(base, yaml.safe_load(open(os.path.join(share, "config", "nav2_params_v2.yaml"), encoding="utf-8")))
+        source = os.path.join(tempfile.gettempdir(), f"swarmflow_{rid}_nav2_params_v2.yaml")
+        with open(source, "w", encoding="utf-8") as f:
+            yaml.safe_dump(base, f, sort_keys=False)
+        # Composed Nav2: launch_ros hands a parameter file only to the composable node it is attached to, so the
+        # costmap sub-nodes (<rid>/local_costmap/local_costmap, .../global_costmap) never saw their parameters and ran
+        # on Nav2 defaults (found in M14: v1 included). A --params-file on the container process applies to every
+        # node in it, sub-nodes too.
+        for sect in base.values():
+            if isinstance(sect, dict):
+                for node in [sect] + [v for v in sect.values() if isinstance(v, dict)]:
+                    if "ros__parameters" in node:
+                        node["ros__parameters"]["use_sim_time"] = True
+        base.setdefault("map_server", {}).setdefault("ros__parameters", {})["yaml_filename"] = os.path.join(gen, "map.yaml")
+        container_params = os.path.join(tempfile.gettempdir(), f"swarmflow_{rid}_nav2_container.yaml")
+        with open(container_params, "w", encoding="utf-8") as f:
+            yaml.safe_dump({rid: base}, f, sort_keys=False)
+        container_args = ["--params-file", container_params]
     params = ParameterFile(RewrittenYaml(
-        source_file=os.path.join(get_package_share_directory("swarmflow_nav"), "config", "nav2_params.yaml"),
-        root_key=rid,
-        param_rewrites={"use_sim_time": "True", "yaml_filename": os.path.join(gen, "map.yaml"),
-                        },
+        source_file=source, root_key=rid,
+        param_rewrites={"use_sim_time": "True", "yaml_filename": os.path.join(gen, "map.yaml")},
         convert_types=True), allow_substs=True)
     sim = {"use_sim_time": True}
     param_files = [params]
     bt_xml = os.path.join(share, "behavior_trees", "navigate_through_poses.xml")
     if profile == "v2":
-        param_files.append(ParameterFile(RewrittenYaml(
-            source_file=os.path.join(share, "config", "nav2_params_v2.yaml"), root_key=rid, param_rewrites={},
-            convert_types=True), allow_substs=True))
         # per-robot recovery wait (N-03): robot_1 1.0 s, robot_2 1.7 s, ... so blocked robots do not move in lockstep
         n = int("".join(c for c in rid if c.isdigit()) or 1)
         tree = open(os.path.join(share, "behavior_trees", "navigate_v2.xml"), encoding="utf-8").read()
@@ -121,7 +149,8 @@ def setup(context):
     ]
     actions.append(ComposableNodeContainer(
         name="nav2_container", namespace=rid, package="rclcpp_components", executable="component_container_isolated",
-        output="screen", parameters=[sim], remappings=TF, composable_node_descriptions=loc_nodes + nav))
+        output="screen", parameters=[sim], remappings=TF, ros_arguments=container_args,
+        composable_node_descriptions=loc_nodes + nav))
 
     if agent:
         actions.append(Node(package="swarmflow_robot_agent", executable="agent_node", namespace=rid, output="screen",
