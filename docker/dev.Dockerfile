@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ros-jazzy-launch-pytest \
         ros-jazzy-ament-cmake-pytest \
         ros-jazzy-nav2-msgs \
+        ros-jazzy-nav2-costmap-2d \
         ros-jazzy-visualization-msgs \
         ros-jazzy-nav-msgs \
         ros-jazzy-geometry-msgs \
