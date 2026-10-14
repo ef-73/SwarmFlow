@@ -63,7 +63,9 @@ def test_pallet_geometry_lets_the_robot_drive_under(world):
         inner_w = min(abs(b[1]) for b in legs) * 2 - legs[0][4]        # free width between the legs, across
         assert inner_w >= ROBOT_BODY_W + 0.30, inner_w                # at least 15 cm each side of the body
         assert all(abs(abs(b[0]) - abs(legs[0][0])) < 1e-6 for b in legs)   # symmetric
-        assert any(True for _ in m.iter("collision"))
+        # no collision (T046): with gravity off, a pallet set down on the floor was pushed out of the ground and
+        # tumbled (M16 session p2); the payload node sets its pose and the GPU lidar sees the visuals
+        assert not any(True for _ in m.iter("collision"))
 
 
 def test_standard_world_has_no_pallets(tmp_path):
