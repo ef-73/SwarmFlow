@@ -108,23 +108,7 @@ def test_loading_station_keeps_v1_dwell(agent):
     assert of(agent.tick(8.0 + api.LOAD_DWELL_S), TaskFinished)
 
 
-def test_pallet_lift_carry_set_down(agent):
-    start(agent, ["PL_1", "DK1"], order="p1", order_type=api.ORDER_PALLET)
-    at(agent, "PL_1", 6.0)
-    acts = agent.on_nav_result(True, 6.0)
-    assert not of(acts, Navigate) and agent.state().mode == RobotMode.LIFTING
-    assert not of(agent.tick(6.0 + PALLET_LIFT_S - 0.1), Navigate)
-    nav = of(agent.tick(6.0 + PALLET_LIFT_S), Navigate)
-    assert nav and nav[0].vertices == ("DK1",)
-    assert agent.state().mode == RobotMode.CARRYING
-    at(agent, "X_0_1", 12.0, speed=0.4)
-    assert agent.state().mode == RobotMode.CARRYING
-    at(agent, "DK1", 20.0)
-    agent.on_nav_result(True, 20.0)
-    assert agent.state().mode in (RobotMode.UNLOADING, RobotMode.LIFTING)
-    assert not of(agent.tick(20.0 + api.UNLOAD_DWELL_PALLET_S - 0.1), TaskFinished)
-    done = of(agent.tick(20.0 + api.UNLOAD_DWELL_PALLET_S), TaskFinished)
-    assert done and done[0].success
+# test_pallet_lift_carry_set_down: superseded by test_pallet_docking.py (T042: pre-dock, drive under, deep drop)
 
 
 def test_blocked_reported_after_no_progress_and_cleared_on_progress(agent):
