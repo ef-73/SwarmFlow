@@ -32,6 +32,12 @@ PALLET_LIFT_S = 3.0           #: v2 goal mode: dwell (mode LIFTING) when picking
 GOAL_RETRY_MIN_S = 1.0        #: v2 goal mode: a failed Navigate is re-sent after a uniform delay in this range
 GOAL_RETRY_MAX_S = 3.0
 GOAL_PROGRESS_MOVE_M = 0.5    #: v2 goal mode: displacement this far from the last reference also counts as progress
+PREDOCK_M = 1.2               #: pallet docking (T042): Nav2 goal this far in front of the pallet, along its yaw
+DOCK_AHEAD_M = 0.7            #: deep drop: drive this far past the dock vertex along the dock yaw
+UNDOCK_M = 0.9                #: back out this far (along the dock yaw) after setting the pallet down
+DOCK_TOL_LAT_M = 0.03         #: dock drive reached: across-track tolerance
+DOCK_TOL_LON_M = 0.02         #: dock drive reached: along-track tolerance
+DOCK_TIMEOUT_S = 30.0         #: dock drive without STUCK_MIN_PROGRESS_M progress this long -> task failure
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -48,6 +54,23 @@ class Navigate:
 @dataclass(frozen=True)
 class CancelNav:
     pass
+
+
+@dataclass(frozen=True)
+class DockDrive:
+    """Straight closed-loop drive to ``target`` (x, y, yaw) along the target heading; ``reverse`` backs up."""
+    target: Tuple[float, float, float]
+    reverse: bool = False
+
+
+@dataclass(frozen=True)
+class StopDrive:
+    pass
+
+
+@dataclass(frozen=True)
+class SetFootprint:
+    kind: str                    #: "carry" (padded for a pallet on board) | "normal"
 
 
 @dataclass(frozen=True)
@@ -116,6 +139,46 @@ def _inside_margin(x: float, y: float, poly: Sequence[Tuple[float, float]]) -> f
     return best
 
 
+# Pallet dock drive (T042): direct velocity commands, hard-bounded
+DRIVE_HZ = 20.0
+DRIVE_MAX_MPS = 0.15            #: forward / reverse speed limit
+DRIVE_MIN_MPS = 0.03            #: creep speed near the target (below this the base would not move reliably)
+DRIVE_MAX_RADPS = 0.5           #: yaw rate limit
+DRIVE_SLOW_GAIN = 0.5           #: speed = gain * remaining distance (1/s), clamped to [MIN, MAX]
+DRIVE_STOP_M = 0.01             #: command zero speed this close to the target (core stops at 2 cm)
+DRIVE_LOOKAHEAD_M = 0.3         #: pure pursuit look-ahead on the target line
+DRIVE_STEER_MAX_RAD = 0.5       #: steering toward the line is limited to this angle
+DRIVE_HEADING_GAIN = 1.5
+DRIVE_TURN_ONLY_RAD = 0.6       #: heading error above this: rotate in place, no translation
+DRIVE_POSE_MAX_AGE_S = 0.5      #: a TF older than this stops the robot
+
+
+def _wrap(a: float) -> float:
+    return math.atan2(math.sin(a), math.cos(a))
+
+
+def drive_command(pose, target, reverse: bool):
+    """Pure control law of the dock drive: (linear m/s, angular rad/s) for ``pose`` = (x, y, yaw) towards ``target`` =
+    (x, y, yaw), driving along the target heading (backwards if ``reverse``). Linear is signed (negative = reverse),
+    |linear| <= DRIVE_MAX_MPS, |angular| <= DRIVE_MAX_RADPS."""
+    x, y, yaw = pose
+    tx, ty, tyaw = target
+    sgn = -1.0 if reverse else 1.0
+    travel = tyaw + (math.pi if reverse else 0.0)                    # direction of motion along the line
+    dx, dy = x - tx, y - ty
+    remaining = -(dx * math.cos(tyaw) + dy * math.sin(tyaw)) * sgn   # distance still to drive (<= 0 once passed)
+    cte = -dx * math.sin(travel) + dy * math.cos(travel)             # offset left of the travel direction
+    steer = max(-DRIVE_STEER_MAX_RAD, min(DRIVE_STEER_MAX_RAD, math.atan2(cte, DRIVE_LOOKAHEAD_M)))
+    desired_body = travel - steer - (math.pi if reverse else 0.0)
+    herr = _wrap(desired_body - yaw)
+    w = max(-DRIVE_MAX_RADPS, min(DRIVE_MAX_RADPS, DRIVE_HEADING_GAIN * herr))
+    if remaining <= DRIVE_STOP_M or abs(herr) > DRIVE_TURN_ONLY_RAD:
+        v = 0.0
+    else:
+        v = min(DRIVE_MAX_MPS, max(DRIVE_MIN_MPS, DRIVE_SLOW_GAIN * remaining)) * math.cos(herr)
+    return sgn * min(v, DRIVE_MAX_MPS), w
+
+
 class AgentCore:
     def __init__(self, robot_id: str, graph: WarehouseGraph, traffic_control: bool = True, rng_seed: int = 0):
         self.robot_id = robot_id
@@ -171,11 +234,22 @@ class AgentCore:
         self._gref_d: Optional[float] = None   #: blocked detection: distance to the goal at the last progress
         self._gref_t = 0.0
         self._gref_xy: Optional[Tuple[float, float]] = None   #: position at the last progress reference
+        # pallet docking (T042): phase None | "pick_drive" | "lift" | "drop_drive" | "unload" | "back_drive"
+        self._dock: Optional[str] = None
+        self._dock_target: Tuple[float, float, float] = (0.0, 0.0, 0.0)
+        self._dock_reverse = False
+        self._dock_ref_d = 0.0
+        self._dock_ref_t = 0.0
+        self._goal_yaw = 0.0                   #: yaw of the current goal (vertex yaw, else the approach direction)
 
     # -- queries -------------------------------------------------------------------------------------------------
     def can_accept(self) -> bool:
         return (self._have_pose and not self._stale and not self._route
                 and self._mode in (RobotMode.IDLE, RobotMode.STUCK))
+
+    def driving(self) -> bool:
+        """True while a straight dock drive is commanded (the node must keep publishing velocity only then)."""
+        return self._dock in ("pick_drive", "drop_drive", "back_drive")
 
     def has_pose(self) -> bool:
         return self._have_pose
@@ -460,6 +534,7 @@ class AgentCore:
         acts: List[object] = []
         if self._mode == RobotMode.NAVIGATING or (self._goal_mode and self._nav_inflight):
             acts.append(CancelNav())
+        acts += self._dock_abort()
         acts += self._release_all(ReleaseReason.TASK_CANCELLED)
         task = self._task_id
         self._clear_task(RobotMode.IDLE)
@@ -661,6 +736,7 @@ class AgentCore:
         self._nav_inflight = False
         self._goal_retry_at = None
         self._gref_d = None
+        self._dock = None
         for lease in self._leases:
             lease.exit_idx = None
         self._route = []
@@ -706,6 +782,7 @@ class AgentCore:
         self._nav_inflight = False
         self._goal_retry_at = None
         self._gref_d = None
+        self._dock = None
         self._mode = self._moving_mode()
         return self._goal_begin(t)
 
@@ -722,9 +799,19 @@ class AgentCore:
             return RobotMode.LOADING, api.LOAD_DWELL_S
         if kind == "delivery":
             return RobotMode.UNLOADING, api.LOAD_DWELL_S
-        if kind == "pallet" and self._order_type == api.ORDER_PALLET:
-            return RobotMode.LIFTING, PALLET_LIFT_S
         return None
+
+    def _is_pallet_goal(self, name: str) -> bool:
+        """Goals of a pallet order that end in a closed-loop dock drive instead of a plain dwell (T042)."""
+        return self._order_type == api.ORDER_PALLET and self.graph.vertices[name].kind in ("pallet", "dock")
+
+    def _goal_pose(self, name: str) -> Tuple[float, float, float]:
+        """Nav2 target of a goal: the vertex pose, or for a pallet the pre-dock pose in front of it."""
+        v = self.graph.vertices[name]
+        if self._order_type == api.ORDER_PALLET and v.kind == "pallet":
+            return (v.x - PREDOCK_M * math.cos(self._goal_yaw), v.y - PREDOCK_M * math.sin(self._goal_yaw),
+                    self._goal_yaw)
+        return (v.x, v.y, self._goal_yaw)
 
     def _near_goal(self, name: str, t: float) -> bool:
         """Pose within tolerance of the goal; a stale pose never counts."""
@@ -733,14 +820,16 @@ class AgentCore:
                 and math.hypot(v.x - self._x, v.y - self._y) <= api.GOAL_TOLERANCE_M)
 
     def _goal_navigate(self, name: str) -> Navigate:
+        return Navigate((name,), (self._goal_pose(name),))
+
+    def _set_goal_yaw(self, name: str) -> None:
         v = self.graph.vertices[name]
         if v.yaw is not None:
-            yaw = v.yaw
+            self._goal_yaw = v.yaw
         elif self._have_pose:
-            yaw = math.atan2(v.y - self._y, v.x - self._x)
+            self._goal_yaw = math.atan2(v.y - self._y, v.x - self._x)
         else:
-            yaw = 0.0
-        return Navigate((name,), ((v.x, v.y, yaw),))
+            self._goal_yaw = 0.0
 
     def _goal_begin(self, t: float) -> List[object]:
         """Start the goal at ``_goal_i``; no-dwell goals the robot already stands at are passed at once."""
@@ -748,7 +837,8 @@ class AgentCore:
             if self._goal_i >= len(self._route):
                 return self._finish_ok()
             name = self._route[self._goal_i]
-            if self._goal_dwell(name) is None and self._near_goal(name, t):
+            self._set_goal_yaw(name)
+            if self._goal_dwell(name) is None and not self._is_pallet_goal(name) and self._near_goal(name, t):
                 self._last_vertex = name
                 self._goal_i += 1
                 continue
@@ -765,8 +855,8 @@ class AgentCore:
     def _goal_dist(self) -> Optional[float]:
         if not self._have_pose or self._goal_i >= len(self._route):
             return None
-        v = self.graph.vertices[self._route[self._goal_i]]
-        return math.hypot(v.x - self._x, v.y - self._y)
+        x, y, _ = self._goal_pose(self._route[self._goal_i])
+        return math.hypot(x - self._x, y - self._y)
 
     def _goal_moving(self) -> bool:
         return self._mode in (RobotMode.NAVIGATING, RobotMode.CARRYING, RobotMode.STUCK)
@@ -781,14 +871,16 @@ class AgentCore:
         self._fault_reason_stuck = ""
 
     def _goal_on_pose(self, t: float) -> List[object]:
+        if self._dock is not None:
+            return self._dock_on_pose(t)
         if not self._goal_moving() or self._goal_i >= len(self._route):
             return []
         name = self._route[self._goal_i]
         if not self._near_goal(name, t):
             return []
         self._last_vertex = name
-        if self._goal_dwell(name) is not None:
-            return []                                     # dwell goals wait for Nav2 success
+        if self._goal_dwell(name) is not None or self._is_pallet_goal(name):
+            return []                                     # dwell / dock goals wait for Nav2 success
         acts: List[object] = [CancelNav()] if self._nav_inflight else []
         self._nav_inflight = False
         self._goal_clear_blocked()
@@ -796,6 +888,8 @@ class AgentCore:
         return acts + self._goal_begin(t)
 
     def _goal_nav_result(self, success: bool, t: float) -> List[object]:
+        if self._dock is not None:
+            return []                                     # a drive is under way: Nav2 results are late/duplicates
         if not self._goal_moving() or self._goal_i >= len(self._route):
             return []                                     # late/duplicate result (dwell, finished task)
         self._nav_inflight = False
@@ -807,6 +901,8 @@ class AgentCore:
         self._last_vertex = name
         self._goal_retry_at = None
         self._goal_clear_blocked()
+        if self._is_pallet_goal(name):
+            return self._dock_start(name, t)
         dwell = self._goal_dwell(name)
         if dwell is None:
             self._goal_i += 1
@@ -816,6 +912,8 @@ class AgentCore:
         return []
 
     def _goal_tick(self, t: float) -> List[object]:
+        if self._dock is not None:
+            return self._dock_tick(t)
         if self._mode in (RobotMode.LOADING, RobotMode.UNLOADING, RobotMode.LIFTING):
             if t < self._dwell_until:
                 return []
@@ -841,3 +939,89 @@ class AgentCore:
             self._nav_inflight = True
             return [self._goal_navigate(self._route[self._goal_i])]
         return []
+
+    # -- pallet docking (T042) -------------------------------------------------------------------------------------
+    # Nav2 cannot plan between pallet legs, so the last metre in and out is a straight DockDrive. The drive runs only
+    # after Nav2 reported its result (no Nav2 goal is active), and every exit path emits StopDrive.
+
+    def _dock_geometry(self, target: Tuple[float, float, float]) -> Tuple[float, float]:
+        """(lateral, longitudinal) offset of ``target`` from the pose, along the target heading."""
+        tx, ty, tyaw = target
+        dx, dy = tx - self._x, ty - self._y
+        return -dx * math.sin(tyaw) + dy * math.cos(tyaw), dx * math.cos(tyaw) + dy * math.sin(tyaw)
+
+    def _dock_begin_drive(self, phase: str, mode: RobotMode, target: Tuple[float, float, float], reverse: bool,
+                          t: float) -> List[object]:
+        self._dock, self._mode = phase, mode
+        self._dock_target, self._dock_reverse = target, reverse
+        self._dock_ref_d = math.hypot(target[0] - self._x, target[1] - self._y)
+        self._dock_ref_t = t
+        self._goal_retry_at = None
+        return [DockDrive(target, reverse)]
+
+    def _dock_start(self, name: str, t: float) -> List[object]:
+        """Nav2 reached the pre-dock pose (pallet) or the dock vertex: start the straight drive."""
+        v = self.graph.vertices[name]
+        yaw = self._goal_yaw
+        if v.kind == "pallet":
+            return self._dock_begin_drive("pick_drive", RobotMode.LIFTING, (v.x, v.y, yaw), False, t)
+        target = (v.x + DOCK_AHEAD_M * math.cos(yaw), v.y + DOCK_AHEAD_M * math.sin(yaw), yaw)
+        return self._dock_begin_drive("drop_drive", RobotMode.CARRYING, target, False, t)
+
+    def _dock_on_pose(self, t: float) -> List[object]:
+        if self._dock not in ("pick_drive", "drop_drive", "back_drive"):
+            return []
+        lat, lon = self._dock_geometry(self._dock_target)
+        remaining = -lon if self._dock_reverse else lon        # distance still to drive (<= 0: reached or passed)
+        if abs(lat) > DOCK_TOL_LAT_M or remaining > DOCK_TOL_LON_M:
+            return []
+        name = self._route[self._goal_i]
+        acts: List[object] = [StopDrive()]
+        if self._dock == "pick_drive":
+            self._last_vertex = name
+            self._dock, self._mode = "lift", RobotMode.LIFTING
+            self._dwell_until = t + PALLET_LIFT_S
+        elif self._dock == "drop_drive":
+            self._dock, self._mode = "unload", RobotMode.UNLOADING
+            self._dwell_until = t + api.UNLOAD_DWELL_PALLET_S
+        else:                                                  # backed out: the pallet stays at the dock
+            self._dock = None
+            self._carrying = False
+            self._last_vertex = name
+            acts.append(SetFootprint("normal"))
+            self._goal_i += 1
+            acts += self._goal_begin(t)
+        return acts
+
+    def _dock_tick(self, t: float) -> List[object]:
+        if self._dock in ("lift", "unload"):
+            if t < self._dwell_until:
+                return []
+            name = self._route[self._goal_i]
+            if self._dock == "lift":
+                self._dock = None
+                self._carrying = True
+                self._last_vertex = name
+                self._goal_i += 1
+                return [SetFootprint("carry")] + self._goal_begin(t)      # footprint first, then plan with it
+            tx, ty, yaw = self._dock_target
+            back = (tx - UNDOCK_M * math.cos(yaw), ty - UNDOCK_M * math.sin(yaw), yaw)
+            return self._dock_begin_drive("back_drive", RobotMode.LIFTING, back, True, t)
+        d = math.hypot(self._dock_target[0] - self._x, self._dock_target[1] - self._y)
+        if self._dock_ref_d - d >= api.STUCK_MIN_PROGRESS_M:
+            self._dock_ref_d, self._dock_ref_t = d, t
+        elif t - self._dock_ref_t >= DOCK_TIMEOUT_S:
+            name = self._route[self._goal_i]
+            acts = self._dock_abort()
+            acts += self._release_all(ReleaseReason.FAULT)
+            return acts + self._fail(api.FAILURE_NAV_PREFIX + name, RobotMode.STUCK)
+        return []
+
+    def _dock_abort(self) -> List[object]:
+        """The task ends while a dock phase is active: stop the drive; once the pallet was set down the normal
+        footprint applies again. Called before the task state is cleared."""
+        phase, self._dock = self._dock, None
+        acts: List[object] = [StopDrive()] if phase in ("pick_drive", "drop_drive", "back_drive") else []
+        if phase == "back_drive":
+            acts.append(SetFootprint("normal"))
+        return acts

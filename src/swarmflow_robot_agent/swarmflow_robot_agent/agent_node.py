@@ -13,8 +13,11 @@ from typing import Iterable, Optional
 
 import rclpy
 import tf2_ros
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, Twist
 from nav2_msgs.action import NavigateThroughPoses
+from rcl_interfaces.msg import Parameter as ParameterMsg
+from rcl_interfaces.msg import ParameterType, ParameterValue
+from rcl_interfaces.srv import SetParameters
 from rclpy.action import ActionClient, ActionServer, CancelResponse, GoalResponse
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
@@ -29,11 +32,15 @@ from swarmflow_interfaces.action import DispatchTask
 from swarmflow_interfaces.msg import ReservationHeartbeat, ReservationRelease, RobotState, ZoneReservation
 from swarmflow_interfaces.srv import RequestReservation as RequestReservationSrv
 
-from .agent_core import AgentCore, CancelNav, Navigate, Release, RequestReservation, TaskFinished
+from .agent_core import (DRIVE_HZ, DRIVE_MAX_MPS, DRIVE_MAX_RADPS, DRIVE_POSE_MAX_AGE_S, AgentCore, CancelNav,
+                         DockDrive, drive_command, Navigate, Release, RequestReservation, SetFootprint,
+                         StopDrive, TaskFinished)
 
 MAX_POSE_AGE_S = 1.0
 POSE_STALE_S = 1.0
 MAX_ANGULAR_RADPS = 3.0
+FOOTPRINT_NORMAL = "[[0.35, 0.30], [0.35, -0.30], [-0.35, -0.30], [-0.35, 0.30]]"   #: nav2_params.yaml 0.70 x 0.60
+FOOTPRINT_CARRY = "[[0.625, 0.525], [0.625, -0.525], [-0.625, -0.525], [-0.625, 0.525]]"   #: padded 1.25 x 1.05
 _QOS10 =QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE)
 _QOS_LATCHED = QoSProfile(depth=100, reliability=ReliabilityPolicy.RELIABLE,
                           durability=DurabilityPolicy.TRANSIENT_LOCAL)
@@ -91,6 +98,7 @@ class AgentNode(Node):
         self._last_yaw = None
         self._angular = 0.0           #: rad/s, from the yaw change between consecutive new poses
         self._waiting_zone_last = ""
+        self._drive: Optional[DockDrive] = None   #: active dock drive (None = not driving)
 
         # TF (launch remaps /tf -> tf per robot namespace)
         self._tf_buffer = tf2_ros.Buffer()
@@ -100,6 +108,10 @@ class AgentNode(Node):
         self._nav_client = ActionClient(self, NavigateThroughPoses, "navigate_through_poses", callback_group=cb)
         self._res_client = self.create_client(RequestReservationSrv, "/fleet/request_reservation",
                                               callback_group=cb)
+        self._cmd_pub = self.create_publisher(Twist, "cmd_vel", 10)
+        self._fp_clients = {
+            name: self.create_client(SetParameters, f"/{self.robot_id}/{name}/{name}/set_parameters", callback_group=cb)
+            for name in ("local_costmap", "global_costmap")}
         self._state_pub = self.create_publisher(RobotState, "/fleet/robot_states", _QOS10)
         self._hb_pub = self.create_publisher(ReservationHeartbeat, "/fleet/reservation_heartbeat", _QOS10)
         self._rel_pub = self.create_publisher(ReservationRelease, "/fleet/reservation_release", _QOS10)
@@ -111,6 +123,7 @@ class AgentNode(Node):
                                     goal_callback=self._on_goal, cancel_callback=lambda _h: CancelResponse.ACCEPT,
                                     callback_group=cb)
         self.create_timer(1.0 / float(self.get_parameter("tick_hz").value), self._on_tick, callback_group=cb)
+        self.create_timer(1.0 / DRIVE_HZ, self._on_drive_tick, callback_group=cb)
         self.create_timer(api.ROBOT_STATE_PERIOD_S, self._publish_state, callback_group=cb)
         self.create_timer(api.HEARTBEAT_PERIOD_S, self._publish_heartbeat, callback_group=cb)
 
@@ -125,6 +138,12 @@ class AgentNode(Node):
                 self._send_nav(a)
             elif isinstance(a, CancelNav):
                 self._cancel_nav()
+            elif isinstance(a, DockDrive):
+                self._start_drive(a)
+            elif isinstance(a, StopDrive):
+                self._stop_drive()
+            elif isinstance(a, SetFootprint):
+                self._set_footprint(a.kind)
             elif isinstance(a, RequestReservation):
                 self._call_reservation(a.request)
             elif isinstance(a, Release):
@@ -181,6 +200,71 @@ class AgentNode(Node):
         if self._nav_goal is not None:
             self._nav_goal.cancel_goal_async()
             self._nav_goal = None
+
+    # -- pallet dock drive (T042) ------------------------------------------------------------------------------------
+    def _publish_twist(self, v: float, w: float) -> None:
+        m = Twist()
+        m.linear.x = max(-DRIVE_MAX_MPS, min(DRIVE_MAX_MPS, v))
+        m.angular.z = max(-DRIVE_MAX_RADPS, min(DRIVE_MAX_RADPS, w))
+        self._cmd_pub.publish(m)
+
+    def _start_drive(self, d: DockDrive) -> None:
+        self._cancel_nav()                              # never drive while a Nav2 goal is active
+        self._drive = d
+
+    def _stop_drive(self) -> None:
+        was = self._drive is not None
+        self._drive = None
+        if was:
+            self._publish_twist(0.0, 0.0)
+            self._publish_twist(0.0, 0.0)               # twice: one lost sample must not leave the base moving
+
+    def _drive_pose(self):
+        try:
+            tf = self._tf_buffer.lookup_transform(self._map_frame, self._base_frame, rclpy.time.Time())
+        except tf2_ros.TransformException:
+            return None
+        st = tf.header.stamp
+        stamp = st.sec + st.nanosec * 1e-9
+        if stamp > 0.0 and self._now() - stamp > DRIVE_POSE_MAX_AGE_S:
+            return None
+        return tf.transform.translation.x, tf.transform.translation.y, _yaw_of(tf.transform.rotation)
+
+    def _on_drive_tick(self) -> None:
+        with self._lock:
+            d = self._drive
+            if d is None:
+                return
+            if not self.core.driving() or self._nav_goal is not None:
+                self._stop_drive()                      # the core ended the drive, or a Nav2 goal appeared
+                return
+            pose = self._drive_pose()
+            if pose is None:
+                self._publish_twist(0.0, 0.0)           # no fresh pose: stand still (the core's timeout ends it)
+                return
+            v, w = drive_command(pose, d.target, d.reverse)
+            self._publish_twist(v, w)
+
+    def _set_footprint(self, kind: str) -> None:
+        value = FOOTPRINT_CARRY if kind == "carry" else FOOTPRINT_NORMAL
+        for name, client in self._fp_clients.items():
+            if not client.service_is_ready():
+                self.get_logger().warn(f"footprint {kind}: /{self.robot_id}/{name} set_parameters not available")
+                continue
+            req = SetParameters.Request()
+            req.parameters = [ParameterMsg(name="footprint", value=ParameterValue(
+                type=ParameterType.PARAMETER_STRING, string_value=value))]
+            client.call_async(req).add_done_callback(lambda f, n=name, k=kind: self._on_footprint_done(f, n, k))
+
+    def _on_footprint_done(self, fut, name: str, kind: str) -> None:
+        try:
+            res = fut.result()
+            ok = bool(res.results) and all(r.successful for r in res.results)
+            reason = "; ".join(r.reason for r in res.results if not r.successful)
+        except Exception as exc:  # noqa: BLE001 - never block the agent on a parameter call
+            ok, reason = False, str(exc)
+        if not ok:
+            self.get_logger().warn(f"footprint {kind} not applied to {name}: {reason}")
 
     # -- reservation service -------------------------------------------------------------------------------------
     def _call_reservation(self, r: api.ReservationRequest) -> None:
@@ -359,6 +443,8 @@ def main(args=None) -> None:
     except KeyboardInterrupt:
         pass
     finally:
+        with node._lock:
+            node._stop_drive()
         node.destroy_node()
         rclpy.try_shutdown()
 

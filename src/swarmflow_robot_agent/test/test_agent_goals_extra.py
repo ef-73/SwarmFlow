@@ -59,10 +59,11 @@ def test_cancel_mid_dwell_finishes_cancelled_without_cancelnav(agent):
 
 def test_nav_failure_while_carrying_reports_blocked_then_back_to_carrying(agent):
     agent.start_task("t1", "p1", ["PL", "DK"], 1.0, route_kind=api.ROUTE_GOALS, order_type=api.ORDER_PALLET)
-    at(agent, "PL", 5.0)
+    agent.on_pose(0.0, 2.8, math.pi / 2, 0.0, 5.0)               # pre-dock pose (T042: 1.2 m in front of the pallet)
     agent.on_nav_result(True, 5.0)
     assert agent.state().mode == RobotMode.LIFTING
-    assert of(agent.tick(5.0 + 3.0), Navigate)
+    at(agent, "PL", 5.5)                                          # drove under the pallet
+    assert of(agent.tick(5.5 + 3.0), Navigate)
     assert agent.state().mode == RobotMode.CARRYING
     agent.on_nav_result(False, 12.0)
     s = agent.state()
