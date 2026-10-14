@@ -10,6 +10,7 @@ Args: robot_id (robot_1), layout (standard), layouts_root (/ws/layouts),
 """
 
 import os
+import tempfile
 
 import yaml
 from ament_index_python.packages import get_package_share_directory
@@ -37,11 +38,15 @@ def setup(context):
     poses = {s["name"]: s["pose"] for s in lay["stations"]}
     poses.update({i["name"]: i["pose"] for i in lay["intersections"]})
     sx, sy, syaw = poses[spawn["vertex"]]["x"], poses[spawn["vertex"]]["y"], float(spawn.get("yaw", 0.0))
+    profile = LaunchConfiguration("nav_profile").perform(context)
+    if profile == "auto":                     # v2 layouts get the v2 navigation profile (M14)
+        profile = "v2" if int(lay.get("schema_version", 1)) >= 2 else "v1"
+    share = get_package_share_directory("swarmflow_nav")
 
     import xacro
     desc = xacro.process_file(
         os.path.join(get_package_share_directory("swarmflow_description"), "urdf", "swarmflow_bot.urdf.xacro"),
-        mappings={"robot_id": rid, "namespace": rid}).toxml()
+        mappings={"robot_id": rid, "namespace": rid, "lidar": "slot360" if profile == "v2" else "front"}).toxml()
 
     params = ParameterFile(RewrittenYaml(
         source_file=os.path.join(get_package_share_directory("swarmflow_nav"), "config", "nav2_params.yaml"),
@@ -50,6 +55,18 @@ def setup(context):
                         },
         convert_types=True), allow_substs=True)
     sim = {"use_sim_time": True}
+    param_files = [params]
+    bt_xml = os.path.join(share, "behavior_trees", "navigate_through_poses.xml")
+    if profile == "v2":
+        param_files.append(ParameterFile(RewrittenYaml(
+            source_file=os.path.join(share, "config", "nav2_params_v2.yaml"), root_key=rid, param_rewrites={},
+            convert_types=True), allow_substs=True))
+        # per-robot recovery wait (N-03): robot_1 1.0 s, robot_2 1.7 s, ... so blocked robots do not move in lockstep
+        n = int("".join(c for c in rid if c.isdigit()) or 1)
+        tree = open(os.path.join(share, "behavior_trees", "navigate_v2.xml"), encoding="utf-8").read()
+        bt_xml = os.path.join(tempfile.gettempdir(), f"swarmflow_{rid}_navigate_v2.xml")
+        with open(bt_xml, "w", encoding="utf-8") as f:
+            f.write(tree.replace("{recovery_wait_s}", f"{1.0 + 0.7 * ((n - 1) % 4):.1f}"))
 
     ns = f"/{rid}"
     bridge_args = [
@@ -68,11 +85,11 @@ def setup(context):
     ]
 
     loc_nodes = [ComposableNode(package="nav2_map_server", plugin="nav2_map_server::MapServer", name="map_server",
-                                namespace=rid, parameters=[params, sim], remappings=TF)]
+                                namespace=rid, parameters=[*param_files, sim], remappings=TF)]
     loc_names = ["map_server"]
     if localization == "amcl":
         loc_nodes.append(ComposableNode(package="nav2_amcl", plugin="nav2_amcl::AmclNode", name="amcl",
-                                        namespace=rid, parameters=[params, sim, {
+                                        namespace=rid, parameters=[*param_files, sim, {
                                             "initial_pose": {"x": sx, "y": sy, "z": 0.0, "yaw": syaw}}],
                                         remappings=TF))
         loc_names.append("amcl")
@@ -84,18 +101,16 @@ def setup(context):
 
     nav = [
         ComposableNode(package="nav2_controller", plugin="nav2_controller::ControllerServer", name="controller_server",
-                       namespace=rid, parameters=[params, sim], remappings=TF + [("cmd_vel", "cmd_vel_nav")]),
+                       namespace=rid, parameters=[*param_files, sim], remappings=TF + [("cmd_vel", "cmd_vel_nav")]),
         ComposableNode(package="nav2_planner", plugin="nav2_planner::PlannerServer", name="planner_server",
-                       namespace=rid, parameters=[params, sim], remappings=TF),
+                       namespace=rid, parameters=[*param_files, sim], remappings=TF),
         ComposableNode(package="nav2_behaviors", plugin="behavior_server::BehaviorServer", name="behavior_server",
-                       namespace=rid, parameters=[params, sim], remappings=TF + [("cmd_vel", "cmd_vel_nav")]),
+                       namespace=rid, parameters=[*param_files, sim], remappings=TF + [("cmd_vel", "cmd_vel_nav")]),
         ComposableNode(package="nav2_bt_navigator", plugin="nav2_bt_navigator::BtNavigator", name="bt_navigator",
-                       namespace=rid, remappings=TF, parameters=[params, sim, {
-                           "default_nav_through_poses_bt_xml": os.path.join(
-                               get_package_share_directory("swarmflow_nav"), "behavior_trees",
-                               "navigate_through_poses.xml")}]),
+                       namespace=rid, remappings=TF, parameters=[*param_files, sim, {
+                           "default_nav_through_poses_bt_xml": bt_xml}]),
         ComposableNode(package="nav2_velocity_smoother", plugin="nav2_velocity_smoother::VelocitySmoother",
-                       name="velocity_smoother", namespace=rid, parameters=[params, sim],
+                       name="velocity_smoother", namespace=rid, parameters=[*param_files, sim],
                        remappings=TF + [("cmd_vel", "cmd_vel_nav"), ("cmd_vel_smoothed", "cmd_vel")]),
         ComposableNode(package="nav2_lifecycle_manager", plugin="nav2_lifecycle_manager::LifecycleManager",
                        name="lifecycle_manager_localization", namespace=rid,
@@ -123,5 +138,6 @@ def generate_launch_description():
         DeclareLaunchArgument("localization", default_value="ground_truth"),
         DeclareLaunchArgument("agent", default_value="false"),
         DeclareLaunchArgument("traffic_control", default_value="true"),
+        DeclareLaunchArgument("nav_profile", default_value="auto"),   # auto | v1 | v2 (M14)
         OpaqueFunction(function=setup),
     ])
