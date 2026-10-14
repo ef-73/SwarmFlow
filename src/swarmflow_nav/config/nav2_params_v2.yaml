@@ -4,6 +4,8 @@
 #   moved do not go stale as they did with the 180° lidar in M8); A* (Smac 2D) planner; replanning at 1 Hz (BT).
 # - N-02: local costmap 6 x 6 m so a way around another robot is visible.
 # - N-03: no Spin recovery (navigate_v2.xml).
+# - N-05a: other robots come from /fleet/robot_states (swarmflow_nav::OtherRobotsLayer), because the slot lidars
+#   look through each other's sensor slot; current footprint lethal + 2 s constant-velocity prediction.
 # - C-01: idle Nav2 used ~0.8 core per robot (measured 2026-10-13): no voxel map topic, costmap updates instead of
 #   full maps on every publish (Foxglove does not show costmaps by default, V-06).
 local_costmap:
@@ -12,6 +14,9 @@ local_costmap:
       width: 6
       height: 6
       always_send_full_costmap: false
+      plugins: [voxel_layer, other_robots, inflation_layer]
+      other_robots:
+        plugin: swarmflow_nav::OtherRobotsLayer
       voxel_layer:
         publish_voxel_map: false
         scan:
@@ -22,7 +27,9 @@ global_costmap:
     ros__parameters:
       update_frequency: 2.0
       always_send_full_costmap: false
-      plugins: [static_layer, obstacle_layer, inflation_layer]
+      plugins: [static_layer, obstacle_layer, other_robots, inflation_layer]
+      other_robots:
+        plugin: swarmflow_nav::OtherRobotsLayer
       obstacle_layer:
         footprint_clearing_enabled: true
         scan:
