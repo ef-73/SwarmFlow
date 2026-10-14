@@ -267,11 +267,11 @@ Each milestone ends like v1 (§2.1): ff-merge to `main`, push, §5 row updated, 
 | M7 | ✅ done 2026-10-09 — corridor n=3: FCFS 6.0 vs independent 3.0 deliveries, wait 56 vs 118 s; fresh clone + one-command up verified; cold build 10 min |
 | M8 | ✅ done 2026-10-10 — controller starvation and in-aisle reversals fixed; corridor n=3: FCFS 7.0 ± 0.0 vs independent 3.3 deliveries, 0 stuck; 10-min demo 15 deliveries, 0 stuck; §15.4 checked (tag + video with the user) |
 | M9 | ✅ done 2026-10-10 — retrospective (`docs/retrospective_v1.md`); T018–T020 safety hardening (each reviewed twice), CI referee fixes, docs/ports; M9 demo 15 deliveries, 0 stuck; §15.4 re-checked; G5 passed (`v1.0.0` tagged 2026-10-11) |
-| M10 | ⏳ next — v2 plan accepted 2026-10-11 (`improvements_v2.md` rev 4, decision 002) |
-| M11 | open |
-| M12 | open |
-| M13 | open |
+| M10 | ⏳ in progress — clean-up, CI fixes, X-05, X-06 (T023) on main; X-01 / X-10 need the Gazebo runs |
+| M11 | ⏳ light mode (T025) on main: 0.32 core for 3 robots; 10-robot check moves to the v2 layout (M15) |
+| M12 | ⏳ contract-v2 on main (G6 pre-approved, reviewed); v1 regression run pending |
+| M13 | ⏳ warehouse_v2 (T026) on main; order generator (T027) in CI; Gazebo world check pending |
 | M14 | open |
-| M15 | open |
+| M15 | ⏳ FleetCoreV2 (T028) on main; robot goal mode (T029) in CI; orchestrator node (T030) in progress |
 | M16 | open |
 | M17 | open |
