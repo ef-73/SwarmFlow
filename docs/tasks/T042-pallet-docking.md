@@ -2,7 +2,7 @@
 id: T042
 title: Pallet docking in the robot agent - pre-dock, drive under, lift, carry footprint, deep drop, back out (F-02, F-04)
 workstream: D
-status: open
+status: claimed
 claimed_by: "sf-implementer"
 branch: ws-d/T042-pallet-docking
 model: sonnet
