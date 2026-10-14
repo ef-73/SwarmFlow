@@ -19,8 +19,9 @@ from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy
 from swarmflow_core import api
 from swarmflow_core.graph import load_layout
-from swarmflow_interfaces.msg import PayloadState, RobotState
+from swarmflow_interfaces.msg import Order, PayloadState, RobotState
 
+from .pallet_core import PalletCore
 from .payload_core import PayloadCore
 
 _MODES = list(api.RobotMode)
@@ -68,8 +69,21 @@ def _bounds_and_offsets(layout_file: str):
     return bounds, offsets
 
 
+def _pallet_spots(layout_file: str) -> Dict[str, tuple]:
+    """Pallet stands of a v2 layout: model name -> (x, y, 0, yaw); empty for v1 layouts."""
+    if not layout_file:
+        return {}
+    data = yaml.safe_load(open(layout_file, encoding="utf-8"))
+    return {f"pallet_{s['name']}": (float(s["pose"]["x"]), float(s["pose"]["y"]), 0.0, float(s["pose"]["yaw"]))
+            for s in data.get("stations", []) if s.get("type") == "pallet"}
+
+
+PALLET_SIZE = (1.20, 1.00)
+
+
 class PayloadNode(Node):
-    def __init__(self, pose_setter: Optional[object] = None, core: Optional[PayloadCore] = None, **kwargs):
+    def __init__(self, pose_setter: Optional[object] = None, core: Optional[PayloadCore] = None,
+                 pallet_core: Optional[PalletCore] = None, **kwargs):
         super().__init__("payload", **kwargs)
         self.declare_parameter("layout_dir", "")
         self.declare_parameter("layout_file", "")
@@ -82,6 +96,12 @@ class PayloadNode(Node):
             bounds, offsets = _bounds_and_offsets(self.get_parameter("layout_file").value)
             core = PayloadCore(load_layout(self.get_parameter("layout_dir").value), bounds, offsets)
         self.core = core
+        if pallet_core is None:
+            spots = _pallet_spots(self.get_parameter("layout_file").value)
+            pallet_core = PalletCore(spots) if spots else None
+        self.pallets = pallet_core
+        self._odom: Dict[str, tuple] = {}            # robot -> latest ground-truth (x, y, yaw)
+        self._last_state: Dict[str, dict] = {}       # robot -> latest {robot_id, mode, order_id}
         self.setter = pose_setter if pose_setter is not None else PoseSetter(world)
         self._lock = threading.RLock()
         self._robots = robots
@@ -91,6 +111,9 @@ class PayloadNode(Node):
             self._pubs[r] = self.create_publisher(PayloadState, f"/{r}/payload_state", 10)
             self.create_subscription(Odometry, f"/{r}/odom", lambda m, r=r: self._on_odom(r, m), _QOS)
         self.create_subscription(RobotState, "/fleet/robot_states", self._on_state, _QOS)
+        if self.pallets is not None:
+            self.create_subscription(Order, "/fleet/orders", self._on_order,
+                                     QoSProfile(depth=100, reliability=ReliabilityPolicy.RELIABLE))
         self.create_timer(1.0 / float(self.get_parameter("rate_hz").value), self._on_tick)
         self.create_timer(0.2, self._publish_states)
 
@@ -101,15 +124,37 @@ class PayloadNode(Node):
         p = msg.pose.pose
         with self._lock:
             self.core.on_robot_pose(robot, p.position.x, p.position.y, _yaw_of(p.orientation), self._now())
+            if self.pallets is not None:
+                self._odom[robot] = (p.position.x, p.position.y, _yaw_of(p.orientation))
+                self._feed_pallets(robot)
+
+    def _feed_pallets(self, robot: str) -> None:
+        """Give the pallet core the robot's latest mode / order together with its latest ground-truth pose."""
+        st = self._last_state.get(robot)
+        if st is None or robot not in self._odom:
+            return
+        x, y, yaw = self._odom[robot]
+        self.pallets.on_robot_state(dict(st, x=x, y=y, yaw=yaw), self._now())
+
+    def _on_order(self, msg: Order) -> None:
+        otype = next((k for k, v in api.ORDER_TYPE_CODES.items() if v == msg.order_type), api.ORDER_TRANSPORT)
+        with self._lock:
+            self.pallets.on_order(msg.order_id, otype, msg.pallet_id)
 
     def _on_state(self, msg: RobotState) -> None:
         mode = _MODES[msg.mode].value if 0 <= msg.mode < len(_MODES) else "FAULT"
         with self._lock:
-            self.core.on_robot_state({"robot_id": msg.robot_id, "mode": mode, "order_id": msg.order_id}, self._now())
+            st = {"robot_id": msg.robot_id, "mode": mode, "order_id": msg.order_id}
+            self.core.on_robot_state(st, self._now())
+            if self.pallets is not None:
+                self._last_state[msg.robot_id] = st
+                self._feed_pallets(msg.robot_id)
 
     def _on_tick(self) -> None:
         with self._lock:
             poses = self.core.tick(self._now())
+            if self.pallets is not None:
+                poses.update(self.pallets.tick(self._now()))
             warnings = list(self.core.warnings)
         for w in warnings[self._warned:]:
             self.get_logger().warning(w)
@@ -129,6 +174,9 @@ class PayloadNode(Node):
         for r in self._robots:
             with self._lock:
                 d = self.core.payload_state(r)
+                pd = self.pallets.payload_state(r) if self.pallets is not None else None
+            if pd is not None and pd["loaded"]:
+                d = dict(pd, size_x=PALLET_SIZE[0], size_y=PALLET_SIZE[1])
             m = PayloadState()
             m.header.stamp = stamp
             m.header.frame_id = "base_footprint"
