@@ -57,9 +57,14 @@ public:
     int pc = 200;
     node->get_parameter(name_ + ".predicted_cost", pc);
     predicted_cost_ = static_cast<unsigned char>(std::clamp(pc, 1, 252));
-    // own id = the costmap node's namespace, e.g. "/robot_1" -> "robot_1"
+    // own id = first component of the costmap node's namespace ("/robot_1/global_costmap" -> "robot_1"); a
+    // mismatch would stamp the robot onto itself ("Start occupied", M14 session 6)
     self_ = node->get_namespace();
     self_.erase(0, self_.find_first_not_of('/'));
+    self_ = self_.substr(0, self_.find('/'));
+    declareParameter("robot_id", rclcpp::ParameterValue(self_));
+    node->get_parameter(name_ + ".robot_id", self_);
+    RCLCPP_INFO(node->get_logger(), "OtherRobotsLayer: own robot id '%s'", self_.c_str());
     clock_ = node->get_clock();
     rclcpp::SubscriptionOptions opts;
     opts.callback_group = callback_group_;
