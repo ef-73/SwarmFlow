@@ -58,6 +58,7 @@ if [ "$shot" = 1 ]; then
   done
 fi
 docker compose exec -T orchestrator /entrypoint.sh bash -c 'timeout 5 ros2 topic echo --once /viz/robots visualization_msgs/msg/MarkerArray --field markers 2>/dev/null | grep -c "ns="' 2>/dev/null | head -1 | sed 's/^/viz robot markers seen: /'
+docker ps --format '{{.Names}} {{.Status}}' | sed "s/$COMPOSE_PROJECT_NAME-//" > "runs/$run_id/health.txt"   # X-06
 docker compose logs > "runs/$run_id/compose.log" 2>&1
 [ "$(sim_left)" -gt 0 ] && echo "WARNING: wall-time cap reached with $(sim_left) sim-s of the window left"
 echo "control loop missed: $(grep -c 'Control loop missed' "runs/$run_id/compose.log")"

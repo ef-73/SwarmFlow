@@ -19,6 +19,8 @@ local_costmap:
       plugins: [voxel_layer, other_robots, keep_right, inflation_layer]
       other_robots:
         plugin: swarmflow_nav::OtherRobotsLayer
+        length: 0.80        # padded 5 cm per side more than the own footprint (M15 run 1: padded overlaps of 4 cm)
+        width: 0.70
       keep_right:
         plugin: swarmflow_nav::KeepRightLayer   # aisles filled in by robot.launch.py from zones.yaml
       voxel_layer:
@@ -34,6 +36,8 @@ global_costmap:
       plugins: [static_layer, obstacle_layer, other_robots, keep_right, inflation_layer]
       other_robots:
         plugin: swarmflow_nav::OtherRobotsLayer
+        length: 0.80        # padded 5 cm per side more than the own footprint (M15 run 1: padded overlaps of 4 cm)
+        width: 0.70
       keep_right:
         plugin: swarmflow_nav::KeepRightLayer
       obstacle_layer:
