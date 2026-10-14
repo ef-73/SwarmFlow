@@ -1,0 +1,6 @@
+<library path="swarmflow_nav_layers">
+  <class type="swarmflow_nav::OtherRobotsLayer" base_class_type="nav2_costmap_2d::Layer">
+    <description>Stamps the other robots' reported footprints (and their predicted positions) into the costmap
+      from /fleet/robot_states (improvements_v2 N-05a): v2 robots cannot see each other with their slot lidar.</description>
+  </class>
+</library>
