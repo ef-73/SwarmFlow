@@ -77,6 +77,11 @@ def setup(context):
                 (a["x_min"], a["y_min"], a["x_max"], a["y_max"], 0.0 if a["axis"] == "x" else 1.0)]
         for cm in ("local_costmap", "global_costmap"):
             base[cm][cm]["ros__parameters"]["keep_right"]["aisles"] = list(flat)
+        # E-01 "± prediction" (N-05): SWARMFLOW_PREDICTION_HORIZON=0 stamps only the other robots' current footprints
+        horizon = os.environ.get("SWARMFLOW_PREDICTION_HORIZON")
+        if horizon is not None and horizon != "":
+            for cm in ("local_costmap", "global_costmap"):
+                base[cm][cm]["ros__parameters"]["other_robots"]["horizon_s"] = float(horizon)
         source = os.path.join(tempfile.gettempdir(), f"swarmflow_{rid}_nav2_params_v2.yaml")
         with open(source, "w", encoding="utf-8") as f:
             yaml.dump(base, f, Dumper=_NoAliasDumper, sort_keys=False)
