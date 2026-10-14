@@ -42,6 +42,8 @@ SCENARIOS = {
     # N-08: two robots meet inside a dead-end 2.2 m storage aisle (W3: y 15.4 .. 17.6)
     "dead_end": {"robot_1": ((9.0, 16.5, W), (1.5, 16.5, W)), "robot_2": ((1.5, 16.5, E), (9.0, 16.5, E))},
 }
+# staging order where it matters (a robot parked at an aisle mouth would block the other's way in)
+STAGING_ORDER = {"dead_end": ["robot_2", "robot_1"]}
 NEAR_MISS_M = 0.30
 
 
@@ -98,7 +100,7 @@ def main():
         if not c.wait_for_server(timeout_sec=90.0):
             print(f"{r}: navigate_through_poses not available"); sys.exit(2)
     # staging: one robot at a time to its start pose (parked robots first)
-    for r in sorted(spec, key=lambda r: spec[r][1] is not None):
+    for r in STAGING_ORDER.get(args.scenario) or sorted(spec, key=lambda r: spec[r][1] is not None):
         res = node.send(r, spec[r][0])
         while res is not None and not res.done():
             time.sleep(0.1)
