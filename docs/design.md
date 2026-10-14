@@ -495,7 +495,7 @@ builtin_interfaces/Time eta
 | `/fleet/orchestrator_heartbeat` | `std_msgs/Header` (1 Hz) | orchestrator → agents |
 | `/fleet/clear_zone` | `ClearZone` (srv) | operator / scenario → orchestrator |
 | `/map` | `nav_msgs/OccupancyGrid` (latched) | global map server in the `orchestrator` container → Foxglove (per-robot Nav2 uses `/robot_N/map`) |
-| `/fleet/robot_markers`, `/fleet/zone_markers` | `visualization_msgs/MarkerArray` | `swarmflow_viz` → Foxglove |
+| `/viz/scene`, `/viz/zones`, `/viz/robots`, `/viz/packages`, `/viz/robot_N/scan`, `/viz/fleet_dashboard` | `MarkerArray` / `LaserScan` / `DiagnosticArray` | `swarmflow_viz` → Foxglove (T021/T022; v1 `/fleet/*_markers` removed in X-02) |
 | `/robot_N/dispatch_task` | `DispatchTask` (action) | orchestrator → agent N |
 | `/robot_N/payload_state` | `PayloadState` | payload node → agent, monitoring |
 | `/robot_N/navigate_through_poses` | `nav2_msgs/action/NavigateThroughPoses` | agent N → Nav2 N |
