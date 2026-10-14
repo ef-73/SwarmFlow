@@ -30,6 +30,8 @@ from swarmflow_core import api, decisions
 from swarmflow_core.api import (Direction, OrderSpec, ReleaseReason, ReservationRequest, RobotMode, RobotSnapshot)
 from swarmflow_core.fleet import FleetCore
 from swarmflow_core.graph import load_layout
+from swarmflow_core.fleet_v2 import FleetCoreV2
+from swarmflow_core.policies.assign import AssignPolicy
 from swarmflow_core.policies.fcfs import FcfsPolicy
 from swarmflow_core.reservations import FcfsReservationAuthority
 from swarmflow_interfaces.action import DispatchTask
@@ -38,6 +40,7 @@ from swarmflow_interfaces.msg import (DecisionEvent, Order, OrderStatus, Reserva
 from swarmflow_interfaces.srv import ClearZone, RequestReservation
 
 REJECTED = "REJECTED"
+POLICY_ASSIGN = "assign"          #: v2 policy name (= AssignPolicy().name)
 CANCEL_HOLD_S = 5.0               #: hold dispatches to a robot this long while its cancelled goal finishes
 AGENT_LOST_S = 10.0               #: dispatched task, no RobotState from its robot this long -> AGENT_LOST
 RECOVERY_WARN_S = 5.0
@@ -52,6 +55,7 @@ _RELIABLE100 = QoSProfile(depth=100, reliability=ReliabilityPolicy.RELIABLE)
 
 _MODE_OF_CODE = {code: mode for mode, code in api.MODE_CODES.items()}
 _DIRECTION_OF_CODE = {code: d for d, code in api.DIRECTION_CODES.items()}
+_ORDER_TYPE_OF_CODE = {code: t for t, code in api.ORDER_TYPE_CODES.items()}
 _REASON_OF_CODE = {code: r for r, code in api.RELEASE_REASON_CODES.items()}
 
 
@@ -110,14 +114,18 @@ class OrchestratorNode(Node):
         self.declare_parameter("state_log_hz", 2.0)
         self.robots: List[str] = list(self.get_parameter("robots").value)
         self.policy_name: str = self.get_parameter("policy").value
-        if self.policy_name not in (api.POLICY_FCFS, api.POLICY_INDEPENDENT):
-            raise ValueError(f"policy must be 'fcfs' or 'independent', got {self.policy_name!r}")
+        if self.policy_name not in (api.POLICY_FCFS, api.POLICY_INDEPENDENT, POLICY_ASSIGN):
+            raise ValueError(f"policy must be 'fcfs', 'independent' or 'assign', got {self.policy_name!r}")
         traffic_control = self.policy_name != api.POLICY_INDEPENDENT
 
         self.graph = load_layout(self.get_parameter("layout_dir").value)
         self.authority = FcfsReservationAuthority(self.graph)
-        self.core = FleetCore(self.graph, FcfsPolicy(name=self.policy_name), self.authority,
-                              traffic_control=traffic_control)
+        if self.policy_name == POLICY_ASSIGN:
+            # v2: goal tasks, no reservation traffic (the authority stays so the services still answer)
+            self.core = FleetCoreV2(self.graph, AssignPolicy())
+        else:
+            self.core = FleetCore(self.graph, FcfsPolicy(name=self.policy_name), self.authority,
+                                  traffic_control=traffic_control)
         self.record = RunRecord(self.get_parameter("run_dir").value)
 
         self._lock = threading.RLock()
@@ -197,7 +205,9 @@ class OrchestratorNode(Node):
         m.robot_id, m.failure_reason = c.robot_id, c.failure_reason
         self._status_pub.publish(m)
         self.record.write("orders", {"t": c.t, "order_id": c.order_id, "state": c.state.value,
-                                     "robot_id": c.robot_id, "failure_reason": c.failure_reason})
+                                     "robot_id": c.robot_id, "failure_reason": c.failure_reason,
+                                     "order_type": self._specs[c.order_id].order_type
+                                     if c.order_id in self._specs else ""})
 
     def _flush_leases(self) -> None:
         """Publish and record every pending lease state change. Caller holds the lock."""
@@ -224,18 +234,27 @@ class OrchestratorNode(Node):
         spec = OrderSpec(order_id=msg.order_id, release_t=release if release > 0.0 else now,
                          deadline_t=deadline if deadline > 0.0 else None, pickup_vertex=msg.pickup_vertex,
                          dropoff_vertex=msg.dropoff_vertex, payload_type=msg.payload_type or "small",
-                         priority=int(msg.priority))
+                         priority=int(msg.priority), order_type=_ORDER_TYPE_OF_CODE.get(msg.order_type, "?"),
+                         pick_vertices=tuple(msg.pick_vertices), pallet_id=msg.pallet_id)
         with self._lock:
             if spec.order_id in self._specs:
                 return
             self._specs[spec.order_id] = spec
-            self.core.add_order(spec)
+            try:
+                if spec.order_type == "?":
+                    raise ValueError(f"unknown order_type code {msg.order_type}")
+                self.core.add_order(spec)
+            except ValueError as exc:
+                self.get_logger().warn(f"order {spec.order_id} rejected: {exc}")
+                self._publish_status(api.OrderStatusChange(
+                    t=now, order_id=spec.order_id, state=api.OrderState.FAILED,
+                    failure_reason=f"UNSUPPORTED_ORDER: {exc}"))
 
     def _on_robot_state(self, msg: RobotState) -> None:
         snap = RobotSnapshot(
             robot_id=msg.robot_id, x=msg.x, y=msg.y, yaw=msg.yaw, mode=_MODE_OF_CODE.get(msg.mode, RobotMode.FAULT),
             last_vertex=msg.last_vertex, task_id=msg.task_id, order_id=msg.order_id,
-            held_lease_ids=tuple(msg.held_lease_ids), linear_speed=msg.linear_speed, fault_reason=msg.fault_reason,
+            held_lease_ids=tuple(msg.held_lease_ids), linear_speed=msg.linear_speed, angular_speed=msg.angular_speed, fault_reason=msg.fault_reason,
             next_vertex=msg.next_vertex, remaining_route=tuple(msg.remaining_route))
         stamp = time_msg_to_s(msg.header.stamp)
         with self._lock:
@@ -399,6 +418,7 @@ class OrchestratorNode(Node):
     def _goal_of(self, a: api.Assignment):
         goal = DispatchTask.Goal()
         goal.task_id, goal.robot_id, goal.route = a.task_id, a.robot_id, list(a.route)
+        goal.route_kind = api.ROUTE_KIND_CODES[a.route_kind]
         spec = self._specs.get(a.order_id) if a.order_id else None
         if spec is not None:
             o = goal.order
@@ -407,6 +427,8 @@ class OrchestratorNode(Node):
                 o.deadline = to_time_msg(spec.deadline_t)
             o.pickup_vertex, o.dropoff_vertex = spec.pickup_vertex, spec.dropoff_vertex
             o.payload_type, o.priority = spec.payload_type, max(0, min(255, spec.priority))
+            o.order_type = api.ORDER_TYPE_CODES[spec.order_type]
+            o.pick_vertices, o.pallet_id = list(spec.pick_vertices), spec.pallet_id
         return goal
 
     def _send_pending(self, t: float) -> None:
