@@ -7,6 +7,7 @@
   <maintainer email="lead@swarmflow.invalid">SwarmFlow WS-D</maintainer>
   <license>MIT</license>
 
+  <exec_depend>rcl_interfaces</exec_depend>
   <exec_depend>rclpy</exec_depend>
   <exec_depend>swarmflow_interfaces</exec_depend>
   <exec_depend>swarmflow_core</exec_depend>

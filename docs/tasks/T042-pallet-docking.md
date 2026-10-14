@@ -47,6 +47,7 @@ out is a straight closed-loop drive commanded by the agent.
 - src/swarmflow_robot_agent/swarmflow_robot_agent/agent_node.py
 - src/swarmflow_robot_agent/test/test_pallet_docking_extra.py
 - src/swarmflow_robot_agent/test/test_agent_goals_extra.py
+- src/swarmflow_robot_agent/package.xml
 
 ## Lead tests (do not edit)
 - src/swarmflow_robot_agent/test/test_pallet_docking.py
