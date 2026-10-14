@@ -75,7 +75,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--rtf", type=float, default=1.0, help="sim seconds per real second")
     ap.add_argument("--duration-s", type=float, default=0.0, help="stop after this many sim seconds (0 = until ^C)")
     ap.add_argument("--dt", type=float, default=0.1, help="sim step in seconds (also /clock and tf period)")
-    ap.add_argument("--speed", type=float, default=1.0,
+    ap.add_argument("--speed", type=float, default=0.6,
                     help="max linear speed, m/s (the real robot is limited to 0.6, design 8.2; 1.0 lets a 300 s v2 run "
                          "deliver enough orders)")
     ap.add_argument("--turn", type=float, default=1.5)

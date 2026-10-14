@@ -26,7 +26,8 @@ stack leaves. Exits 0 after `--duration-s` sim seconds.
   is first expanded along the nav graph (`light_paths.expand`, the stand-in for Nav2's planner: nearest vertex,
   `shortest_path`, nearest vertex to the goal, then the goal; hops of 1 m or less go straight), so v2 goal tasks do not
   cut through racks.
-- Default speed is 1.0 m/s (`--speed`; the real robot is limited to 0.6) and the step is 0.1 s (`--dt`, also the
+- Default speed is 0.6 m/s (`--speed`, the Nav2 limit of the real robot; lead decision T037 — results must be
+  comparable with Gazebo) and the step is 0.1 s (`--dt`, also the
   `/clock` and tf period). At 0.6 m/s a 300 s `v2_demo` delivers only 1 to 5 orders; at 1.0 m/s 6 to 7.
 - Unicycle (turn in place when the heading error is > 0.5 rad), 1 m/s^2 acceleration limit; intermediate pose
   yaws are ignored, the last pose's yaw is honoured.
