@@ -95,6 +95,14 @@ services:
       <<: *ros-env
       ROBOT_ID: robot_1
     command: ["bash", "-c", "ros2 launch swarmflow_nav robot.launch.py robot_id:=$$ROBOT_ID layout:=${SWARMFLOW_LAYOUT:-standard} localization:=${SWARMFLOW_LOCALIZATION:-ground_truth} agent:=${SWARMFLOW_AGENT:-true} traffic_control:=${SWARMFLOW_TRAFFIC_CONTROL:-true}"]
+    # X-06: restart a crashed service (not one stopped by `down`); cheap process check, no ROS CLI
+    restart: on-failure:3
+    healthcheck:
+      test: ["CMD", "bash", "-c", "pgrep -f component_container_isolated >/dev/null && pgrep -f robot_state_publisher >/dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
     networks: [swarmflow]
 
   robot_2:
@@ -138,6 +146,14 @@ services:
     volumes:
       - ../runs:/ws/runs
     command: ["ros2", "launch", "swarmflow_orchestrator", "orchestrator.launch.py", "layout:=${SWARMFLOW_LAYOUT:-standard}"]
+    # X-06: restart a crashed service (not one stopped by `down`); cheap process check, no ROS CLI
+    restart: on-failure:3
+    healthcheck:
+      test: ["CMD", "bash", "-c", "pgrep -f orchestrator_node >/dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
     networks: [swarmflow]
 
   scenario_engine:
@@ -155,6 +171,14 @@ services:
     volumes:
       - ../runs:/ws/runs
     command: ["ros2", "launch", "swarmflow_scenarios", "scenario_engine.launch.py", "layout:=${SWARMFLOW_LAYOUT:-standard}"]
+    # X-06: restart a crashed service (not one stopped by `down`); cheap process check, no ROS CLI
+    restart: on-failure:3
+    healthcheck:
+      test: ["CMD", "bash", "-c", "pgrep -f scenario_engine >/dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
     networks: [swarmflow]
 
   payload:
@@ -166,6 +190,14 @@ services:
       <<: *ros-env
       SWARMFLOW_ROBOTS: ${SWARMFLOW_ROBOTS:-robot_1,robot_2,robot_3}
     command: ["ros2", "launch", "swarmflow_payload", "payload.launch.py", "layout:=${SWARMFLOW_LAYOUT:-standard}"]
+    # X-06: restart a crashed service (not one stopped by `down`); cheap process check, no ROS CLI
+    restart: on-failure:3
+    healthcheck:
+      test: ["CMD", "bash", "-c", "pgrep -f payload_node >/dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
     networks: [swarmflow]
 
   viz:
@@ -175,6 +207,14 @@ services:
       SWARMFLOW_LAYOUTS_ROOT: /ws/layouts
       SWARMFLOW_ROBOTS: ${SWARMFLOW_ROBOTS:-robot_1,robot_2,robot_3}
     command: ["ros2", "launch", "swarmflow_viz", "viz.launch.py", "layout:=${SWARMFLOW_LAYOUT:-standard}"]
+    # X-06: restart a crashed service (not one stopped by `down`); cheap process check, no ROS CLI
+    restart: on-failure:3
+    healthcheck:
+      test: ["CMD", "bash", "-c", "pgrep -f viz_node >/dev/null && pgrep -f tf_relay >/dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
     networks: [swarmflow]
 
   foxglove_bridge:
@@ -192,6 +232,14 @@ services:
               "topic_whitelist:=['^/tf$', '^/tf_static$', '^/viz/.*', '^/fleet/.*', '^/robot_[0-9]+/plan$']",
               "client_topic_whitelist:=['^/fleet/orders$']", "service_whitelist:=['^/fleet/.*']",
               "param_whitelist:=['(?!)']"]
+    # X-06: restart a crashed service (not one stopped by `down`); cheap process check, no ROS CLI
+    restart: on-failure:3
+    healthcheck:
+      test: ["CMD", "bash", "-c", "pgrep -f foxglove_bridge >/dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
     ports:
       - "127.0.0.1:8765:8765"   # localhost only: the Foxglove bridge is unauthenticated
     networks: [swarmflow]
