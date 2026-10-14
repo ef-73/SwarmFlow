@@ -6,7 +6,7 @@
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
 prefix="${1:?prefix}"; n="${2:?n}"; minutes="${3:-10}"; scenario="${4:-v1_demo}"; policy="${5:-fcfs}"
-stop() { trap - EXIT INT TERM; pkill -TERM -P $$ 2>/dev/null; docker compose down >/dev/null 2>&1
+stop() { trap - EXIT INT TERM; pkill -TERM -P $$ 2>/dev/null; docker compose --profile extra_robots --profile gui down >/dev/null 2>&1
          scripts/sim_lock.sh release >/dev/null 2>&1; }
 trap stop EXIT INT TERM
 for i in $(seq 1 "$n"); do
