@@ -2,7 +2,7 @@
 id: T030
 title: Orchestrator node runs the v2 fleet core (policy "assign") with v2 order and task fields
 workstream: B
-status: claimed
+status: review
 claimed_by: "sf-implementer"
 branch: ws-b/T030-orchestrator-v2
 model: sonnet
