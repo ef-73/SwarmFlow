@@ -2,7 +2,7 @@
 id: T043
 title: Manual orders from the command line (O-07)
 workstream: F
-status: claimed
+status: review
 claimed_by: "sf-implementer"
 branch: ws-f/T043-order-cli
 model: sonnet
