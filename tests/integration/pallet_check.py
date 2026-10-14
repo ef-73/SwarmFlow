@@ -78,6 +78,8 @@ def main():
     end = time.time() + 30
     while n.pub.get_subscription_count() == 0 and time.time() < end:
         time.sleep(0.2)
+    while n.now() <= 0.0:            # sim clock not received yet: a zero start time would end the wait at once
+        time.sleep(0.1)
     oid = f"pal_{args.spot}_{int(time.time())}"
     n.pub.publish(Order(order_id=oid, pickup_vertex=args.spot, dropoff_vertex=args.dock, payload_type="pallet",
                         order_type=Order.TYPE_PALLET, pallet_id=f"pallet_{args.spot}"))
