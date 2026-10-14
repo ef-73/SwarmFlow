@@ -308,7 +308,7 @@ PALLET_INSET = 0.04
 
 
 def _pallet_model(name, pose) -> str:
-    """Deck on 4 legs, gravity off, collision on; the payload node moves it while carried (T041)."""
+    """Deck on 4 legs, gravity off, collision off; the payload node moves it while carried (T041, T046)."""
     dx, dy, dz = PALLET_DECK
     boxes = [("deck", (0.0, 0.0, PALLET_CLEAR + dz / 2), PALLET_DECK, "0.6 0.2 0.7 1")]
     lx, ly = dx / 2 - PALLET_INSET, dy / 2 - PALLET_INSET
@@ -319,9 +319,7 @@ def _pallet_model(name, pose) -> str:
     for n, p, size, color in boxes:
         sz = " ".join(_f(v) for v in size)
         ps = " ".join(_f(v) for v in (*p, 0, 0, 0))
-        parts.append(f"        <collision name=\"{n}_collision\"><pose>{ps}</pose><geometry><box><size>{sz}</size>"
-                     f"</box></geometry></collision>\n"
-                     f"        <visual name=\"{n}_visual\"><pose>{ps}</pose><geometry><box><size>{sz}</size></box>"
+        parts.append(f"        <visual name=\"{n}_visual\"><pose>{ps}</pose><geometry><box><size>{sz}</size></box>"
                      f"</geometry><material><ambient>{color}</ambient><diffuse>{color}</diffuse></material>"
                      f"</visual>\n")
     return (f"    <model name=\"{name}\">\n      <static>false</static>\n"

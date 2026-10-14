@@ -2,7 +2,7 @@
 id: T046
 title: Pallet models without collision geometry (they tumbled after set-down)
 workstream: F
-status: claimed
+status: review
 claimed_by: "sf-mechanical"
 branch: ws-f/T046-pallet-no-collision
 model: haiku
