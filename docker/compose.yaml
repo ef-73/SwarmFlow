@@ -109,6 +109,21 @@ services:
       <<: *ros-env
       ROBOT_ID: robot_3
 
+  # v2 runs with 4-5 robots (improvements_v2 L-04): started only when named (demo_run.sh) or with --profile extra_robots
+  robot_4:
+    <<: *robot
+    profiles: ["extra_robots"]
+    environment:
+      <<: *ros-env
+      ROBOT_ID: robot_4
+
+  robot_5:
+    <<: *robot
+    profiles: ["extra_robots"]
+    environment:
+      <<: *ros-env
+      ROBOT_ID: robot_5
+
   orchestrator:
     image: swarmflow/robot:latest
     depends_on:
