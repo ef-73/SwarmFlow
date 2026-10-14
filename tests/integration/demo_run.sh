@@ -18,12 +18,15 @@ export SWARMFLOW_ROBOTS="$robots" SWARMFLOW_LAYOUT="$layout"
 [ "$policy" = fcfs ] && export SWARMFLOW_TRAFFIC_CONTROL=true || export SWARMFLOW_TRAFFIC_CONTROL=false
 rm -rf "runs/$run_id"; mkdir -p "runs/$run_id"
 scripts/sim_lock.sh acquire "demo:$run_id" $(( minutes * 2 + 6 )) >/dev/null || exit 2
-cleanup() { docker compose down >/dev/null 2>&1; scripts/sim_lock.sh release >/dev/null; }
+cleanup() { docker compose --profile extra_robots --profile gui down >/dev/null 2>&1; scripts/sim_lock.sh release >/dev/null; }
 trap cleanup EXIT
 services="gazebo orchestrator scenario_engine viz foxglove_bridge"
 [ "$layout" = standard ] && services="$services payload"     # the v2 layout has no package models
 for r in ${robots//,/ }; do services="$services $r"; done
-docker compose up -d $services >/dev/null 2>&1
+# start from fresh containers: services in a profile (robot_4/5, gazebo_gui) survive a plain `down` and kept their
+# Nav2 / AMCL / agent state across runs (M17 finding: robot_4 reported ~23 m off in later runs of a batch)
+docker compose --profile extra_robots --profile gui down >/dev/null 2>&1
+docker compose up -d --force-recreate $services >/dev/null 2>&1
 echo "[$(date -u +%H:%M:%S)] up: $services"
 # realism ladder (I-01): record the settings; in the AMCL rung also record the localisation error vs ground truth
 printf 'localization=%s

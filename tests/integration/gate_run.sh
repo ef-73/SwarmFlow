@@ -11,7 +11,7 @@ export SWARMFLOW_RUN_ID="$run_id" SWARMFLOW_AGENT=true SWARMFLOW_GUI="${SWARMFLO
 export SWARMFLOW_ROBOTS=robot_1,robot_2,robot_3
 rm -rf "runs/$run_id"
 scripts/sim_lock.sh acquire "gate:$run_id" 15 >/dev/null || exit 2
-cleanup() { docker compose down >/dev/null 2>&1; scripts/sim_lock.sh release >/dev/null; }
+cleanup() { docker compose --profile extra_robots --profile gui down >/dev/null 2>&1; scripts/sim_lock.sh release >/dev/null; }
 trap cleanup EXIT
 docker compose up -d gazebo robot_1 robot_2 robot_3 orchestrator >/dev/null 2>&1
 # wait until all three robots appear in the orchestrator's state log, then 20 s more (recovery grace + Nav2 up)
