@@ -25,6 +25,13 @@ TF = [("/tf", "tf"), ("/tf_static", "tf_static")]
 NAV_NODES = ["controller_server", "planner_server", "behavior_server", "bt_navigator", "velocity_smoother"]
 
 
+class _NoAliasDumper(yaml.SafeDumper):
+    """rcl's parameter-file parser rejects YAML anchors/aliases ("Will not support aliasing")."""
+
+    def ignore_aliases(self, data):
+        return True
+
+
 def _deep_merge(base: dict, over: dict) -> None:
     """Overlay values win; nested dicts merge; lists and scalars are replaced."""
     for k, v in over.items():
@@ -69,10 +76,10 @@ def setup(context):
         flat = [float(v) for a in side.get("aisles", []) for v in
                 (a["x_min"], a["y_min"], a["x_max"], a["y_max"], 0.0 if a["axis"] == "x" else 1.0)]
         for cm in ("local_costmap", "global_costmap"):
-            base[cm][cm]["ros__parameters"]["keep_right"]["aisles"] = flat
+            base[cm][cm]["ros__parameters"]["keep_right"]["aisles"] = list(flat)
         source = os.path.join(tempfile.gettempdir(), f"swarmflow_{rid}_nav2_params_v2.yaml")
         with open(source, "w", encoding="utf-8") as f:
-            yaml.safe_dump(base, f, sort_keys=False)
+            yaml.dump(base, f, Dumper=_NoAliasDumper, sort_keys=False)
         # Composed Nav2: launch_ros hands a parameter file only to the composable node it is attached to, so the
         # costmap sub-nodes (<rid>/local_costmap/local_costmap, .../global_costmap) never saw their parameters and ran
         # on Nav2 defaults (found in M14: v1 included). A --params-file on the container process applies to every
@@ -85,7 +92,7 @@ def setup(context):
         base.setdefault("map_server", {}).setdefault("ros__parameters", {})["yaml_filename"] = os.path.join(gen, "map.yaml")
         container_params = os.path.join(tempfile.gettempdir(), f"swarmflow_{rid}_nav2_container.yaml")
         with open(container_params, "w", encoding="utf-8") as f:
-            yaml.safe_dump({rid: base}, f, sort_keys=False)
+            yaml.dump({rid: base}, f, Dumper=_NoAliasDumper, sort_keys=False)
         container_args = ["--params-file", container_params]
     params = ParameterFile(RewrittenYaml(
         source_file=source, root_key=rid,
