@@ -277,6 +277,11 @@ def _f(v) -> str:
     return "0" if s in ("-0", "") else s
 
 
+def _f6(v) -> str:
+    s = f"{round(float(v), 6):.6f}".rstrip("0").rstrip(".")
+    return "0" if s in ("-0", "") else s
+
+
 def _box_model(name, pose, size, color, static=True, collision=True, gravity=None):
     sz = " ".join(_f(v) for v in size)
     col = (f"        <collision name=\"collision\"><geometry><box><size>{sz}</size></box></geometry></collision>\n"
@@ -294,6 +299,35 @@ def _box_model(name, pose, size, color, static=True, collision=True, gravity=Non
 STATION_COLOR = {"loading": "0.1 0.7 0.2 1", "delivery": "0.1 0.3 0.9 1", "park": "0.5 0.5 0.5 1",
                  "pick": "0.9 0.8 0.1 1", "dock": "0.9 0.5 0.1 1", "queue": "0.95 0.75 0.5 1",
                  "home": "0.5 0.5 0.5 1", "pallet": "0.6 0.2 0.7 1"}
+
+
+PALLET_DECK = (1.20, 1.00, 0.06)     # along yaw x across x thickness
+PALLET_CLEAR = 0.38                  # underside of the deck above the floor
+PALLET_LEG = 0.08
+PALLET_INSET = 0.04
+
+
+def _pallet_model(name, pose) -> str:
+    """Deck on 4 legs, gravity off, collision on; the payload node moves it while carried (T041)."""
+    dx, dy, dz = PALLET_DECK
+    boxes = [("deck", (0.0, 0.0, PALLET_CLEAR + dz / 2), PALLET_DECK, "0.6 0.2 0.7 1")]
+    lx, ly = dx / 2 - PALLET_INSET, dy / 2 - PALLET_INSET
+    for i, (sx, sy) in enumerate(((1, 1), (1, -1), (-1, 1), (-1, -1))):
+        boxes.append((f"leg{i}", (sx * lx, sy * ly, PALLET_CLEAR / 2), (PALLET_LEG, PALLET_LEG, PALLET_CLEAR),
+                      "0.45 0.15 0.5 1"))
+    parts = []
+    for n, p, size, color in boxes:
+        sz = " ".join(_f(v) for v in size)
+        ps = " ".join(_f(v) for v in (*p, 0, 0, 0))
+        parts.append(f"        <collision name=\"{n}_collision\"><pose>{ps}</pose><geometry><box><size>{sz}</size>"
+                     f"</box></geometry></collision>\n"
+                     f"        <visual name=\"{n}_visual\"><pose>{ps}</pose><geometry><box><size>{sz}</size></box>"
+                     f"</geometry><material><ambient>{color}</ambient><diffuse>{color}</diffuse></material>"
+                     f"</visual>\n")
+    return (f"    <model name=\"{name}\">\n      <static>false</static>\n"
+            f"      <pose>{' '.join(_f6(v) for v in pose)}</pose>\n"
+            f"      <link name=\"link\">\n        <gravity>false</gravity>\n{''.join(parts)}      </link>\n"
+            f"    </model>\n")
 
 
 def make_world(layout: dict) -> str:
@@ -337,6 +371,10 @@ def make_world(layout: dict) -> str:
     for s in layout["stations"]:
         out.append(_box_model(f"station_{s['name']}", (s["pose"]["x"], s["pose"]["y"], 0.005, 0, 0, 0),
                               (0.8, 0.8, 0.01), STATION_COLOR[s["type"]], collision=False))
+    for s in layout["stations"]:
+        if s["type"] == "pallet":
+            out.append(_pallet_model(f"pallet_{s['name']}", (s["pose"]["x"], s["pose"]["y"], 0, 0, 0,
+                                                              s["pose"]["yaw"])))
     for i in range(POOL):
         out.append(_box_model(f"pkg_{i:02d}", (xmin - 3.0, ymin + 0.6 * i, 0.15, 0, 0, 0), (0.40, 0.40, 0.30),
                               "0.55 0.35 0.15 1", static=False, collision=False, gravity=False))
