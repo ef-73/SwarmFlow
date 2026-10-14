@@ -111,6 +111,14 @@ class LightWorld:
         r = self._r[rid]
         return r.x, r.y, r.yaw
 
+    def debug(self, rid: str) -> dict:
+        """Snapshot for ``--trace`` (poses rounded, first goals, avoidance state)."""
+        r = self._r[rid]
+        return {"p": [round(r.x, 2), round(r.y, 2), round(r.yaw, 2)], "s": r.state, "v": round(r.v, 2),
+                "g": [[round(g[0], 1), round(g[1], 1)] for g in r.goals[:3]], "n": len(r.goals),
+                "b": r.blocker, "bt": round(r.blocked_t, 1), "d": r.detour and [round(v, 1) for v in r.detour],
+                "h": r.hold_for, "a": r.attempts, "c": r.crab}
+
     def speed(self, rid: str) -> float:
         return self._r[rid].v
 
@@ -194,6 +202,9 @@ class LightWorld:
                 gone = along < -0.5 or math.hypot(o.x - r.x, o.y - r.y) > 3.0
             if gone:
                 r.hold_for, r.hold_t = None, 0.0
+            elif o.blocker == r.rid and o.blocked_t >= 2.0:       # I am in its way after all: move out again
+                r.hold_for, r.hold_t = None, 0.0
+                self._start_detour(r, o, o.rid)
             else:
                 holding = True
         if holding:
@@ -251,6 +262,8 @@ class LightWorld:
         culprit: Optional[_Robot] = None
         if nx != r.x or ny != r.y or nyaw != r.yaw:
             culprit = self._hard_culprit(r, nx, ny, nyaw)
+            if culprit is not None and nyaw != r.yaw and (nx != r.x or ny != r.y) and self._hard_ok(r, nx, ny, r.yaw):
+                nyaw, r.w, culprit = r.yaw, 0.0, None        # the turn alone touches a neighbour: just drive
             if culprit is not None:
                 hard = True
                 reached = False
@@ -335,12 +348,12 @@ class LightWorld:
             self._start_detour(r, soft, soft.rid)
 
     def _detour_free(self, r: _Robot, tx: float, ty: float, fx: Optional[float] = None,
-                     fy: Optional[float] = None, parked_only: bool = False) -> bool:
+                     fy: Optional[float] = None, parked_only: bool = False, margin: float = 0.03) -> bool:
         """True if driving straight from (fx, fy) (default: ``r``) to (tx, ty) keeps clear of every other robot."""
         fx, fy = (r.x, r.y) if fx is None or fy is None else (fx, fy)
         d = math.hypot(tx - fx, ty - fy)
         yaw = math.atan2(ty - fy, tx - fx)
-        n = max(1, int(d / 0.2))
+        n = max(1, int(d / 0.1))
         for k in range(1, n + 1):
             px, py = fx + (tx - fx) * k / n, fy + (ty - fy) * k / n
             for oid in self._order:
@@ -348,7 +361,7 @@ class LightWorld:
                     o = self._r[oid]
                     if parked_only and (o.goals or o.detour is not None or o.final_yaw is not None):
                         continue
-                    if _overlap(px, py, yaw, o.x, o.y, o.yaw, self.hl, self.hw, 0.1):
+                    if _overlap(px, py, yaw, o.x, o.y, o.yaw, self.hl, self.hw, margin):
                         return False
         return True
 
@@ -356,8 +369,8 @@ class LightWorld:
         """Side-step (or back off) away from ``blocker`` to a spot reachable without touching anyone else.
 
         Candidates are tried in a fixed order; the one that ends nearest the goal (or, with no goal, nearest the
-        current spot) wins. Around a parked robot the candidates also move forward past it. No free candidate: stay
-        put and look again after ``retry_s`` (the jam is then cleared by whoever can move).
+        current spot) wins. Around a parked robot the candidates also move forward past it. A yielding robot must also
+        leave the other robot's lane. No free candidate: stay put and look again after the next blocked period.
         """
         r.blocked_t = 0.0
         hx, hy = math.cos(r.yaw), math.sin(r.yaw)
@@ -377,21 +390,35 @@ class LightWorld:
             for off in (self.sidestep_m, 1.3, 1.8, 2.4, 3.0):
                 for fwd in fwds:
                     cands.append((r.x + hx * fwd - hy * side * off, r.y + hy * fwd + hx * side * off))
-        if wait_id is None:                           # also a ring of spots all around, for a pocket with one exit
-            for dist in (1.2, 2.0, 3.0):
-                for k in range(12):
-                    ang = away + math.pi * (k + 0.5) / 6.0
-                    cands.append((r.x + dist * math.cos(ang), r.y + dist * math.sin(ang)))
-        for tx, ty in cands:
-            if not self._detour_free(r, tx, ty):
-                continue
-            score = math.hypot(goal[0] - tx, goal[1] - ty) if goal else 0.0
-            if goal and not self._detour_free(r, goal[0], goal[1], tx, ty, parked_only=True):
-                score += 50.0                    # still walled in from there: prefer a spot with a clear way on
-            if any(math.hypot(tx - px, ty - py) < 0.8 for px, py in r.tabu):
-                score += 20.0                    # been there recently
-            if score < best_score - 1e-9:
-                best, best_score = (tx, ty), score
+        for dist in (1.2, 2.0, 3.0):                  # also a ring of spots all around, for a pocket with one exit
+            for k in range(12):
+                ang = away + math.pi * (k + 0.5) / 6.0
+                cands.append((r.x + dist * math.cos(ang), r.y + dist * math.sin(ang)))
+        lane = None                                   # the lane the yielding robot must get out of: blocker -> its goal
+        if wait_id is not None:
+            if blocker.goals:
+                lx, ly = blocker.goals[0][0] - blocker.x, blocker.goals[0][1] - blocker.y
+            else:
+                lx, ly = math.cos(blocker.yaw), math.sin(blocker.yaw)
+            ln = math.hypot(lx, ly) or 1.0
+            lane = (blocker.x, blocker.y, lx / ln, ly / ln)
+        for margin in (0.12, 0.03, 0.0):                   # prefer paths the soft layer will not stop on
+            for tx, ty in cands:
+                if lane is not None:
+                    dx, dy = tx - lane[0], ty - lane[1]
+                    if dx * lane[2] + dy * lane[3] > -0.5 and abs(dx * lane[3] - dy * lane[2]) < 0.8:
+                        continue                      # would still sit in the other robot's way
+                if not self._detour_free(r, tx, ty, margin=margin):
+                    continue
+                score = math.hypot(goal[0] - tx, goal[1] - ty) if goal else math.hypot(tx - r.x, ty - r.y)
+                if goal and not self._detour_free(r, goal[0], goal[1], tx, ty, parked_only=True):
+                    score += 50.0                     # still walled in from there: prefer a spot with a clear way on
+                if any(math.hypot(tx - px, ty - py) < 0.8 for px, py in r.tabu):
+                    score += 20.0                     # been there recently
+                if score < best_score - 1e-9:
+                    best, best_score = (tx, ty), score
+            if best is not None:
+                break
         r.attempts += 1
         if best is None:
             return

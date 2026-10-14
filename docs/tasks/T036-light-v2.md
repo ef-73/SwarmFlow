@@ -2,7 +2,7 @@
 id: T036
 title: Light mode for v2 - graph-path expansion of goals, deadlock breaker, v2 demo end to end
 workstream: C
-status: claimed
+status: review
 claimed_by: "sf-implementer"
 branch: ws-c/T036-light-v2
 model: sonnet
