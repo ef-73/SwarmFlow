@@ -143,3 +143,117 @@ def test_progress_resets_the_drive_timeout(agent):
         acts += agent.on_pose(0.0, y, N, 0.01, t)
         acts += agent.tick(t)
     assert not of(acts, TaskFinished)
+
+
+# -- review fixes --------------------------------------------------------------------------------------------------
+
+
+def to_unload(a):
+    docked(a)
+    a.on_pose(0.0, 4.0, N, 0.0, 12.0)
+    a.tick(12.0 + PALLET_LIFT_S)
+    a.on_pose(6.0, 8.0, N, 0.0, 40.0)
+    a.on_nav_result(True, 40.0)
+    return a.on_pose(6.0, 8.0 + DOCK_AHEAD_M, N, 0.0, 45.0)
+
+
+def test_cancel_during_unload_restores_normal_footprint(agent):
+    to_unload(agent)
+    assert agent.state().mode == RobotMode.UNLOADING
+    acts = agent.cancel(46.0)
+    assert [a.kind for a in of(acts, SetFootprint)] == ["normal"]
+    assert agent.state().mode == RobotMode.IDLE                          # pallet is down: nothing on board
+
+
+def carry_then_cancel(a):
+    docked(a)
+    a.on_pose(0.0, 4.0, N, 0.0, 12.0)
+    a.tick(12.0 + PALLET_LIFT_S)
+    return a.cancel(20.0)
+
+
+def test_pallet_stays_on_board_after_cancel_and_blocks_other_tasks(agent):
+    carry_then_cancel(agent)
+    s = agent.state()
+    assert s.mode == RobotMode.CARRYING and s.task_id == "" and agent.can_accept()
+    acts = agent.start_task("t9", "s1", ["PK_A_1"], 30.0, route_kind=api.ROUTE_GOALS, order_type=api.ORDER_SHELF)
+    assert len(acts) == 1 and isinstance(acts[0], TaskFinished)
+    assert not acts[0].success and acts[0].failure_reason == "PALLET_ON_BOARD"
+    assert agent.state().task_id == "" and agent.state().mode == RobotMode.CARRYING
+    acts = agent.start_task("t8", "p2", ["PL_1"], 31.0, route_kind=api.ROUTE_GOALS, order_type=api.ORDER_PALLET)
+    assert acts[0].failure_reason == "PALLET_ON_BOARD"                    # a second pallet is refused too
+    acts = agent.start_task("t7", "", ["DK1"], 31.5, route_kind=api.ROUTE_WAYPOINTS)
+    assert acts[0].failure_reason == "PALLET_ON_BOARD"
+
+
+def test_follow_up_to_the_dock_is_accepted_after_cancel_and_finishes_the_unload(agent):
+    carry_then_cancel(agent)
+    acts = agent.start_task("t2", "p1", ["DK1"], 30.0, route_kind=api.ROUTE_GOALS, order_type=api.ORDER_PALLET)
+    assert of(acts, Navigate)[0].vertices == ("DK1",) and agent.state().mode == RobotMode.CARRYING
+    agent.on_pose(6.0, 8.0, N, 0.0, 40.0)
+    dd = of(agent.on_nav_result(True, 40.0), DockDrive)
+    assert dd and not dd[0].reverse
+    agent.on_pose(6.0, 8.0 + DOCK_AHEAD_M, N, 0.0, 45.0)
+    agent.tick(45.0 + api.UNLOAD_DWELL_PALLET_S)
+    acts = agent.on_pose(6.0, 8.0 + DOCK_AHEAD_M - UNDOCK_M, N, 0.0, 62.0)
+    assert of(acts, TaskFinished)[0].success and agent.state().mode == RobotMode.IDLE
+    assert agent.start_task("t3", "s1", ["PK_A_1"], 70.0, route_kind=api.ROUTE_GOALS,
+                            order_type=api.ORDER_SHELF)[0].__class__ is Navigate
+
+
+def test_pallet_on_board_survives_a_failed_task_as_stuck(agent):
+    carry_then_cancel(agent)
+    agent.start_task("t2", "p1", ["DK1"], 30.0, route_kind=api.ROUTE_GOALS, order_type=api.ORDER_PALLET)
+    agent.on_pose(6.0, 8.0, N, 0.0, 40.0)
+    agent.on_nav_result(True, 40.0)
+    acts = []
+    for k in range(40):                                                   # stuck in front of the dock
+        agent.on_pose(6.0, 8.0, N, 0.0, 41.0 + k)
+        acts += agent.tick(41.0 + k)
+    assert of(acts, TaskFinished) and not of(acts, SetFootprint)
+    assert agent.state().mode == RobotMode.STUCK
+    assert agent.start_task("t3", "s1", ["PK_A_1"], 90.0, route_kind=api.ROUTE_GOALS,
+                            order_type=api.ORDER_SHELF)[0].failure_reason == "PALLET_ON_BOARD"
+
+
+def test_lateral_error_at_the_stop_distance_stalls_and_times_out(agent):
+    docked(agent)
+    pose = (0.06, 3.99, N)                                                # 6 cm off the line, 1 cm short
+    v, w = an.drive_command(pose, (0.0, 4.0, N), False)
+    assert v != 0.0 or w != 0.0                                           # (steers toward the line while creeping)
+    acts = []
+    for k in range(int(an.DOCK_TIMEOUT_S) + 2):                           # stalled: never reached, no StopDrive-as-success
+        acts += agent.on_pose(*pose[:2], pose[2], 0.0, 10.0 + k)
+        acts += agent.tick(10.0 + k)
+    done = of(acts, TaskFinished)
+    assert done and not done[0].success and done[0].failure_reason == api.FAILURE_NAV_PREFIX + "PL_1"
+    assert agent.state().mode == RobotMode.STUCK
+
+
+def test_non_finite_input_gives_zero_command():
+    nan, inf = float("nan"), float("inf")
+    for pose in ((nan, 3.0, N), (0.0, inf, N), (0.0, 3.0, nan)):
+        assert an.drive_command(pose, (0.0, 4.0, N), False) == (0.0, 0.0)
+    assert an.drive_command((0.0, 3.0, N), (0.0, nan, N), True) == (0.0, 0.0)
+
+
+def test_footprint_sync_retries_until_success():
+    fp = an.FootprintSync(("local", "global"), period_s=1.0)
+    assert fp.due(0.0) == [] and not fp.pending()
+    fp.set_wanted("carry")
+    due = fp.due(0.0)
+    assert sorted(due) == [("global", "carry"), ("local", "carry")]
+    for n, _ in due:
+        fp.sent(n, 0.0)
+    assert fp.due(0.5) == []                                               # throttled
+    fp.done("local", "carry", True)
+    fp.done("global", "carry", False)                                     # failed: stays pending
+    assert fp.due(1.0) == [("global", "carry")] and fp.pending()
+    fp.sent("global", 1.0)
+    fp.done("global", "normal", True)                                      # stale reply for another kind: ignored
+    assert fp.pending()
+    fp.set_wanted("normal")                                                # a new wish is sent at once
+    assert len(fp.due(1.1)) == 2
+    for n in ("local", "global"):
+        fp.done(n, "normal", True)
+    assert not fp.pending() and fp.due(9.0) == []

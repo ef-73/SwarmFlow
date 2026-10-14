@@ -28,6 +28,7 @@ ZONE_SPEED_MPS = 0.5          #: assumed speed through a zone when estimating ``
 POSE_STALE_S = 1.0            #: a pose older than this makes ``state()`` report FAULT / STALE_POSE
 ENTERED_MARGIN_M = 0.2        #: "entered" needs the pose this far inside the polygon (entry vertices lie on it)
 REACH_RADIUS_M = 0.6          #: pose within this of a route vertex counts as having reached it
+FAILURE_PALLET_ON_BOARD = "PALLET_ON_BOARD"   #: start_task refused: a pallet is on board (T042)
 PALLET_LIFT_S = 3.0           #: v2 goal mode: dwell (mode LIFTING) when picking up a pallet
 GOAL_RETRY_MIN_S = 1.0        #: v2 goal mode: a failed Navigate is re-sent after a uniform delay in this range
 GOAL_RETRY_MAX_S = 3.0
@@ -153,6 +154,37 @@ DRIVE_TURN_ONLY_RAD = 0.6       #: heading error above this: rotate in place, no
 DRIVE_POSE_MAX_AGE_S = 0.5      #: a TF older than this stops the robot
 
 
+class FootprintSync:
+    """Retry bookkeeping for the costmap footprint (T042): the wanted footprint kind is remembered per costmap and
+    re-sent every ``period_s`` until a call for that kind reports success. Pure, time is an argument."""
+
+    def __init__(self, names: Sequence[str], period_s: float = 1.0):
+        self.period_s = period_s
+        self.want: Dict[str, Optional[str]] = {n: None for n in names}
+        self.applied: Dict[str, Optional[str]] = {n: None for n in names}
+        self._last: Dict[str, float] = {}
+
+    def set_wanted(self, kind: str) -> None:
+        for n in self.want:
+            self.want[n] = kind
+            self._last.pop(n, None)                       # send at the next pump
+
+    def due(self, now: float) -> List[Tuple[str, str]]:
+        """(costmap, kind) pairs to send now; callers report each with :meth:`sent`."""
+        return [(n, k) for n, k in self.want.items()
+                if k is not None and self.applied[n] != k and now - self._last.get(n, -math.inf) >= self.period_s]
+
+    def sent(self, name: str, now: float) -> None:
+        self._last[name] = now
+
+    def done(self, name: str, kind: str, ok: bool) -> None:
+        if ok and self.want.get(name) == kind:
+            self.applied[name] = kind
+
+    def pending(self) -> bool:
+        return any(k is not None and self.applied[n] != k for n, k in self.want.items())
+
+
 def _wrap(a: float) -> float:
     return math.atan2(math.sin(a), math.cos(a))
 
@@ -163,6 +195,8 @@ def drive_command(pose, target, reverse: bool):
     |linear| <= DRIVE_MAX_MPS, |angular| <= DRIVE_MAX_RADPS."""
     x, y, yaw = pose
     tx, ty, tyaw = target
+    if not all(math.isfinite(c) for c in (x, y, yaw, tx, ty, tyaw)):
+        return 0.0, 0.0                                              # NaN / inf pose or target: stand still
     sgn = -1.0 if reverse else 1.0
     travel = tyaw + (math.pi if reverse else 0.0)                    # direction of motion along the line
     dx, dy = x - tx, y - ty
@@ -235,6 +269,7 @@ class AgentCore:
         self._gref_t = 0.0
         self._gref_xy: Optional[Tuple[float, float]] = None   #: position at the last progress reference
         # pallet docking (T042): phase None | "pick_drive" | "lift" | "drop_drive" | "unload" | "back_drive"
+        self._pallet_on_board = False          #: set at lift completion, cleared when it is set down; survives tasks
         self._dock: Optional[str] = None
         self._dock_target: Tuple[float, float, float] = (0.0, 0.0, 0.0)
         self._dock_reverse = False
@@ -245,7 +280,8 @@ class AgentCore:
     # -- queries -------------------------------------------------------------------------------------------------
     def can_accept(self) -> bool:
         return (self._have_pose and not self._stale and not self._route
-                and self._mode in (RobotMode.IDLE, RobotMode.STUCK))
+                and (self._mode in (RobotMode.IDLE, RobotMode.STUCK)
+                     or (self._mode == RobotMode.CARRYING and self._pallet_on_board)))
 
     def driving(self) -> bool:
         """True while a straight dock drive is commanded (the node must keep publishing velocity only then)."""
@@ -300,11 +336,14 @@ class AgentCore:
     def start_task(self, task_id: str, order_id: str, route: Sequence[str], t: float, pickup: str = "",
                    dropoff: str = "", route_kind: str = api.ROUTE_WAYPOINTS,
                    order_type: str = api.ORDER_TRANSPORT) -> List[object]:
-        if self._mode not in (RobotMode.IDLE, RobotMode.STUCK) or self._route:
+        if (self._mode not in (RobotMode.IDLE, RobotMode.STUCK)
+                and not (self._mode == RobotMode.CARRYING and self._pallet_on_board)) or self._route:
             raise RuntimeError(f"{self.robot_id} is busy ({self._mode.value})")
         route = list(route)
         if not route:
             raise ValueError("empty route")
+        if self._pallet_on_board and not self._is_dock_follow_up(route, route_kind, order_type):
+            return [TaskFinished(task_id, False, FAILURE_PALLET_ON_BOARD)]
         if route_kind == api.ROUTE_GOALS:
             return self._start_goal_task(task_id, order_id, route, t, order_type)
         if route_kind != api.ROUTE_WAYPOINTS:
@@ -726,6 +765,11 @@ class AgentCore:
         self._clear_task(RobotMode.IDLE)
         return [TaskFinished(task, True, "")]
 
+    def _is_dock_follow_up(self, route: List[str], route_kind: str, order_type: str) -> bool:
+        """With a pallet on board only a pallet-order goal task without a pallet goal (a trip to the dock) may start."""
+        return (route_kind == api.ROUTE_GOALS and order_type == api.ORDER_PALLET
+                and all(v in self.graph.vertices and self.graph.vertices[v].kind != "pallet" for v in route))
+
     def _clear_task(self, mode: RobotMode) -> None:
         if self._route and not self._goal_mode:
             self._last_vertex = self._route[self._reach]
@@ -749,6 +793,8 @@ class AgentCore:
         self._fault = ""
         self._fault_reason_stuck = ""
         self._reach = 0
+        if self._pallet_on_board and mode == RobotMode.IDLE:
+            mode = RobotMode.CARRYING                     # the pallet stays on board after the task ends
         self._mode = mode
 
     # -- v2 goal mode (ROUTE_GOALS) --------------------------------------------------------------------------------
@@ -777,8 +823,8 @@ class AgentCore:
         self._goal_i = 0
         self._order_type = order_type
         # a pallet order whose route has no pallet goal (follow-up task) already has the pallet on board
-        self._carrying = (order_type == api.ORDER_PALLET
-                          and not any(self.graph.vertices[v].kind == "pallet" for v in route))
+        self._carrying = self._pallet_on_board or (order_type == api.ORDER_PALLET
+                                                   and not any(self.graph.vertices[v].kind == "pallet" for v in route))
         self._nav_inflight = False
         self._goal_retry_at = None
         self._gref_d = None
@@ -974,6 +1020,9 @@ class AgentCore:
         lat, lon = self._dock_geometry(self._dock_target)
         remaining = -lon if self._dock_reverse else lon        # distance still to drive (<= 0: reached or passed)
         if abs(lat) > DOCK_TOL_LAT_M or remaining > DOCK_TOL_LON_M:
+            # Fail-safe: a lateral error above tolerance at the stop distance is never "reached". The node's control
+            # law commands zero speed there (it only rotates), so the robot stalls and the DOCK_TIMEOUT_S progress
+            # timeout fails the task instead of the robot driving on.
             return []
         name = self._route[self._goal_i]
         acts: List[object] = [StopDrive()]
@@ -987,6 +1036,7 @@ class AgentCore:
         else:                                                  # backed out: the pallet stays at the dock
             self._dock = None
             self._carrying = False
+            self._pallet_on_board = False
             self._last_vertex = name
             acts.append(SetFootprint("normal"))
             self._goal_i += 1
@@ -1001,9 +1051,11 @@ class AgentCore:
             if self._dock == "lift":
                 self._dock = None
                 self._carrying = True
+                self._pallet_on_board = True
                 self._last_vertex = name
                 self._goal_i += 1
                 return [SetFootprint("carry")] + self._goal_begin(t)      # footprint first, then plan with it
+            self._pallet_on_board = False                 # unload dwell over: the pallet is down
             tx, ty, yaw = self._dock_target
             back = (tx - UNDOCK_M * math.cos(yaw), ty - UNDOCK_M * math.sin(yaw), yaw)
             return self._dock_begin_drive("back_drive", RobotMode.LIFTING, back, True, t)
@@ -1022,6 +1074,7 @@ class AgentCore:
         footprint applies again. Called before the task state is cleared."""
         phase, self._dock = self._dock, None
         acts: List[object] = [StopDrive()] if phase in ("pick_drive", "drop_drive", "back_drive") else []
-        if phase == "back_drive":
+        if phase in ("unload", "back_drive"):             # the pallet is already down
+            self._pallet_on_board = False
             acts.append(SetFootprint("normal"))
         return acts

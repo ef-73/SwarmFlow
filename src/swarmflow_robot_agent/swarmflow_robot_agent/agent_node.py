@@ -33,7 +33,7 @@ from swarmflow_interfaces.msg import ReservationHeartbeat, ReservationRelease, R
 from swarmflow_interfaces.srv import RequestReservation as RequestReservationSrv
 
 from .agent_core import (DRIVE_HZ, DRIVE_MAX_MPS, DRIVE_MAX_RADPS, DRIVE_POSE_MAX_AGE_S, AgentCore, CancelNav,
-                         DockDrive, drive_command, Navigate, Release, RequestReservation, SetFootprint,
+                         DockDrive, FootprintSync, drive_command, Navigate, Release, RequestReservation, SetFootprint,
                          StopDrive, TaskFinished)
 
 MAX_POSE_AGE_S = 1.0
@@ -109,6 +109,7 @@ class AgentNode(Node):
         self._res_client = self.create_client(RequestReservationSrv, "/fleet/request_reservation",
                                               callback_group=cb)
         self._cmd_pub = self.create_publisher(Twist, "cmd_vel", 10)
+        self._fp_sync = FootprintSync(("local_costmap", "global_costmap"))
         self._fp_clients = {
             name: self.create_client(SetParameters, f"/{self.robot_id}/{name}/{name}/set_parameters", callback_group=cb)
             for name in ("local_costmap", "global_costmap")}
@@ -204,6 +205,8 @@ class AgentNode(Node):
     # -- pallet dock drive (T042) ------------------------------------------------------------------------------------
     def _publish_twist(self, v: float, w: float) -> None:
         m = Twist()
+        if not (math.isfinite(v) and math.isfinite(w)):
+            v = w = 0.0
         m.linear.x = max(-DRIVE_MAX_MPS, min(DRIVE_MAX_MPS, v))
         m.angular.z = max(-DRIVE_MAX_RADPS, min(DRIVE_MAX_RADPS, w))
         self._cmd_pub.publish(m)
@@ -228,10 +231,12 @@ class AgentNode(Node):
         stamp = st.sec + st.nanosec * 1e-9
         if stamp > 0.0 and self._now() - stamp > DRIVE_POSE_MAX_AGE_S:
             return None
-        return tf.transform.translation.x, tf.transform.translation.y, _yaw_of(tf.transform.rotation)
+        pose = tf.transform.translation.x, tf.transform.translation.y, _yaw_of(tf.transform.rotation)
+        return pose if all(math.isfinite(c) for c in pose) else None
 
     def _on_drive_tick(self) -> None:
         with self._lock:
+            self._footprint_pump()
             d = self._drive
             if d is None:
                 return
@@ -246,14 +251,25 @@ class AgentNode(Node):
             self._publish_twist(v, w)
 
     def _set_footprint(self, kind: str) -> None:
-        value = FOOTPRINT_CARRY if kind == "carry" else FOOTPRINT_NORMAL
-        for name, client in self._fp_clients.items():
+        self._fp_sync.set_wanted(kind)
+        self._footprint_pump()
+
+    def _footprint_pump(self) -> None:
+        """Send the wanted footprint to every costmap that has not confirmed it, at most once per second each."""
+        if not self._fp_sync.pending():
+            return
+        now = self._now()
+        for name, kind in self._fp_sync.due(now):
+            self._fp_sync.sent(name, now)
+            client = self._fp_clients[name]
             if not client.service_is_ready():
-                self.get_logger().warn(f"footprint {kind}: /{self.robot_id}/{name} set_parameters not available")
+                self.get_logger().warn(f"footprint {kind}: /{self.robot_id}/{name} set_parameters not available, "
+                                       "will retry")
                 continue
             req = SetParameters.Request()
             req.parameters = [ParameterMsg(name="footprint", value=ParameterValue(
-                type=ParameterType.PARAMETER_STRING, string_value=value))]
+                type=ParameterType.PARAMETER_STRING,
+                string_value=FOOTPRINT_CARRY if kind == "carry" else FOOTPRINT_NORMAL))]
             client.call_async(req).add_done_callback(lambda f, n=name, k=kind: self._on_footprint_done(f, n, k))
 
     def _on_footprint_done(self, fut, name: str, kind: str) -> None:
@@ -263,8 +279,10 @@ class AgentNode(Node):
             reason = "; ".join(r.reason for r in res.results if not r.successful)
         except Exception as exc:  # noqa: BLE001 - never block the agent on a parameter call
             ok, reason = False, str(exc)
+        with self._lock:
+            self._fp_sync.done(name, kind, ok)
         if not ok:
-            self.get_logger().warn(f"footprint {kind} not applied to {name}: {reason}")
+            self.get_logger().warn(f"footprint {kind} not applied to {name}: {reason} (will retry)")
 
     # -- reservation service -------------------------------------------------------------------------------------
     def _call_reservation(self, r: api.ReservationRequest) -> None:
@@ -443,8 +461,11 @@ def main(args=None) -> None:
     except KeyboardInterrupt:
         pass
     finally:
-        with node._lock:
-            node._stop_drive()
+        try:
+            with node._lock:
+                node._stop_drive()
+        except Exception:  # noqa: BLE001 - destroy_node must still run
+            pass
         node.destroy_node()
         rclpy.try_shutdown()
 
