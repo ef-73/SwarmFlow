@@ -31,6 +31,7 @@ REACH_RADIUS_M = 0.6          #: pose within this of a route vertex counts as ha
 PALLET_LIFT_S = 3.0           #: v2 goal mode: dwell (mode LIFTING) when picking up a pallet
 GOAL_RETRY_MIN_S = 1.0        #: v2 goal mode: a failed Navigate is re-sent after a uniform delay in this range
 GOAL_RETRY_MAX_S = 3.0
+GOAL_PROGRESS_MOVE_M = 0.5    #: v2 goal mode: displacement this far from the last reference also counts as progress
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -169,6 +170,7 @@ class AgentCore:
         self._goal_retry_at: Optional[float] = None
         self._gref_d: Optional[float] = None   #: blocked detection: distance to the goal at the last progress
         self._gref_t = 0.0
+        self._gref_xy: Optional[Tuple[float, float]] = None   #: position at the last progress reference
 
     # -- queries -------------------------------------------------------------------------------------------------
     def can_accept(self) -> bool:
@@ -426,7 +428,8 @@ class AgentCore:
         # Stationary dwell/wait modes are exempt (position cannot drift while loading or holding for a grant); the
         # mode is judged before this tick's transitions.
         self._stale = (self._have_pose and t - self._pose_t > POSE_STALE_S
-                       and self._mode in (RobotMode.IDLE, RobotMode.STUCK, RobotMode.NAVIGATING))
+                       and self._mode in (RobotMode.IDLE, RobotMode.STUCK, RobotMode.NAVIGATING,
+                                          RobotMode.CARRYING))
         acts = self._check_release()
         if self._goal_mode and self._route:
             return acts + self._goal_tick(t)
@@ -723,9 +726,11 @@ class AgentCore:
             return RobotMode.LIFTING, PALLET_LIFT_S
         return None
 
-    def _near_goal(self, name: str) -> bool:
+    def _near_goal(self, name: str, t: float) -> bool:
+        """Pose within tolerance of the goal; a stale pose never counts."""
         v = self.graph.vertices[name]
-        return self._have_pose and math.hypot(v.x - self._x, v.y - self._y) <= api.GOAL_TOLERANCE_M
+        return (self._have_pose and t - self._pose_t <= POSE_STALE_S
+                and math.hypot(v.x - self._x, v.y - self._y) <= api.GOAL_TOLERANCE_M)
 
     def _goal_navigate(self, name: str) -> Navigate:
         v = self.graph.vertices[name]
@@ -743,7 +748,7 @@ class AgentCore:
             if self._goal_i >= len(self._route):
                 return self._finish_ok()
             name = self._route[self._goal_i]
-            if self._goal_dwell(name) is None and self._near_goal(name):
+            if self._goal_dwell(name) is None and self._near_goal(name, t):
                 self._last_vertex = name
                 self._goal_i += 1
                 continue
@@ -754,6 +759,7 @@ class AgentCore:
         self._nav_inflight = True
         self._gref_t = t
         self._gref_d = self._goal_dist()
+        self._gref_xy = (self._x, self._y) if self._have_pose else None
         return [self._goal_navigate(name)]
 
     def _goal_dist(self) -> Optional[float]:
@@ -778,7 +784,7 @@ class AgentCore:
         if not self._goal_moving() or self._goal_i >= len(self._route):
             return []
         name = self._route[self._goal_i]
-        if not self._near_goal(name):
+        if not self._near_goal(name, t):
             return []
         self._last_vertex = name
         if self._goal_dwell(name) is not None:
@@ -821,8 +827,11 @@ class AgentCore:
             return []
         d = self._goal_dist()
         if d is not None:
-            if self._gref_d is None or self._gref_d - d >= api.STUCK_MIN_PROGRESS_M:
-                self._gref_d, self._gref_t = d, t
+            moved = (self._gref_xy is not None
+                     and math.hypot(self._x - self._gref_xy[0], self._y - self._gref_xy[1]) >= GOAL_PROGRESS_MOVE_M)
+            if self._gref_d is None or self._gref_d - d >= api.STUCK_MIN_PROGRESS_M or moved:
+                # progress: closer to the goal, or displaced (a detour around an obstacle); turning in place is not
+                self._gref_d, self._gref_t, self._gref_xy = d, t, (self._x, self._y)
                 if self._goal_retry_at is None:           # a failed Navigate stays reported until it is re-sent
                     self._goal_clear_blocked()
             elif self._mode != RobotMode.STUCK and t - self._gref_t >= api.BLOCKED_REPORT_S:

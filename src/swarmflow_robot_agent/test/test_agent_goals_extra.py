@@ -104,3 +104,62 @@ def test_waypoint_task_after_goal_task_still_requests_reservations():
     acts = a.start_task("w1", "", ["B", "C"], 4.0)
     assert of(acts, RequestReservation)
     assert a.state().mode == RobotMode.WAITING_RESERVATION
+
+
+# -- review fixes ------------------------------------------------------------------------------------------------
+
+
+def test_detour_is_not_blocked(agent):
+    agent.start_task("t1", "", ["C"], 1.0, route_kind=api.ROUTE_GOALS)       # goal (8, 0); robot at (0, 0)
+    # drives 0.6 m every 3 s on a circle-ish path around a rack: straight-line distance to the goal never shrinks
+    path = [(0.0, 0.0), (0.0, 0.6), (0.0, 1.2), (0.0, 0.6), (0.0, 0.0), (0.0, -0.6), (0.0, 0.0)]
+    t = 1.0
+    for x, y in path:
+        t += 3.0
+        agent.on_pose(x, y, 0.0, 0.2, t)
+        agent.tick(t)
+        assert agent.state().mode == RobotMode.NAVIGATING
+
+
+def test_turning_in_place_is_blocked(agent):
+    agent.start_task("t1", "", ["C"], 1.0, route_kind=api.ROUTE_GOALS)
+    for k in range(int(api.BLOCKED_REPORT_S) + 2):
+        t = 2.0 + k
+        agent.on_pose(0.0, 0.0, 0.3 * k, 0.0, t, angular_speed=0.5)
+        agent.tick(t)
+    assert agent.state().mode == RobotMode.STUCK
+
+
+def test_stale_pose_in_carrying_shows_fault(agent):
+    agent.start_task("t2", "p1", ["DK"], 1.0, route_kind=api.ROUTE_GOALS, order_type=api.ORDER_PALLET)
+    agent.tick(1.0 + 2.0 * 1.0 + 0.1)
+    s = agent.state()
+    assert s.mode == RobotMode.FAULT and s.fault_reason == "STALE_POSE"
+
+
+def test_stale_pose_never_skips_a_goal(agent):
+    # robot is within tolerance of "A" but its pose is 5 s old
+    acts = agent.start_task("t1", "", ["A", "B"], 5.0, route_kind=api.ROUTE_GOALS)
+    nav = of(acts, Navigate)
+    assert nav and nav[0].vertices == ("A",)
+    assert agent.state().next_vertex == "A"
+
+
+def test_cancel_while_stuck_with_retry_pending(agent):
+    agent.start_task("t1", "", ["C"], 1.0, route_kind=api.ROUTE_GOALS)
+    agent.on_nav_result(False, 4.0)
+    assert agent.state().mode == RobotMode.STUCK
+    done = of(agent.cancel(4.2), TaskFinished)
+    assert done and done[0].failure_reason == api.FAILURE_CANCELLED
+    assert agent.state().mode == RobotMode.IDLE
+    for k in range(1, 12):
+        agent.on_pose(0.0, 0.0, 0.0, 0.0, 4.2 + 0.5 * k)
+        assert not of(agent.tick(4.2 + 0.5 * k), Navigate)
+
+
+def test_tolerance_advance_cancels_nav_before_next_navigate(agent):
+    agent.start_task("t1", "", ["B", "C"], 1.0, route_kind=api.ROUTE_GOALS)
+    acts = agent.on_pose(4.0, 0.0, 0.0, 0.3, 3.0)
+    kinds = [type(a) for a in acts]
+    assert kinds == [CancelNav, Navigate]
+    assert acts[1].vertices == ("C",)
