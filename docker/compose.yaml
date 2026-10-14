@@ -101,7 +101,7 @@ services:
       <<: *ros-env
       ROBOT_ID: robot_1
     cap_add: [NET_ADMIN]          # tc netem for SWARMFLOW_NETEM (realism ladder)
-    command: ["bash", "-c", "if [ -n \"$$SWARMFLOW_NETEM\" ]; then tc qdisc replace dev eth0 root netem $$SWARMFLOW_NETEM && echo netem: $$SWARMFLOW_NETEM; fi; ros2 launch swarmflow_nav robot.launch.py robot_id:=$$ROBOT_ID layout:=${SWARMFLOW_LAYOUT:-standard} localization:=${SWARMFLOW_LOCALIZATION:-ground_truth} agent:=${SWARMFLOW_AGENT:-true} traffic_control:=${SWARMFLOW_TRAFFIC_CONTROL:-true}"]
+    command: ["bash", "-c", "if [ -n \"$$SWARMFLOW_NETEM\" ]; then tc qdisc replace dev eth0 root netem $$SWARMFLOW_NETEM && echo netem: $$SWARMFLOW_NETEM; fi; ros2 launch swarmflow_nav robot.launch.py robot_id:=$$ROBOT_ID layout:=${SWARMFLOW_LAYOUT:-standard} localization:=${SWARMFLOW_LOCALIZATION:-auto} agent:=${SWARMFLOW_AGENT:-true} traffic_control:=${SWARMFLOW_TRAFFIC_CONTROL:-true}"]
     # X-06: restart a crashed service (not one stopped by `down`); cheap process check, no ROS CLI
     restart: on-failure:3
     healthcheck:
