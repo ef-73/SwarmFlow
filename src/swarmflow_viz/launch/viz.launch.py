@@ -16,7 +16,7 @@ def setup(context):
     return [
         Node(package="swarmflow_viz", executable="viz_node", name="swarmflow_viz", output="screen",
              parameters=[sim, {"layout_dir": os.path.join(root, layout, "generated"), "robots": robots}]),
-        Node(package="swarmflow_viz", executable="tf_relay", name="swarmflow_tf_relay", output="screen",
+        Node(package="swarmflow_viz", executable="tf_relay_cpp", name="swarmflow_tf_relay", output="screen",
              parameters=[sim, {"robots": robots}]),
     ]
 
