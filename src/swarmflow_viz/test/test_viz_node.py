@@ -54,3 +54,42 @@ def test_two_states_give_two_robot_markers():
         t.destroy_node()
     finally:
         rclpy.try_shutdown()
+
+
+def test_plan_is_read_raw_and_scene_is_cached():
+    """X-01b: a published Path reaches the node's paths through the raw subscription; the scene is built once."""
+    from geometry_msgs.msg import PoseStamped
+    from nav_msgs.msg import Path
+    rclpy.init()
+    try:
+        viz = VizNode(parameter_overrides=[Parameter("layout_dir", value=str(FIX)),
+                                           Parameter("use_sim_time", value=False)])
+        t = rclpy.create_node("viz_plan_test")
+        pub = t.create_publisher(Path, "/robot_1/plan", 10)
+        msg = Path()
+        msg.header.frame_id = "map"
+        for x, y in ((1.0, 2.0), (1.5, 2.25), (2.0, 2.5)):
+            ps = PoseStamped()
+            ps.header.frame_id = "map"
+            ps.pose.position.x, ps.pose.position.y = x, y
+            msg.poses.append(ps)
+        ex = MultiThreadedExecutor(num_threads=2)
+        ex.add_node(viz)
+        ex.add_node(t)
+        th = threading.Thread(target=ex.spin, daemon=True)
+        th.start()
+        deadline = time.time() + 10.0
+        while time.time() < deadline and viz._paths.get("robot_1") != [(1.0, 2.0), (1.5, 2.25), (2.0, 2.5)]:
+            pub.publish(msg)
+            time.sleep(0.2)
+        ex.shutdown()
+        th.join(timeout=2.0)
+        assert viz._paths.get("robot_1") == [(1.0, 2.0), (1.5, 2.25), (2.0, 2.5)]
+        first = viz._scene
+        assert first is not None
+        viz._pub_scene()
+        assert viz._scene is first
+        viz.destroy_node()
+        t.destroy_node()
+    finally:
+        rclpy.try_shutdown()
