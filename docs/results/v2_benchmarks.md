@@ -114,3 +114,11 @@ afternoon (Gazebo, four Nav2 stacks and other desktop applications saturate all 
 104 %). When Nav2 misses control deadlines, robots hesitate and the stuck timer fires. Comparisons on this machine are
 only fair between runs at the same load: each run's `cpu_mean.txt` is the check. A comparison study should interleave
 variants and controls or run fewer robots per sim.
+
+**X-01b (viz CPU).** Profiling `viz_node` (cProfile, 180 s of a 4-robot `v2_demo`) showed most of its time in
+deserializing the robots' Nav2 plans (six Python objects per pose) and in rebuilding the static scene every 10 s. The
+node now subscribes to plans raw and reads x, y straight from the CDR bytes (0.71 ms vs 11.1 ms for a 400-pose plan,
+tested against rclpy's own deserialization) and builds the scene once (T062). Check run `x01b_1` (600 s, 4 robots):
+**viz 0.36 core**, at the same high host load as `ctl_1`/`ctl_2` (robot CPU ~148 %), where the old node used 0.39 and
+0.50. The 0.30 target is **not met**; what remains is rclpy's executor overhead and the C++ TF/scan relay in the same
+container. (`x01b_1` itself covered 427 of 600 sim-s: 10 deliveries, 42 stuck episodes, the overloaded host again; not counted above. CPU is sampled over wall time, so the viz figure still holds.)
