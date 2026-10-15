@@ -295,3 +295,41 @@ here + `scripts/ci.sh` green + an agent-log entry.
 | **M16** pallets | F-01 … F-05 | robot docks under a pallet stand (≤ 3 cm lateral error), lifts, carries, sets down, leaves: 5/5; footprint switches (recorded); no scan returns from carried legs; mixed scenario delivers a pallet order |
 | **M17** realism + benchmarks | I-01, I-03, E-01, E-02, C-01 | `docs/results/v2_realism_ladder.md` (4 rungs × 3 runs); AMCL default if within 10 % of ground-truth throughput (else reason logged); `docs/results/v2_benchmarks.md` vs X-10 baseline; CPU per container; 3 × 10-min demos with 4–5 robots, 0 collisions |
 | **G7** v2 release (blocking) | — | README/design updated; user watches the demo; `v2.0.0` tag only after the user approves name and commit |
+
+## 15. v2.1: anti-jamming and leftovers (2026-10-15)
+
+`v2.0.0` is tagged (G7 approved 2026-10-15). This section is the plan for the rest of that session; milestone **M18**.
+
+**Problem.** Robots stop for a while and the stuck timer fires. In the 4 clean baseline runs (`v2_demo`, 4 robots,
+ground truth, 10 min: `e01_pred_r1_1..3`, `g7_gt_1`) there were 33 stuck episodes (17/8/4/4 per run), **27 of them
+in the 2.2 m dead-end storage aisles**. Typical case: one robot picks deep in a storage aisle, a second enters, both
+prefer the aisle centre, meet head-on and wait. Two robots fit side by side (0.6 m wide each, centres ~1.4 m apart if
+both hug the right rack); the costmap scoring stops them: rack inflation (0.7 m, steep) pushes robots to the centre and
+outweighs keep-right (cost 70).
+
+**User decisions (2026-10-15).** Test a 5 s look-ahead with fading cost. **No courtesy or waiting rule**: fixes must be
+each robot's own behaviour. Keep it small. Intent sharing is welcome if it is a proven method.
+Lead judgement: intent sharing is proven (prioritized planning, Cooperative A*, the Open-RMF traffic schedule; from
+memory, not re-checked), and its cheap form here is predicting other robots **along their published Nav2 plan**
+instead of a straight line (J-04). A second "ideal path ignoring robots" planner is not worth its cost now.
+
+**Metric.** `tools/metrics/compute.py` adds `stuck_episodes` (entries into `STUCK` per run) and `stuck_by_area`
+(storage / central / cross / docks / other, from the layout's `aisles`).
+
+| Id | Change | Where | Success |
+|---|---|---|---|
+| J-01 | 5 s look-ahead: predicted cost 200→100 over 0–2 s, then →20 at 5 s (T058, parameters `near_s`, `far_cost`) | `SWARMFLOW_PREDICTION_HORIZON=5` | decision rule, 3 runs |
+| J-02 | Assertive keep-right: keep-right cost 70→~150, leaner rack inflation (`cost_scaling_factor` 3→~6, `inflation_radius` 0.7→~0.55), **v2 profile only**; other-robot padding unchanged | `src/swarmflow_nav/config/nav2_params_v2.yaml` | new nav scenario `aisle_pass` (one robot leaves a storage aisle while another enters) passes 3/3 with no BLOCKED; head_on, pass_parked, crossing, dead_end still pass; then decision rule, 3 runs |
+| J-03 | The winners of J-01 and J-02 together | v2 defaults | decision rule, 3 runs → v2 default |
+| J-04 (if time) | Predict along each robot's published plan (`/<r>/plan`) at its current speed; fall back to constant speed + turn rate without a fresh plan | `other_robots_layer.cpp` + gtest | unit test; decision rule vs J-03, 3 runs |
+| X-01b | viz CPU to target: profile `viz_node`, fix the top costs | `src/swarmflow_viz/` | viz ≤ 0.30 core mean over a 600 s 4-robot `v2_demo`; viz tests green; Foxglove view unchanged |
+
+**Decision rule** (keep a change only if all hold, against the baseline): stuck episodes per run at least 25 % lower
+(baseline mean 8.25 → ≤ 6.2); mean deliveries ≥ baseline mean − 1 (15.0 → ≥ 14.0); no contact (min footprint
+distance > −0.10 m; baseline worst −0.054); clearance violations ≤ baseline mean + 1 (1.75 → ≤ 2.75). n = 3 per
+variant, so differences smaller than the run-to-run spread are reported as such. A losing change stays available as a
+parameter; the default does not change.
+
+**Deferred (not built in v2.1):** localisation health monitoring + AMCL CPU budget (precondition for an AMCL default);
+dock-area jamming beyond what J-02 gives; an "ideal path" second planner; N-04 probe, N-05b MPPI critic, P-03, I-02,
+V-09, O-06.

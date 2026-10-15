@@ -20,9 +20,10 @@ from swarmflow_core.metrics.clearance import count_violations, footprint_distanc
 
 COLUMNS = ["run_id", "scenario", "policy", "seed", "duration_s", "deliveries", "throughput_per_min",
            "mean_latency_s", "total_wait_s", "mean_wait_s", "stuck_events", "failed_orders", "clearance_violations",
-           "min_separation_m", "near_misses"]
+           "min_separation_m", "near_misses", "stuck_episodes", "stuck_by_area"]
 SPEED_EPS = 0.05
 NEAR_MISS_M = 0.30   # footprint-to-footprint distance counted as a near miss (improvements_v2 §14, M14)
+REPO = pathlib.Path(__file__).resolve().parents[2]
 
 
 def read_jsonl(path: pathlib.Path) -> list:
@@ -103,6 +104,7 @@ def compute(run_dir: pathlib.Path) -> dict:
                 total_wait += b["t"] - a["t"]
     mean_wait = total_wait / len(by_robot) if by_robot else 0.0
     min_sep, near = separation(by_t)
+    episodes = stuck_episodes(by_robot, load_aisles(cfg.get("layout") or sc.get("layout")))
 
     return {
         "run_id": run_dir.name, "scenario": scenario, "policy": policy, "seed": seed,
@@ -110,8 +112,40 @@ def compute(run_dir: pathlib.Path) -> dict:
         "mean_latency_s": mean_lat, "total_wait_s": total_wait, "mean_wait_s": mean_wait,
         "stuck_events": sum(1 for d in decisions if d.get("decision_type") == "STUCK_FAIL"),
         "failed_orders": failed, "clearance_violations": count_violations(by_t),
-        "min_separation_m": min_sep, "near_misses": near,
+        "min_separation_m": min_sep, "near_misses": near, "stuck_episodes": len(episodes),
+        "stuck_by_area": ";".join(f"{a}:{episodes.count(a)}" for a in sorted(set(episodes))),
     }
+
+
+def load_aisles(layout) -> list:
+    """Aisle rectangles of ``layouts/<layout>/layout.yaml`` (empty when the layout or its ``aisles`` is missing)."""
+    path = REPO / "layouts" / str(layout) / "layout.yaml" if layout else None
+    if path is None or not path.is_file():
+        return []
+    return (yaml.safe_load(path.read_text(encoding="utf-8")) or {}).get("aisles") or []
+
+
+def area_of(x: float, y: float, aisles: list) -> str:
+    """storage (dead-end rack aisles), central, cross (cross aisles), docks (north of every aisle) or other."""
+    for a in aisles:
+        if a["x_min"] <= x <= a["x_max"] and a["y_min"] <= y <= a["y_max"]:
+            name = a["name"]
+            return name if name == "central" else "cross" if name.startswith("cross") else "storage"
+    if aisles and y > max(a["y_max"] for a in aisles):
+        return "docks"
+    return "other"
+
+
+def stuck_episodes(by_robot: dict, aisles: list) -> list:
+    """Area of every entry into STUCK (per robot, a STUCK sample after a non-STUCK one or at the start)."""
+    out = []
+    for samples in by_robot.values():
+        prev = None
+        for s in sorted(samples, key=lambda r: r["t"]):
+            if s.get("mode") == "STUCK" and prev != "STUCK":
+                out.append(area_of(s["x"], s["y"], aisles))
+            prev = s.get("mode")
+    return out
 
 
 def separation(samples) -> tuple:
@@ -145,7 +179,7 @@ def main(argv: list) -> int:
     with open(run_dir / "metrics.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f, lineterminator="\n")
         w.writerow(COLUMNS)
-        w.writerow([fmt(row[c]) if c not in ("run_id", "scenario", "policy") else row[c] for c in COLUMNS])
+        w.writerow([fmt(row[c]) if c not in ("run_id", "scenario", "policy", "stuck_by_area") else row[c] for c in COLUMNS])
     return 0
 
 

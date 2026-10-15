@@ -275,3 +275,4 @@ Each milestone ends like v1 (§2.1): ff-merge to `main`, push, §5 row updated, 
 | M15 | ✅ 2026-10-14 — v2_steady 4 robots: 10/10 delivered, every dock ≥ 1, 0 stuck / failed / clearance violations, min 0.31 m; manual orders (CLI verified end to end in light mode, Foxglove template) |
 | M16 | ✅ 2026-10-14 — 8/8 pallet deliveries in Gazebo, docking 0.0 cm lateral / ≤ 1.9 cm, footprint switch each time, pallets rest flat, truck clears docks; mixed run with physical pallets in M17 |
 | M17 | ✅ 2026-10-14 — realism ladder 12 runs (`docs/results/v2_realism_ladder.md`), I-03: AMCL tried as default (T056) and reverted after a saturating demo run lost a robot (T057), ground truth stays, E-01/E-02/C-01 (`docs/results/v2_benchmarks.md`); 14 runs redone after the harness bug (T055) → **G7 waiting for the user** |
+| M18 | ⏳ v2.1 anti-jamming (J-01 … J-04, X-01b; `docs/improvements_v2.md` §15) — started 2026-10-15 |

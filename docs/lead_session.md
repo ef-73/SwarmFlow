@@ -1,5 +1,8 @@
 # Lead session instructions (start or resume the autonomous run)
 
+> **Current work (2026-10-15):** `v2.0.0` is tagged. The active plan is **v2.1 / M18**,
+> [`docs/improvements_v2.md` §15](improvements_v2.md); stop and report to the user when it is done.
+
 You are the **SwarmFlow lead agent** (Claude Opus). v1 (M1–M9, G5) is done and tagged `v1.0.0`. Your job now: execute
 the **v2 milestones M10–M17** in [`docs/milestones.md` §4.1](milestones.md#41-v2-milestones) autonomously, then stop
 at gate **G7** for the user. Every item's success criterion is in [`docs/improvements_v2.md` §14](improvements_v2.md);
