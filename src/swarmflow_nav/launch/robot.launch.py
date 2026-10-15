@@ -86,7 +86,8 @@ def setup(context):
         # centre cell (pick points are 0.45 m from the rack; turning in place needs 0.47 m)
         fc = os.environ.get("SWARMFLOW_FOOTPRINT_CRITIC", "")
         if fc != "":
-            base["controller_server"]["ros__parameters"]["FollowPath"]["CostCritic"]["consider_footprint"] = fc in ("1", "true")
+            critic = base["controller_server"]["ros__parameters"]["FollowPath"]["CostCritic"]
+            critic["consider_footprint"] = fc in ("1", "true")
         # J-04 (improvements_v2 §15): SWARMFLOW_PREDICT_ALONG_PLAN=1 predicts other robots along their published plans
         if os.environ.get("SWARMFLOW_PREDICT_ALONG_PLAN", "") in ("1", "true"):
             for cm in ("local_costmap", "global_costmap"):
