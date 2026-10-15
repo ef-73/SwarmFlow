@@ -3,7 +3,7 @@
 
 Run inside a robot container while gazebo + robot_N (agent:=false) are up:
     python3 /ws/tests/integration/nav_scenarios.py <scenario> [--out runs/nav/<id>.json]
-Scenarios: head_on, pass_parked, crossing, dead_end (see SCENARIOS). Each robot is first driven to its start pose
+Scenarios: head_on, pass_parked, crossing, dead_end, pick_turn, ... (see SCENARIOS). Each robot is first driven to its start pose
 (staging, one robot at a time), then all robots get their goal at once (NavigateThroughPoses with one pose, as the
 v2 robot agent sends). Poses come from /<robot>/odom (ground truth); the result reports per robot success and time,
 the minimum footprint-to-footprint distance (swarmflow_core.metrics.clearance) and near misses (< 0.30 m).
@@ -46,6 +46,11 @@ SCENARIOS = {
     "lane_s": {"robot_1": ((10.0, 20.5, S), (10.0, 4.5, S))},
     # the same meeting with the roles swapped: its starts are where dead_end ends, so the two alternate for repeats
     "dead_end_rev": {"robot_1": ((1.5, 16.5, E), (9.0, 16.5, E)), "robot_2": ((9.0, 16.5, W), (1.5, 16.5, W))},
+    # v2.1 J-02: leave a pick point (0.45 m from the rack, PK_E1_N_02) and turn back out of the dead-end aisle E1;
+    # in the demos most stuck episodes were robots stopped mid-turn here (improvements_v2 §15)
+    "pick_turn": {"robot_1": ((15.0, 10.75, E), (10.0, 16.0, N))},
+    # the same with a second robot parked at the opposite-face pick point nearer the exit (PK_E1_S_01)
+    "pick_turn_pair": {"robot_2": ((13.0, 9.45, E), None), "robot_1": ((15.0, 10.75, E), (10.0, 16.0, N))},
 }
 # staging order where it matters (a robot parked at an aisle mouth would block the other's way in)
 STAGING_ORDER = {"dead_end": ["robot_2", "robot_1"], "dead_end_rev": ["robot_1", "robot_2"]}

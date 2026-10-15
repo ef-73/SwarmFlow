@@ -319,10 +319,19 @@ instead of a straight line (J-04). A second "ideal path ignoring robots" planner
 | Id | Change | Where | Success |
 |---|---|---|---|
 | J-01 | 5 s look-ahead: predicted cost 200→100 over 0–2 s, then →20 at 5 s (T058, parameters `near_s`, `far_cost`) | `SWARMFLOW_PREDICTION_HORIZON=5` | decision rule, 3 runs |
-| J-02 | Assertive keep-right: keep-right cost 70→~150, leaner rack inflation (`cost_scaling_factor` 3→~6, `inflation_radius` 0.7→~0.55), **v2 profile only**; other-robot padding unchanged | `src/swarmflow_nav/config/nav2_params_v2.yaml` | new nav scenario `aisle_pass` (one robot leaves a storage aisle while another enters) passes 3/3 with no BLOCKED; head_on, pass_parked, crossing, dead_end still pass; then decision rule, 3 runs |
+| J-02 | **Footprint-aware controller** (amended, see below): MPPI `CostCritic.consider_footprint: true`, v2 profile only, as design §8 planned for v2 | `src/swarmflow_nav/config/nav2_params_v2.yaml` | nav scenarios `pick_turn` and `pick_turn_pair` (leave a pick point and turn out of a dead-end aisle) succeed 3/3 within 60 s; head_on, pass_parked, crossing, dead_end still pass; controller CPU noted; then decision rule, 3 runs |
+| J-02b (optional) | Assertive keep-right: keep-right cost 70→~150, leaner rack inflation (`cost_scaling_factor` 3→~6, `inflation_radius` 0.7→~0.55), **v2 profile only**; other-robot padding unchanged | `src/swarmflow_nav/config/nav2_params_v2.yaml` | new nav scenario `aisle_pass` (one robot leaves a storage aisle while another enters) passes 3/3 with no BLOCKED; head_on, pass_parked, crossing, dead_end still pass; then decision rule, 3 runs |
 | J-03 | The winners of J-01 and J-02 together | v2 defaults | decision rule, 3 runs → v2 default |
 | J-04 (if time) | Predict along each robot's published plan (`/<r>/plan`) at its current speed; fall back to constant speed + turn rate without a fresh plan | `other_robots_layer.cpp` + gtest | unit test; decision rule vs J-03, 3 runs |
 | X-01b | viz CPU to target: profile `viz_node`, fix the top costs | `src/swarmflow_viz/` | viz ≤ 0.30 core mean over a 600 s 4-robot `v2_demo`; viz tests green; Foxglove view unchanged |
+
+**Amendment (same day, after classifying the baseline episodes).** 21 of the 33 baseline stuck episodes are a robot
+inside a storage aisle turned across it (|sin yaw| > 0.4), 12 of them with no other robot within 1.5 m; only 1 is an
+aligned meeting. Pick points sit 0.45 m from the rack, but turning in place needs > 0.47 m (design §8 clearance
+table), and MPPI scores only the centre cell (`consider_footprint: false`), so a robot leaving a pick point turns
+into the rack and stops. The fix is the robot knowing its own shape, so J-02 is now the footprint-aware controller;
+the keep-right/inflation tuning (which would push robots nearer the racks) becomes the optional J-02b, run only if
+J-01 + J-02 leave meetings as a visible share of the episodes.
 
 **Decision rule** (keep a change only if all hold, against the baseline): stuck episodes per run at least 25 % lower
 (baseline mean 8.25 → ≤ 6.2); mean deliveries ≥ baseline mean − 1 (15.0 → ≥ 14.0); no contact (min footprint
