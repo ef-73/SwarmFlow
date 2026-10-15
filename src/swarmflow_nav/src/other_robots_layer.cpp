@@ -7,7 +7,8 @@
 // writes, for every other robot with a fresh state:
 //   - its current padded footprint as LETHAL;
 //   - its footprint at the predicted positions over `horizon_s` (constant speed and turn rate), with a cost that
-//     falls from `predicted_cost` to half of it, so the planner and MPPI keep out of its way (stage a of N-05).
+//     falls from `predicted_cost` to half of it over `near_s`, then on to `far_cost` at `horizon_s`, so the planner
+//     and MPPI keep out of its way and a long look-ahead only nudges (stage a of N-05; prediction_cost.hpp).
 // States are in the map frame and are transformed into the costmap's global frame (odom for the local costmap).
 // The orchestrator is not in this loop, so avoidance keeps working when it is down.
 
@@ -20,6 +21,7 @@
 #include <vector>
 
 #include "nav2_costmap_2d/cost_values.hpp"
+#include "swarmflow_nav/prediction_cost.hpp"
 #include "nav2_costmap_2d/layer.hpp"
 #include "nav2_costmap_2d/layered_costmap.hpp"
 #include "pluginlib/class_list_macros.hpp"
@@ -46,6 +48,8 @@ public:
     declareParameter("step_s", rclcpp::ParameterValue(0.4));
     declareParameter("max_age_s", rclcpp::ParameterValue(1.0));
     declareParameter("predicted_cost", rclcpp::ParameterValue(200));
+    declareParameter("near_s", rclcpp::ParameterValue(2.0));
+    declareParameter("far_cost", rclcpp::ParameterValue(20));
     node->get_parameter(name_ + ".enabled", enabled_);
     node->get_parameter(name_ + ".length", length_);
     node->get_parameter(name_ + ".width", width_);
@@ -57,6 +61,10 @@ public:
     int pc = 200;
     node->get_parameter(name_ + ".predicted_cost", pc);
     predicted_cost_ = static_cast<unsigned char>(std::clamp(pc, 1, 252));
+    node->get_parameter(name_ + ".near_s", near_s_);
+    int fc = 20;
+    node->get_parameter(name_ + ".far_cost", fc);
+    far_cost_ = static_cast<unsigned char>(std::clamp(fc, 1, 252));
     // own id = first component of the costmap node's namespace ("/robot_1/global_costmap" -> "robot_1"); a
     // mismatch would stamp the robot onto itself ("Start occupied", M14 session 6)
     self_ = node->get_namespace();
@@ -161,7 +169,7 @@ private:
           if (std::abs(o.v) < 0.02 && std::abs(o.w) < 0.05) {break;}  // standing still: current footprint is enough
         }
         const unsigned char cost = k == 0 ? nav2_costmap_2d::LETHAL_OBSTACLE :
-          static_cast<unsigned char>(predicted_cost_ - (predicted_cost_ / 2) * k / std::max(n, 1));
+          predictedCost(k * step_s_, std::min(near_s_, horizon_s_), horizon_s_, predicted_cost_, far_cost_);
         shapes_.push_back(Shape{tx + c * x - s * y, ty + s * x + c * y, yaw + tyaw, hl, hw, cost});
       }
     }
@@ -207,8 +215,8 @@ private:
 
   bool enabled_{true};
   double length_{0.70}, width_{0.60}, carry_length_{1.25}, carry_width_{1.05};
-  double horizon_s_{2.0}, step_s_{0.4}, max_age_s_{1.0};
-  unsigned char predicted_cost_{200};
+  double horizon_s_{2.0}, step_s_{0.4}, max_age_s_{1.0}, near_s_{2.0};
+  unsigned char predicted_cost_{200}, far_cost_{20};
   std::string self_;
   rclcpp::Clock::SharedPtr clock_;
   rclcpp::Subscription<swarmflow_interfaces::msg::RobotState>::SharedPtr sub_;
