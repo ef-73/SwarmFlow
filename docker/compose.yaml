@@ -11,6 +11,7 @@ x-ros-env: &ros-env
   # E-01: other robots' predicted positions (OtherRobotsLayer horizon, s); empty = the profile default (2.0)
   SWARMFLOW_PREDICTION_HORIZON: ${SWARMFLOW_PREDICTION_HORIZON:-}
   SWARMFLOW_FOOTPRINT_CRITIC: ${SWARMFLOW_FOOTPRINT_CRITIC:-}
+  SWARMFLOW_PREDICT_ALONG_PLAN: ${SWARMFLOW_PREDICT_ALONG_PLAN:-}
 
 services:
   dev:

@@ -9,6 +9,9 @@
 //   - its footprint at the predicted positions over `horizon_s` (constant speed and turn rate), with a cost that
 //     falls from `predicted_cost` to half of it over `near_s`, then on to `far_cost` at `horizon_s`, so the planner
 //     and MPPI keep out of its way and a long look-ahead only nudges (stage a of N-05; prediction_cost.hpp).
+// With `use_plans` (J-04, improvements_v2 §15) a moving robot is predicted along its published Nav2 plan
+// (/<robot>/plan, map frame) at its current speed instead, so a robot about to turn into an aisle is expected there;
+// without a fresh plan it is near, it falls back to constant speed and turn rate.
 // States are in the map frame and are transformed into the costmap's global frame (odom for the local costmap).
 // The orchestrator is not in this loop, so avoidance keeps working when it is down.
 
@@ -21,7 +24,9 @@
 #include <vector>
 
 #include "nav2_costmap_2d/cost_values.hpp"
+#include "swarmflow_nav/path_prediction.hpp"
 #include "swarmflow_nav/prediction_cost.hpp"
+#include "nav_msgs/msg/path.hpp"
 #include "nav2_costmap_2d/layer.hpp"
 #include "nav2_costmap_2d/layered_costmap.hpp"
 #include "pluginlib/class_list_macros.hpp"
@@ -50,6 +55,9 @@ public:
     declareParameter("predicted_cost", rclcpp::ParameterValue(200));
     declareParameter("near_s", rclcpp::ParameterValue(2.0));
     declareParameter("far_cost", rclcpp::ParameterValue(20));
+    declareParameter("use_plans", rclcpp::ParameterValue(false));
+    declareParameter("plan_max_age_s", rclcpp::ParameterValue(3.0));
+    declareParameter("plan_max_offset", rclcpp::ParameterValue(0.5));
     node->get_parameter(name_ + ".enabled", enabled_);
     node->get_parameter(name_ + ".length", length_);
     node->get_parameter(name_ + ".width", width_);
@@ -65,6 +73,9 @@ public:
     int fc = 20;
     node->get_parameter(name_ + ".far_cost", fc);
     far_cost_ = static_cast<unsigned char>(std::clamp(fc, 1, 252));
+    node->get_parameter(name_ + ".use_plans", use_plans_);
+    node->get_parameter(name_ + ".plan_max_age_s", plan_max_age_s_);
+    node->get_parameter(name_ + ".plan_max_offset", plan_max_offset_);
     // own id = first component of the costmap node's namespace ("/robot_1/global_costmap" -> "robot_1"); a
     // mismatch would stamp the robot onto itself ("Start occupied", M14 session 6)
     self_ = node->get_namespace();
@@ -76,6 +87,7 @@ public:
     clock_ = node->get_clock();
     rclcpp::SubscriptionOptions opts;
     opts.callback_group = callback_group_;
+    opts_ = opts;
     sub_ = node->create_subscription<swarmflow_interfaces::msg::RobotState>(
       "/fleet/robot_states", rclcpp::QoS(50).best_effort(),
       [this](swarmflow_interfaces::msg::RobotState::ConstSharedPtr m) {onState(*m);}, opts);
@@ -113,6 +125,12 @@ private:
   {
     double x, y, yaw, v, w, t;  // map frame, stamp in seconds (node clock = sim time)
     bool carrying;
+    std::string id;
+  };
+  struct Plan
+  {
+    std::vector<std::pair<double, double>> points;  // map frame, thinned to >= 0.1 m apart
+    double t;                                       // receive time (node clock)
   };
   struct Shape
   {
@@ -123,21 +141,53 @@ private:
   void onState(const swarmflow_interfaces::msg::RobotState & m)
   {
     if (m.robot_id == self_) {return;}
+    {
+      std::lock_guard<std::mutex> lk(mutex_);
+      others_[m.robot_id] = Other{m.x, m.y, m.yaw, m.linear_speed, m.angular_speed,
+        rclcpp::Time(m.header.stamp, RCL_ROS_TIME).seconds(),
+        m.mode == swarmflow_interfaces::msg::RobotState::MODE_CARRYING ||
+        m.mode == swarmflow_interfaces::msg::RobotState::MODE_LIFTING, m.robot_id};
+    }
+    if (use_plans_ && plan_subs_.find(m.robot_id) == plan_subs_.end()) {subscribePlan(m.robot_id);}
+  }
+
+  void subscribePlan(const std::string & rid)  // first state of a robot: follow its plan from now on
+  {
+    auto node = node_.lock();
+    if (!node || rid.empty()) {return;}
+    plan_subs_[rid] = node->create_subscription<nav_msgs::msg::Path>(
+      "/" + rid + "/plan", rclcpp::QoS(1),
+      [this, rid](nav_msgs::msg::Path::ConstSharedPtr p) {onPlan(rid, *p);}, opts_);
+  }
+
+  void onPlan(const std::string & rid, const nav_msgs::msg::Path & p)
+  {
+    if (p.header.frame_id != "map") {return;}
+    Plan plan{{}, clock_->now().seconds()};
+    for (const auto & ps : p.poses) {
+      const double x = ps.pose.position.x, y = ps.pose.position.y;
+      if (plan.points.empty() || std::hypot(x - plan.points.back().first, y - plan.points.back().second) >= 0.1 ||
+        &ps == &p.poses.back())
+      {
+        plan.points.emplace_back(x, y);
+      }
+    }
     std::lock_guard<std::mutex> lk(mutex_);
-    others_[m.robot_id] = Other{m.x, m.y, m.yaw, m.linear_speed, m.angular_speed,
-      rclcpp::Time(m.header.stamp, RCL_ROS_TIME).seconds(),
-      m.mode == swarmflow_interfaces::msg::RobotState::MODE_CARRYING ||
-      m.mode == swarmflow_interfaces::msg::RobotState::MODE_LIFTING};
+    plans_[rid] = std::move(plan);
   }
 
   void collect()
   {
     const double now = clock_->now().seconds();
     std::vector<Other> fresh;
+    std::unordered_map<std::string, std::vector<std::pair<double, double>>> plans;
     {
       std::lock_guard<std::mutex> lk(mutex_);
       for (const auto & kv : others_) {
         if (now - kv.second.t <= max_age_s_) {fresh.push_back(kv.second);}
+      }
+      for (const auto & kv : plans_) {
+        if (now - kv.second.t <= plan_max_age_s_) {plans[kv.first] = kv.second.points;}
       }
     }
     if (fresh.empty()) {return;}
@@ -161,6 +211,21 @@ private:
       const double hw = 0.5 * (o.carrying ? carry_width_ : width_);
       double x = o.x, y = o.y, yaw = o.yaw;
       const int n = step_s_ > 0.0 ? static_cast<int>(horizon_s_ / step_s_) : 0;
+      std::vector<Pose2> along;
+      const auto pl = plans.find(o.id);
+      if (pl != plans.end() && o.v >= 0.02) {
+        along = posesAlongPath(pl->second, o.x, o.y, o.v, step_s_, n, plan_max_offset_);
+      }
+      if (!along.empty()) {
+        shapes_.push_back(Shape{tx + c * x - s * y, ty + s * x + c * y, yaw + tyaw, hl, hw,
+            nav2_costmap_2d::LETHAL_OBSTACLE});
+        for (size_t k = 0; k < along.size(); ++k) {
+          const auto & q = along[k];
+          shapes_.push_back(Shape{tx + c * q.x - s * q.y, ty + s * q.x + c * q.y, q.yaw + tyaw, hl, hw,
+              predictedCost((k + 1) * step_s_, std::min(near_s_, horizon_s_), horizon_s_, predicted_cost_, far_cost_)});
+        }
+        continue;
+      }
       for (int k = 0; k <= n; ++k) {
         if (k > 0) {  // constant speed and turn rate
           x += o.v * std::cos(yaw) * step_s_;
@@ -217,6 +282,11 @@ private:
   double length_{0.70}, width_{0.60}, carry_length_{1.25}, carry_width_{1.05};
   double horizon_s_{2.0}, step_s_{0.4}, max_age_s_{1.0}, near_s_{2.0};
   unsigned char predicted_cost_{200}, far_cost_{20};
+  bool use_plans_{false};
+  double plan_max_age_s_{3.0}, plan_max_offset_{0.5};
+  rclcpp::SubscriptionOptions opts_;
+  std::unordered_map<std::string, rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr> plan_subs_;
+  std::unordered_map<std::string, Plan> plans_;
   std::string self_;
   rclcpp::Clock::SharedPtr clock_;
   rclcpp::Subscription<swarmflow_interfaces::msg::RobotState>::SharedPtr sub_;
