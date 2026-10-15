@@ -180,6 +180,9 @@ quick start.
 | `SWARMFLOW_LAYOUT` | `standard` | Layout name under `layouts/` used by the sim, robots, orchestrator, scenario engine, payload and viz. |
 | `SWARMFLOW_ROBOTS` | `robot_1,robot_2,robot_3` | Robot ids the sim spawns and the orchestrator and payload nodes manage. The `robot_N` compose services are fixed to three; for a scenario with fewer robots start only those services (as `tests/integration/demo_run.sh` does). |
 | `SWARMFLOW_RTF` | `1.0` | Real-time-factor cap for Gazebo (lower it if the CPU is hot; metrics are in sim time). |
+| `SWARMFLOW_PREDICTION_HORIZON` | `2.0` | v2: seconds of other-robot prediction in the costmaps; `0` = current footprints only. 5 s was tried in v2.1 and lost ([v2_benchmarks](docs/results/v2_benchmarks.md#v21-anti-jamming-m18-2026-10-15)). |
+| `SWARMFLOW_PREDICT_ALONG_PLAN` | off | v2.1 experiment: `1` predicts other robots along their published Nav2 plans instead of a straight line. Off: it did not reduce stuck episodes. |
+| `SWARMFLOW_FOOTPRINT_CRITIC` | off | v2.1 experiment: `1` makes MPPI score the whole footprint. Off: with pick points 0.45 m from the racks it stalls robots in the storage aisles. |
 | `SWARMFLOW_LOCALIZATION` | `ground_truth` | Robot localization: `ground_truth` (Gazebo pose) or `amcl` (tuned on v2 layouts; see limitations and the [realism ladder](docs/results/v2_realism_ladder.md)). |
 | `SWARMFLOW_AGENT` | `true` | Start the robot agent inside each robot container. |
 | `SWARMFLOW_TRAFFIC_CONTROL` | `true` | Robot agent honours zone reservations. `false` makes robots drive straight into aisles. |
