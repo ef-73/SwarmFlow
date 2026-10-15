@@ -342,3 +342,13 @@ parameter; the default does not change.
 **Deferred (not built in v2.1):** localisation health monitoring + AMCL CPU budget (precondition for an AMCL default);
 dock-area jamming beyond what J-02 gives; an "ideal path" second planner; N-04 probe, N-05b MPPI critic, P-03, I-02,
 V-09, O-06.
+
+**Outcome (2026-10-15, results in [v2_benchmarks](results/v2_benchmarks.md#v21-anti-jamming-m18-2026-10-15)).**
+J-01, J-02 and J-04 were built (T058, T061; all three are switches, defaults unchanged) and measured; none met the
+decision rule, so J-03 had nothing to combine and the v2.0 navigation defaults stay. J-02 was stopped after one run
+(4 deliveries, 36 stuck episodes): pick points 0.45 m from the racks are inside Nav2's inscribed-inflation band, so
+footprint scoring rejects the poses robots need. X-01b (T062) cut the viz node's main costs; viz 0.36 core, target
+0.30 still not met. New finding: stuck episodes rise sharply with host CPU load (same code: 4–21 per run at
+115–126 % robot CPU, 23–49 at 142–149 %); compare only runs at matching load.
+**Next** (not started): move pick points ~0.1 m off the racks (layout generator, WS-F) and retry J-02; interleave
+variants with controls in any further comparison.
