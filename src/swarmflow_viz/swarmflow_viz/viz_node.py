@@ -32,6 +32,7 @@ from swarmflow_interfaces.msg import Order, OrderStatus, PayloadState, RobotStat
 
 from . import fleet_view as fv
 from .gz_overlay import GzOverlay, board_json, build_overlay
+from .path_cdr import path_xy
 from .zones import zone_markers
 from .world_scene import Shape, load_world
 
@@ -77,6 +78,7 @@ class VizNode(Node):
         self._order_states: Dict[str, str] = {}
         self._payload: Dict[str, PayloadState] = {}
         self._paths: Dict[str, List[Tuple[float, float]]] = {}
+        self._scene: Optional[MarkerArray] = None
 
         self.create_subscription(RobotState, "/fleet/robot_states", self._on_state, _STATE_QOS)
         self.create_subscription(ZoneReservation, "/fleet/reservations", self._on_lease, _QOS)
@@ -86,7 +88,8 @@ class VizNode(Node):
             self._subscribe_gz(f"/world/{self._world.name}/dynamic_pose/info")
         for r in self._robots:
             self.create_subscription(PayloadState, f"/{r}/payload_state", self._on_payload, 10)
-            self.create_subscription(Path, f"/{r}/plan", lambda m, r=r: self._on_plan(r, m), 10)
+            # raw: only x, y are needed, and full deserialization of the plans was the node's largest cost (X-01b)
+            self.create_subscription(Path, f"/{r}/plan", lambda m, r=r: self._on_plan(r, m), 10, raw=True)
 
         self._scene_pub = self.create_publisher(MarkerArray, "/viz/scene", _LATCHED)
         self._zones_pub = self.create_publisher(MarkerArray, "/viz/zones", _LATCHED)
@@ -129,8 +132,11 @@ class VizNode(Node):
     def _on_payload(self, msg: PayloadState) -> None:
         self._payload[msg.robot_id] = msg
 
-    def _on_plan(self, robot: str, msg: Path) -> None:
-        self._paths[robot] = [(p.pose.position.x, p.pose.position.y) for p in msg.poses]
+    def _on_plan(self, robot: str, data: bytes) -> None:
+        try:
+            self._paths[robot] = path_xy(data)
+        except ValueError as e:
+            self.get_logger().warn(f"{robot}/plan: {e}", throttle_duration_sec=30.0)
 
     def _subscribe_gz(self, topic: str) -> None:
         try:
@@ -171,8 +177,15 @@ class VizNode(Node):
         return (min(xs), min(ys), max(xs), max(ys))
 
     def _pub_scene(self) -> None:
-        shapes = self._world.static if self._world else ()
-        self._scene_pub.publish(fv.scene_markers(shapes, self._bounds(), self._places(), self._now()))
+        # the scene is static: build it once, then only refresh the stamps (rebuilding cost ~0.4 s each, X-01b)
+        if self._scene is None:
+            shapes = self._world.static if self._world else ()
+            self._scene = fv.scene_markers(shapes, self._bounds(), self._places(), self._now())
+        else:
+            st = fv.stamp(self._now())
+            for m in self._scene.markers:
+                m.header.stamp = st
+        self._scene_pub.publish(self._scene)
 
     def _pub_packages(self) -> None:
         with self._pkg_lock:
