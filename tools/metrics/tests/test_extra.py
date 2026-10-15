@@ -100,3 +100,18 @@ def test_short_run_uses_covered_sim_span(tmp_path):
     header, row = (d / "metrics.csv").read_text(encoding="utf-8").splitlines()[:2]
     m = dict(zip(header.split(","), row.split(",")))
     assert abs(float(m["duration_s"]) - 300.0) < 1e-6 and abs(float(m["throughput_per_min"]) - 0.2) < 1e-6
+
+
+def test_stuck_episodes_by_area():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("compute_stuck", COMPUTE)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    aisles = mod.load_aisles("warehouse_v2")
+    assert mod.area_of(4.0, 10.0, aisles) == "storage" and mod.area_of(10.0, 15.0, aisles) == "central"
+    assert mod.area_of(5.0, 23.0, aisles) == "cross" and mod.area_of(6.5, 29.0, aisles) == "docks"
+    assert mod.load_aisles("no_such_layout") == [] and mod.area_of(1.0, 1.0, []) == "other"
+    modes = ["NAVIGATING", "STUCK", "STUCK", "NAVIGATING", "STUCK"]
+    by_robot = {"robot_1": [{"t": float(i), "mode": m, "x": 4.0, "y": 10.0} for i, m in enumerate(modes)],
+                "robot_2": [{"t": 0.0, "mode": "STUCK", "x": 6.5, "y": 29.0}]}
+    assert sorted(mod.stuck_episodes(by_robot, aisles)) == ["docks", "storage", "storage"]
