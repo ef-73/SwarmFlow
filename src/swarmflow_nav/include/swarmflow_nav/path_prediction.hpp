@@ -53,7 +53,7 @@ inline std::vector<Pose2> posesAlongPath(
         yaw = std::atan2(path[seg + 1].second - path[seg].second, path[seg + 1].first - path[seg].first);
       }
     }
-    if (want >= left_in_seg) {  // end of the path: the goal
+    if (want > left_in_seg + 1e-9) {  // past the last segment: the goal (landing on a corner is not the end)
       out.push_back(Pose2{path.back().first, path.back().second, yaw});
       break;
     }
