@@ -1,5 +1,5 @@
 #!/bin/bash
-# Unattended demo run (design §15.4 item 2; milestone M6), lead-only (takes the sim lock):
+# Unattended demo run (design §15.4 item 2; milestone M6) (takes the sim lock):
 # full v1 stack + scenario for <minutes> of wall time, optional GUI screenshots, then metrics.
 # Usage: tests/integration/demo_run.sh <run_id> [minutes=10] [scenario=v1_demo] [policy=fcfs] [screenshot=1]
 set -uo pipefail

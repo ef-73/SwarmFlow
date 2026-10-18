@@ -1,4 +1,4 @@
-"""Assignment-only fleet core for v2 (improvements_v2 O-01 ... O-05, O-08, P-01).
+"""Assignment-only fleet core for v2 (O-01 ... O-05, O-08, P-01).
 
 Same surface as :class:`swarmflow_core.fleet.FleetCore` (``add_order``, ``update_robot``, ``task_result``, ``tick``,
 ``order_state``, ``orders``) but it only decides *which robot does which order* and the ordered goal list. Every

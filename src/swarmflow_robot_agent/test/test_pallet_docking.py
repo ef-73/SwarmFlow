@@ -1,6 +1,6 @@
-"""T042: pallet docking in the robot agent (improvements_v2 F-02, F-04): pre-dock pose, straight drive under the
+"""T042: pallet docking in the robot agent (F-02, F-04): pre-dock pose, straight drive under the
 pallet, lift, carry with the large footprint, deep drop at the dock, unload, back out, normal footprint.
-Lead test: do not edit."""
+"""
 
 from __future__ import annotations
 

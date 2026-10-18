@@ -1,4 +1,4 @@
-"""Station claims (M6 finding: two robots sent to the same loading station gridlock there). Lead test.
+"""Station claims (M6 finding: two robots sent to the same loading station gridlock there).
 
 Rule (FleetCore): an order is assignable only if (a) no other active order with the same pickup station is still
 ASSIGNED or PICKING_UP, and (b) no other active order with the same dropoff station is not yet DELIVERED/FAILED.

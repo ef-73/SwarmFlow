@@ -1,5 +1,5 @@
 """FCFS policy, fleet core and fake-backend end-to-end tests (design §6.3, §6.7, §10, §13.5, §14.2 WS-B).
-Lead test: do not edit."""
+"""
 
 from __future__ import annotations
 

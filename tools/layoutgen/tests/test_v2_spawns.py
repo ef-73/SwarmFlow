@@ -1,4 +1,4 @@
-"""T052: warehouse_v2 spawns 8 robots, one per home slot (light-mode scaling check). Lead test: do not edit."""
+"""T052: warehouse_v2 spawns 8 robots, one per home slot (light-mode scaling check)."""
 
 import pathlib
 

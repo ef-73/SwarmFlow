@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pallet order end to end in Gazebo (improvements_v2 M16: F-01 ... F-05). Lead-only, sim lock held by the caller.
+"""Pallet order end to end in Gazebo (M16: F-01 ... F-05). Needs Gazebo; sim lock held by the caller.
 
 Runs inside robot_1's container while gazebo, orchestrator (policy assign), payload and robot_1 are up:
     python3 /tmp/pallet_check.py PL_W1 DK1 [--timeout 300]

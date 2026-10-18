@@ -1,4 +1,4 @@
-"""M9 fleet-core hardening (independent review S5): STUCK robots are not lost forever. Lead test: do not edit."""
+"""M9 fleet-core hardening (independent review S5): STUCK robots are not lost forever."""
 
 from __future__ import annotations
 

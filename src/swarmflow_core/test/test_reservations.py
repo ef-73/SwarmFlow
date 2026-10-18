@@ -1,4 +1,4 @@
-"""Reservation authority tests — safety-critical (design §6.5). Lead test: do not edit.
+"""Reservation authority tests — safety-critical (design §6.5).
 
 Implementation under test: ``swarmflow_core.reservations.FcfsReservationAuthority(graph)``.
 """

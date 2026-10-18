@@ -1,4 +1,4 @@
-"""T026: v2 warehouse layout (improvements_v2 L-01 ... L-06, decision 002 schema). Lead test: do not edit."""
+"""T026: v2 warehouse layout (L-01 ... L-06, decision 002 schema)."""
 
 from __future__ import annotations
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Blocked-robot check on warehouse_v2 (improvements_v2 N-03/N-04, M14). Lead-only, Gazebo, agents on.
+"""Blocked-robot check on warehouse_v2 (N-03/N-04, M14). Needs Gazebo, agents on.
 
 robot_2 is parked on a pick point; robot_1 gets a v2 goal task (DispatchTask, ROUTE_GOALS) to that same pick point
 through its robot agent. The goal can never be reached. Pass when, within --limit sim seconds of the dispatch,

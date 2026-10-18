@@ -1,6 +1,6 @@
 #!/bin/bash
 # Build the colcon workspace at image build time (design §8.2: runtime images contain the built workspace).
-# Throttled per AGENTS.md §5. Usage: build_ws.sh [colcon package-selection args]
+# Throttled per CONTRIBUTING.md. Usage: build_ws.sh [colcon package-selection args]
 set -eo pipefail
 source /opt/ros/jazzy/setup.bash
 cd /ws

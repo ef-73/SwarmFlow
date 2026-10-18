@@ -1,4 +1,4 @@
-// Keep-right costmap layer (improvements_v2 N-09, decided 2026-10-10).
+// Keep-right costmap layer (N-09, decided 2026-10-10).
 //
 // Robots drive on the right-hand side of the central aisle and the storage aisles. Inside every aisle rectangle from
 // the layout (`aisles` in zones.yaml, passed in by robot.launch.py as a flat parameter list), the half on the robot's

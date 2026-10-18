@@ -1,4 +1,4 @@
-"""T027: v2 order generator (shelf and pallet orders, improvements_v2 P-02, F-06). Lead test: do not edit.
+"""T027: v2 order generator (shelf and pallet orders, P-02, F-06).
 
 Scenario format (orders.mode = v2_rate):
     orders:

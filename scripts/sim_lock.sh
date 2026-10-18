@@ -1,5 +1,5 @@
 #!/bin/bash
-# Gazebo sim lock (AGENTS.md §5): lead-only, one sim at a time (thermal limit).
+# Gazebo sim lock (CONTRIBUTING.md): one sim at a time (thermal limit).
 #   scripts/sim_lock.sh acquire <task-id> [expected-minutes]   (max 20 min per session)
 #   scripts/sim_lock.sh release | status
 # Authoritative check: no running container labelled swarmflow.sim=1 (any compose project).

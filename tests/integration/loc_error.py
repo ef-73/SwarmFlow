@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Localisation error recorder (realism ladder I-01). Lead-only, runs inside a robot container during a run.
+"""Localisation error recorder (realism ladder I-01). Runs inside a robot container during a run.
 
 Compares every robot's reported pose (/fleet/robot_states, from AMCL when localization:=amcl) with Gazebo's ground
 truth (/<robot>/odom_gt, bridged only in the AMCL rung) and writes mean / p95 / max position error per robot.

@@ -1,4 +1,4 @@
-"""Scenario / order generator tests (design §12.3, §13.5; WS-F "same seed → identical stream"). Lead test.
+"""Scenario / order generator tests (design §12.3, §13.5; WS-F "same seed → identical stream").
 
 API under test (tools/scenarios/scenarios/): ``load_scenario(path) -> Scenario`` and
 ``generate_orders(scenario, graph) -> list[api.OrderSpec]``.

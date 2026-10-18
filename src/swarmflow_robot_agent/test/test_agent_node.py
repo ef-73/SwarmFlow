@@ -1,5 +1,5 @@
 """Robot agent ROS node test against a fake NavigateThroughPoses server (design §6.3, §14.2 WS-D acceptance:
-"agent drives a fake NavigateThroughPoses server through a route with a zone hold"). Lead test: do not edit.
+"agent drives a fake NavigateThroughPoses server through a route with a zone hold").
 
 Runs in the dev image with plain rclpy (no Gazebo, no Nav2). Wall clock (use_sim_time false) for speed.
 """

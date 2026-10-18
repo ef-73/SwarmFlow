@@ -1,5 +1,5 @@
-"""T025 light mode: pure kinematic world with simple local avoidance (improvements_v2 X-09 / C-03).
-Lead test: do not edit."""
+"""T025 light mode: pure kinematic world with simple local avoidance (X-09 / C-03).
+"""
 
 from __future__ import annotations
 

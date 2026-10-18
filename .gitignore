@@ -39,3 +39,9 @@ Thumbs.db
 
 # Hypothesis example database (property tests)
 .hypothesis/
+
+# Local-only working material (agent rules, task cards, logs, plans) — never published
+.private/
+AGENTS.md
+CLAUDE.md
+.claude/

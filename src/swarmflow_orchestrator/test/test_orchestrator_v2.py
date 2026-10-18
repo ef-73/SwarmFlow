@@ -1,4 +1,4 @@
-"""T030: orchestrator node with the v2 fleet core (policy "assign") on warehouse_v2. Lead test: do not edit.
+"""T030: orchestrator node with the v2 fleet core (policy "assign") on warehouse_v2.
 Wall clock, rclpy only, no Gazebo/Nav2. A fake DispatchTask server walks the goal list and reports RobotStates."""
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""Assignment-only policy for v2 (improvements_v2 O-01 ... O-03): which robot does which order, and the ordered goal
+"""Assignment-only policy for v2 (O-01 ... O-03): which robot does which order, and the ordered goal
 list. No routes through the graph, no reservations: goal tasks only (``api.ROUTE_GOALS``).
 
 Orders are planned by priority (descending), then release time, then id. For each order every available robot gets a

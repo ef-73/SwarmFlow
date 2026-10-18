@@ -1,4 +1,4 @@
-"""T027: the scenario engine publishes v2 order fields (order_type, pick_vertices, pallet_id). Lead test."""
+"""T027: the scenario engine publishes v2 order fields (order_type, pick_vertices, pallet_id)."""
 
 from __future__ import annotations
 

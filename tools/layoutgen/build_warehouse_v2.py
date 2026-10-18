@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Writes layouts/warehouse_v2/layout.yaml (T026 geometry, improvements_v2 L-01..L-06).
+"""Writes layouts/warehouse_v2/layout.yaml (T026 geometry, L-01..L-06).
 
 Usage: build_warehouse_v2.py [out_path]   (default layouts/warehouse_v2/layout.yaml)
 The geometry lives only here; edit this script and regenerate, then run tools/layoutgen/generate.py.

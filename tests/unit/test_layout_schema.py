@@ -1,4 +1,4 @@
-"""Layout/sidecar schema contract tests (design §6.1, §7.2; milestone M2 verify). Lead test."""
+"""Layout/sidecar schema contract tests (design §6.1, §7.2; milestone M2 verify)."""
 
 from __future__ import annotations
 

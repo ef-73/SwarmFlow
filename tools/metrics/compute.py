@@ -22,7 +22,7 @@ COLUMNS = ["run_id", "scenario", "policy", "seed", "duration_s", "deliveries", "
            "mean_latency_s", "total_wait_s", "mean_wait_s", "stuck_events", "failed_orders", "clearance_violations",
            "min_separation_m", "near_misses", "stuck_episodes", "stuck_by_area"]
 SPEED_EPS = 0.05
-NEAR_MISS_M = 0.30   # footprint-to-footprint distance counted as a near miss (improvements_v2 §14, M14)
+NEAR_MISS_M = 0.30   # footprint-to-footprint distance counted as a near miss (v2 criterion, M14)
 REPO = pathlib.Path(__file__).resolve().parents[2]
 
 

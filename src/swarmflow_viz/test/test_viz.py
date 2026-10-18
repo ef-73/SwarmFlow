@@ -1,5 +1,5 @@
 """swarmflow_viz zone overlay (design §11.1). v1 robot/station markers and the v1 Foxglove layout were removed in X-02;
-the v2 view is tested in test_fleet_view_t021.py. Lead test."""
+the v2 view is tested in test_fleet_view_t021.py."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-// Costmap layer that stamps the other robots' footprints into a robot's costmaps (improvements_v2 N-05a).
+// Costmap layer that stamps the other robots' footprints into a robot's costmaps (N-05a).
 //
 // Why: the v2 robots carry their 360° lidar inside a horizontal sensor slot at 0.20 m (N-06). Every robot has that
 // slot at the same height, so a scan plane passes through the other robots and only hits their four thin deck posts:
@@ -9,7 +9,7 @@
 //   - its footprint at the predicted positions over `horizon_s` (constant speed and turn rate), with a cost that
 //     falls from `predicted_cost` to half of it over `near_s`, then on to `far_cost` at `horizon_s`, so the planner
 //     and MPPI keep out of its way and a long look-ahead only nudges (stage a of N-05; prediction_cost.hpp).
-// With `use_plans` (J-04, improvements_v2 §15) a moving robot is predicted along its published Nav2 plan
+// With `use_plans` (J-04, v2.1) a moving robot is predicted along its published Nav2 plan
 // (/<robot>/plan, map frame) at its current speed instead, so a robot about to turn into an aisle is expected there;
 // without a fresh plan it is near, it falls back to constant speed and turn rate.
 // States are in the map frame and are transformed into the costmap's global frame (odom for the local costmap).

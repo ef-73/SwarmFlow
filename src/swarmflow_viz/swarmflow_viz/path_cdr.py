@@ -1,4 +1,4 @@
-"""x, y of every pose of a serialized ``nav_msgs/Path`` (X-01b, improvements_v2 §15).
+"""x, y of every pose of a serialized ``nav_msgs/Path`` (X-01b, v2.1).
 
 Deserializing a Nav2 plan in rclpy builds six Python objects per pose (PoseStamped, Header, Time, Pose, Point,
 Quaternion); with four robots replanning every second that was the largest cost of the viz node (profiled

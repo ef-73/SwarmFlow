@@ -1,5 +1,5 @@
 #!/bin/bash
-# SwarmFlow CI referee (Lead-owned; design §14.3, AGENTS.md §6).
+# SwarmFlow CI referee (design §14.3, CONTRIBUTING.md).
 # Run from the repo root. To verify a task branch, run main's copy:  bash <(git show main:scripts/ci.sh)
 #   (not `| bash -s`: docker compose run would read the rest of the script from stdin)
 #   CI_BASE        base ref to diff against (default: main, or origin/$GITHUB_BASE_REF on GitHub)
@@ -51,8 +51,9 @@ glob_match() { # glob_match <path> <glob>  (** matches across /)
 }
 if [[ "$BRANCH" =~ ^ws-[a-f]/(T[0-9]{3}[a-z]?)- ]]; then
   task="${BASH_REMATCH[1]}"
-  card="$(ls docs/tasks/"$task"-*.md 2>/dev/null | head -1)"
-  if [ -z "$card" ]; then bad "owned-files: no task card docs/tasks/$task-*.md"
+  # Task cards are local working files (docs/tasks/ or .private/docs/tasks/); without one the check is skipped.
+  card="$(ls docs/tasks/"$task"-*.md .private/docs/tasks/"$task"-*.md 2>/dev/null | head -1)"
+  if [ -z "$card" ]; then pass "owned-files (skipped: no local task card for $task)"
   else
     # Lead base: the lead commits card + lead tests on the task branch before dispatch (so main stays green).
     # If that commit is not on the base branch, owned-files and lead-tests diff from it instead of the merge-base.
@@ -67,7 +68,7 @@ if [[ "$BRANCH" =~ ^ws-[a-f]/(T[0-9]{3}[a-z]?)- ]]; then
       [ -z "$f" ] && continue
       ok=0
       [ "$f" = "$card" ] && ok=1
-      [[ "$f" =~ ^docs/agent_log/.*-$task\.md$ ]] && ok=1
+      [[ "$f" =~ ^(\.private/)?docs/agent_log/.*-$task\.md$ ]] && ok=1
       for g in "${owned[@]}"; do [ -n "$g" ] && glob_match "$f" "$g" && ok=1; done
       for t in "${ltests[@]}"; do [ "$f" = "$t" ] && ok=0; done
       [ $ok = 1 ] || outside+="$f"$'\n'

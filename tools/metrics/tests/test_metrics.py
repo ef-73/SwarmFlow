@@ -1,4 +1,4 @@
-"""Metrics tests (design §13.1, §13.2, §13.5). Lead test: do not edit.
+"""Metrics tests (design §13.1, §13.2, §13.5).
 
 CLIs: ``python3 tools/metrics/compute.py runs/<run_id>/`` → ``metrics.csv`` in that dir;
 ``python3 tools/metrics/compare.py runs/A runs/B ... [--out table.md]`` → mean ± 95 % CI per (scenario, policy).

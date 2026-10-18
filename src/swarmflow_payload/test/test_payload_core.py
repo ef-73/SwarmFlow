@@ -1,4 +1,4 @@
-"""Package pose-follower core (design §7.4). Lead test: do not edit.
+"""Package pose-follower core (design §7.4).
 
 Under test: ``swarmflow_payload.payload_core.PayloadCore`` — pure Python, time passed in, no ROS / gz imports.
 """

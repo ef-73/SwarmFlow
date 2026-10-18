@@ -1,4 +1,4 @@
-"""Corridor scenario must make robots meet in the 2D backend calibrated to Gazebo timing (M7 finding). Lead test.
+"""Corridor scenario must make robots meet in the 2D backend calibrated to Gazebo timing (M7 finding).
 
 Gazebo M7 run 1 showed the fake-backend choreography never produced opposing aisle traffic. The 2D backend drives the
 real AgentCore (holds, reservations, dwell) — here slowed to Gazebo-like kinematics.

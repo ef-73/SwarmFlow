@@ -1,4 +1,4 @@
-"""Pallet follower core (improvements_v2 F-03). Pure Python: no ROS, no gz; time is always an argument.
+"""Pallet follower core (F-03). Pure Python: no ROS, no gz; time is always an argument.
 
 A pallet order's pallet rides on the robot that carries it: not while LIFTING, raised by ``LIFT_Z`` while CARRYING and
 UNLOADING, and set down (z 0) at the robot's pose when the robot leaves UNLOADING; it never moves again afterwards.

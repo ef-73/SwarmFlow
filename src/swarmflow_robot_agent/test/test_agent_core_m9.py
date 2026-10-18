@@ -1,4 +1,4 @@
-"""M9 robot-agent hardening (independent review S1, S4). Lead test: do not edit."""
+"""M9 robot-agent hardening (independent review S1, S4)."""
 
 from __future__ import annotations
 

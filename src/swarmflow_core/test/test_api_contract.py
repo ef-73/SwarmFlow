@@ -1,4 +1,4 @@
-"""Frozen API smoke test (design §6.7). Lead test."""
+"""Frozen API smoke test (design §6.7)."""
 import dataclasses
 
 from swarmflow_core import api

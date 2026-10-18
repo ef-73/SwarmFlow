@@ -1,5 +1,5 @@
 #!/bin/bash
-# Day-2 go/no-go gate run (design §15.2), lead-only (takes the sim lock): full stack with 3 robots + agents +
+# Day-2 go/no-go gate run (design §15.2) (takes the sim lock): full stack with 3 robots + agents +
 # orchestrator, one order per robot through a storage-aisle hold; PASS when every order is DELIVERED.
 # Usage: tests/integration/gate_run.sh <run_id> [timeout_s]   → runs/<run_id>/ holds the run record.
 set -uo pipefail

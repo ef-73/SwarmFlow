@@ -1,10 +1,10 @@
 <library path="swarmflow_nav_layers">
   <class type="swarmflow_nav::OtherRobotsLayer" base_class_type="nav2_costmap_2d::Layer">
     <description>Stamps the other robots' reported footprints (and their predicted positions) into the costmap
-      from /fleet/robot_states (improvements_v2 N-05a): v2 robots cannot see each other with their slot lidar.</description>
+      from /fleet/robot_states (N-05a): v2 robots cannot see each other with their slot lidar.</description>
   </class>
   <class type="swarmflow_nav::KeepRightLayer" base_class_type="nav2_costmap_2d::Layer">
-    <description>Keep-right rule (improvements_v2 N-09): a moderate cost on the left half of each aisle relative to
+    <description>Keep-right rule (N-09): a moderate cost on the left half of each aisle relative to
       the robot's direction of travel.</description>
   </class>
 </library>

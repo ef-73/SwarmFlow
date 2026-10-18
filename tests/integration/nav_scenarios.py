@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Multi-robot local-navigation scenarios on warehouse_v2 (improvements_v2 M14: N-01 ... N-09). Lead-only, Gazebo.
+"""Multi-robot local-navigation scenarios on warehouse_v2 (M14: N-01 ... N-09). Needs Gazebo.
 
 Run inside a robot container while gazebo + robot_N (agent:=false) are up:
     python3 /ws/tests/integration/nav_scenarios.py <scenario> [--out runs/nav/<id>.json]
@@ -47,7 +47,7 @@ SCENARIOS = {
     # the same meeting with the roles swapped: its starts are where dead_end ends, so the two alternate for repeats
     "dead_end_rev": {"robot_1": ((1.5, 16.5, E), (9.0, 16.5, E)), "robot_2": ((9.0, 16.5, W), (1.5, 16.5, W))},
     # v2.1 J-02: leave a pick point (0.45 m from the rack, PK_E1_N_02) and turn back out of the dead-end aisle E1;
-    # in the demos most stuck episodes were robots stopped mid-turn here (improvements_v2 §15)
+    # in the demos most stuck episodes were robots stopped mid-turn here (v2.1)
     "pick_turn": {"robot_1": ((15.0, 10.75, E), (10.0, 16.0, N))},
     # the same with a second robot parked at the opposite-face pick point nearer the exit (PK_E1_S_01)
     "pick_turn_pair": {"robot_2": ((13.0, 9.45, E), None), "robot_1": ((15.0, 10.75, E), (10.0, 16.0, N))},

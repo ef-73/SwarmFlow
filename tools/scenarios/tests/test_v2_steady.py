@@ -1,4 +1,4 @@
-"""T040: steady-load v2 scenario for 4 robots (M15 / E-01). Lead test: do not edit."""
+"""T040: steady-load v2 scenario for 4 robots (M15 / E-01)."""
 
 from __future__ import annotations
 

@@ -1,5 +1,5 @@
 """Orchestrator ROS adapter test (design §6.5, §6.6, §10, §13.5; WS-B acceptance "order → DispatchTask goal →
-ASSIGN decision event"). Lead test: do not edit. Wall clock (use_sim_time false), rclpy only, no Gazebo/Nav2.
+ASSIGN decision event"). Wall clock (use_sim_time false), rclpy only, no Gazebo/Nav2.
 """
 
 from __future__ import annotations

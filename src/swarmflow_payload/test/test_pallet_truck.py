@@ -1,4 +1,4 @@
-"""T047: a pallet set down at a dock is taken away by the truck after TRUCK_AFTER_S. Lead test: do not edit."""
+"""T047: a pallet set down at a dock is taken away by the truck after TRUCK_AFTER_S."""
 
 from __future__ import annotations
 

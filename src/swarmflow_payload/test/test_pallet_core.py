@@ -1,4 +1,4 @@
-"""T041: pallet follower core (improvements_v2 F-03, F-04 payload state). Lead test: do not edit."""
+"""T041: pallet follower core (F-03, F-04 payload state)."""
 
 from __future__ import annotations
 

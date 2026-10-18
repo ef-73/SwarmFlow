@@ -72,7 +72,13 @@ were redone under the same ids.
 
 ## v2.1 anti-jamming (M18, 2026-10-15)
 
-Plan and decision rule: [improvements_v2 §15](../improvements_v2.md). All runs `v2_demo`, 4 robots, ground truth,
+**Decision rule** (fixed before the first run; keep a change only if all hold, against the baseline): stuck episodes
+per run at least 25 % lower (baseline mean 8.25 → ≤ 6.2); mean deliveries ≥ baseline mean − 1 (15.0 → ≥ 14.0); no
+contact (min footprint distance > −0.10 m; baseline worst −0.054); clearance violations ≤ baseline mean + 1
+(1.75 → ≤ 2.75). n = 3 per variant, so differences smaller than the run-to-run spread are reported as such. A losing
+change stays available as a parameter; the default does not change.
+
+All runs `v2_demo`, 4 robots, ground truth,
 10 sim-min, fresh containers, current images; `stuck episodes` = entries into `STUCK` (new metric, T059). A run counts
 only if it covered the whole 600 s window (the harness stops at a wall-time cap when the sim runs slower than real
 time); excluded runs are listed.

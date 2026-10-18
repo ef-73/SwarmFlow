@@ -9,7 +9,7 @@ corridor when. It does not recreate any company's internal warehouse software or
 universally; it is an extensible, measurable implementation of warehouse coordination techniques
 ([design](design.md), section 19).
 
-**v2** (release candidate, [improvements_v2](improvements_v2.md), results in
+**v2** (released as `v2.0.0` / `v2.1.0`, results in
 [v2_benchmarks](results/v2_benchmarks.md) and [v2_realism_ladder](results/v2_realism_ladder.md)):
 
 - A 20 × 32 m warehouse (`layouts/warehouse_v2`): two blocks of 5 rack rows, a 4 m central aisle, 64 pick points,
@@ -216,7 +216,7 @@ Every run writes `runs/<run_id>/` (design section 13.5; `runs/` is bind-mounted 
 | `robot_states.jsonl` | orchestrator | Robot states sampled at 2 Hz. |
 | `metrics.csv` | `tools/metrics/compute.py` | Deliveries, throughput, latency, waiting time, stuck events, failed orders, clearance violations. |
 
-Scripts (lead-only, they take the sim lock and run Gazebo):
+Scripts (they take the sim lock and run Gazebo):
 
 - `tests/integration/gate_run.sh <run_id> [timeout_s]`: full stack, one order per robot through a storage aisle, PASS
   when all three are delivered. This is the M5 gate run.
@@ -311,7 +311,7 @@ Full architecture: [design section 6](design.md).
 
 ## Development
 
-Everything builds and tests inside the `dev` image. Set a per-worktree compose project first (AGENTS.md section 6):
+Everything builds and tests inside the `dev` image. Set a per-worktree compose project first ([CONTRIBUTING.md](../CONTRIBUTING.md)):
 
 ```bash
 export COMPOSE_PROJECT_NAME=swarmflow-$(basename "$(git rev-parse --show-toplevel)" | tr A-Z a-z) SWARMFLOW_GUI=none
@@ -321,9 +321,8 @@ docker compose run --rm dev pytest src/swarmflow_core -q
 scripts/ci.sh        # the referee: contract diff, owned files, hygiene, build, tests
 ```
 
-- Rules for contributors and agents: [`AGENTS.md`](../AGENTS.md). Design: [`docs/design.md`](design.md). Work plan:
-  [`docs/milestones.md`](milestones.md). Task cards: [`docs/tasks/`](tasks/). Agent logs:
-  [`docs/agent_log/`](agent_log/). Decisions: [`docs/decisions/`](decisions/).
+- Contributor guide: [`CONTRIBUTING.md`](../CONTRIBUTING.md). Design: [`docs/design.md`](design.md). Decisions:
+  [`docs/decisions/`](decisions/).
 - Contracts (ROS interfaces, layout schema, orchestrator API, fixtures) are frozen and change only on `lead/contract-*`
   branches.
 - Only one Gazebo simulation may run at a time (the laptop has a thermal limit). Use `scripts/sim_lock.sh`

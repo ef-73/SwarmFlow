@@ -1,5 +1,5 @@
-"""T028: assignment-only fleet core for v2 (improvements_v2 O-01 ... O-05, O-08, P-01; api.py v2 lifecycle).
-Lead test: do not edit.
+"""T028: assignment-only fleet core for v2 (O-01 ... O-05, O-08, P-01; api.py v2 lifecycle).
+
 
 Synthetic comb graph (metres): a spine along y = 0, homes south of it, pick branches and a pallet north of it, two
 docks with queue lanes.

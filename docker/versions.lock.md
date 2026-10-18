@@ -1,6 +1,6 @@
 # Image and package versions (design §8.2)
 
-Recorded by the lead when images change. apt packages come from the ROS 2 Jazzy and Ubuntu 24.04 (noble) archives
+Recorded when images change. apt packages come from the ROS 2 Jazzy and Ubuntu 24.04 (noble) archives
 at build time; the base image is pinned by digest.
 
 | Item | Version / digest | Recorded |

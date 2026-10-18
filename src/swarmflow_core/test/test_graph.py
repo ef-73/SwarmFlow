@@ -1,4 +1,4 @@
-"""Graph loader tests (design §6.1). Lead test."""
+"""Graph loader tests (design §6.1)."""
 import math
 import pathlib
 

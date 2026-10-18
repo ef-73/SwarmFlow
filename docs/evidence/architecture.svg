@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1010 580" width="1010" height="580" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#334155"/>
+    </marker>
+    <marker id="o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#c2410c"/>
+    </marker>
+  </defs>
+  <rect width="1010" height="580" fill="#ffffff"/>
+
+  <!-- Fleet layer -->
+  <rect x="20" y="16" width="950" height="118" rx="10" fill="#eef2ff" stroke="#a5b4fc"/>
+  <text x="36" y="38" font-size="13" font-weight="700" fill="#3730a3" letter-spacing="0.5">FLEET LAYER · decides who does what</text>
+  <rect x="60" y="52" width="240" height="64" rx="8" fill="#fff" stroke="#334155"/>
+  <text x="180" y="79" font-size="15" font-weight="600" text-anchor="middle" fill="#0f172a">Scenario engine</text>
+  <text x="180" y="99" font-size="12.5" text-anchor="middle" fill="#475569">seeded, repeatable order stream</text>
+  <rect x="400" y="52" width="300" height="64" rx="8" fill="#fff" stroke="#334155"/>
+  <text x="550" y="77" font-size="15" font-weight="600" text-anchor="middle" fill="#0f172a">Orchestrator</text>
+  <text x="550" y="96" font-size="12.5" text-anchor="middle" fill="#475569">lowest-cost assignment, nearest-next</text>
+  <text x="550" y="111" font-size="12.5" text-anchor="middle" fill="#475569">pick order, dock queues</text>
+  <line x1="300" y1="84" x2="396" y2="84" stroke="#334155" stroke-width="1.6" marker-end="url(#a)"/>
+  <text x="348" y="77" font-size="11.5" text-anchor="middle" fill="#334155" font-family="Consolas, monospace">orders</text>
+
+  <!-- goal list: orchestrator -> agent -->
+  <path d="M470,116 V146 H180 V198" fill="none" stroke="#334155" stroke-width="1.6" marker-end="url(#a)"/>
+  <text x="330" y="140" font-size="11.5" text-anchor="middle" fill="#334155">goal list per robot (DispatchTask)</text>
+
+  <!-- Robot layer -->
+  <rect x="20" y="162" width="950" height="160" rx="10" fill="#ecfdf5" stroke="#6ee7b7"/>
+  <text x="36" y="184" font-size="13" font-weight="700" fill="#065f46" letter-spacing="0.5">EACH ROBOT × N · decides how to get there (no central traffic control)</text>
+  <rect x="60" y="200" width="240" height="96" rx="8" fill="#fff" stroke="#334155"/>
+  <text x="180" y="230" font-size="15" font-weight="600" text-anchor="middle" fill="#0f172a">Robot agent</text>
+  <text x="180" y="250" font-size="12.5" text-anchor="middle" fill="#475569">picks, pallet docking,</text>
+  <text x="180" y="266" font-size="12.5" text-anchor="middle" fill="#475569">stuck detection,</text>
+  <text x="180" y="282" font-size="12.5" text-anchor="middle" fill="#475569">publishes its state</text>
+  <rect x="400" y="200" width="300" height="96" rx="8" fill="#fff" stroke="#334155"/>
+  <text x="550" y="236" font-size="15" font-weight="600" text-anchor="middle" fill="#0f172a">Nav2</text>
+  <text x="550" y="256" font-size="12.5" text-anchor="middle" fill="#475569">Smac planner + MPPI controller</text>
+  <text x="550" y="272" font-size="12.5" text-anchor="middle" fill="#475569">plans and drives around everything</text>
+  <rect x="740" y="200" width="210" height="96" rx="8" fill="#fff" stroke="#334155"/>
+  <text x="845" y="226" font-size="15" font-weight="600" text-anchor="middle" fill="#0f172a">Costmap layers</text>
+  <text x="845" y="246" font-size="12.5" text-anchor="middle" fill="#475569">other robots: now and</text>
+  <text x="845" y="262" font-size="12.5" text-anchor="middle" fill="#475569">predicted 2 s ahead;</text>
+  <text x="845" y="278" font-size="12.5" text-anchor="middle" fill="#475569">keep right in aisles</text>
+  <line x1="300" y1="248" x2="396" y2="248" stroke="#334155" stroke-width="1.6" marker-end="url(#a)"/>
+  <text x="348" y="241" font-size="11.5" text-anchor="middle" fill="#334155">route</text>
+  <line x1="740" y1="248" x2="704" y2="248" stroke="#334155" stroke-width="1.6" marker-end="url(#a)"/>
+
+  <!-- Shared state bus -->
+  <rect x="60" y="364" width="890" height="40" rx="20" fill="#fff7ed" stroke="#ea580c" stroke-width="1.8"/>
+  <text x="505" y="389" font-size="13.5" text-anchor="middle" fill="#9a3412"><tspan font-family="Consolas, monospace" font-weight="700">/fleet/robot_states</tspan>  ·  every robot's pose, speed and mode, shared by all</text>
+  <line x1="180" y1="296" x2="180" y2="360" stroke="#c2410c" stroke-width="1.8" marker-end="url(#o)"/>
+  <line x1="845" y1="364" x2="845" y2="300" stroke="#c2410c" stroke-width="1.8" marker-end="url(#o)"/>
+  <path d="M950,384 H988 V84 H704" fill="none" stroke="#c2410c" stroke-width="1.8" marker-end="url(#o)"/>
+  <line x1="180" y1="404" x2="180" y2="456" stroke="#c2410c" stroke-width="1.8" marker-end="url(#o)"/>
+  <line x1="845" y1="404" x2="845" y2="456" stroke="#c2410c" stroke-width="1.8" marker-end="url(#o)"/>
+
+  <!-- Simulation and tools -->
+  <rect x="60" y="460" width="240" height="72" rx="8" fill="#fff" stroke="#334155"/>
+  <text x="180" y="490" font-size="15" font-weight="600" text-anchor="middle" fill="#0f172a">Payload follower</text>
+  <text x="180" y="510" font-size="12.5" text-anchor="middle" fill="#475569">packages and pallets ride along</text>
+  <rect x="400" y="460" width="300" height="72" rx="8" fill="#f1f5f9" stroke="#334155"/>
+  <text x="550" y="490" font-size="15" font-weight="600" text-anchor="middle" fill="#0f172a">Gazebo Harmonic</text>
+  <text x="550" y="510" font-size="12.5" text-anchor="middle" fill="#475569">physics, 360° lidar, warehouse world</text>
+  <rect x="740" y="460" width="210" height="72" rx="8" fill="#fff" stroke="#334155"/>
+  <text x="845" y="490" font-size="15" font-weight="600" text-anchor="middle" fill="#0f172a">Foxglove + metrics</text>
+  <text x="845" y="510" font-size="12.5" text-anchor="middle" fill="#475569">live dashboard, recorded runs</text>
+  <line x1="300" y1="496" x2="396" y2="496" stroke="#334155" stroke-width="1.6" marker-end="url(#a)"/>
+  <text x="348" y="489" font-size="11.5" text-anchor="middle" fill="#334155">set pose</text>
+  <line x1="500" y1="296" x2="500" y2="364" stroke="#334155" stroke-width="1.6"/>
+  <line x1="500" y1="404" x2="500" y2="456" stroke="#334155" stroke-width="1.6" marker-end="url(#a)"/>
+    <text x="494" y="426" font-size="11.5" text-anchor="end" fill="#334155" font-family="Consolas, monospace">cmd_vel</text>
+  <line x1="600" y1="460" x2="600" y2="404" stroke="#334155" stroke-width="1.6"/>
+  <line x1="600" y1="364" x2="600" y2="300" stroke="#334155" stroke-width="1.6" marker-end="url(#a)"/>
+    <text x="608" y="426" font-size="11.5" fill="#334155">pose, scan</text>
+  <text x="505" y="566" font-size="11.5" text-anchor="middle" fill="#64748b">All nodes are ROS 2 Jazzy, one container per robot; the same robot software would run on hardware.</text>
+</svg>

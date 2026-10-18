@@ -1,4 +1,4 @@
-"""Robot agent core tests — safety-critical (design §6.3, §6.5 rules 3–6, §13.5). Lead test: do not edit.
+"""Robot agent core tests — safety-critical (design §6.3, §6.5 rules 3–6, §13.5).
 
 Implementation under test: ``swarmflow_robot_agent.agent_core.AgentCore`` (pure Python, no ROS).
 """

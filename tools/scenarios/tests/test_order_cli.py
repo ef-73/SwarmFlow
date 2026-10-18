@@ -1,4 +1,4 @@
-"""T043: manual orders from the command line (improvements_v2 O-07). Lead test: do not edit.
+"""T043: manual orders from the command line (O-07).
 
     python3 -m scenarios.order_cli shelf --picks PK_W1_S_01 PK_E2_N_03 --dock DK2 [--priority 2] [--id my_1]
     python3 -m scenarios.order_cli pallet --spot PL_W1 --dock DK1

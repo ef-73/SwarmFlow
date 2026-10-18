@@ -1,4 +1,4 @@
-"""Layout generator acceptance tests (design §6.1, §7.2, §14.2 WS-F). Lead test: do not edit.
+"""Layout generator acceptance tests (design §6.1, §7.2, §14.2 WS-F).
 
 CLI under test: ``python3 tools/layoutgen/generate.py <layout.yaml> --out <dir>``.
 """

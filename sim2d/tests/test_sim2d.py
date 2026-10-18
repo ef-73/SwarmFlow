@@ -1,5 +1,5 @@
 """2D kinematic backend skeleton (design §6.7, §14.2 WS-C v1 acceptance: "skeleton runs the FCFS policy on the
-standard layout from sim2d.json deterministically"). Lead test: do not edit."""
+standard layout from sim2d.json deterministically")."""
 
 from __future__ import annotations
 

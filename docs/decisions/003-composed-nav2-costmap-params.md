@@ -1,6 +1,6 @@
 # 003 — Composed Nav2: costmap parameters were never applied (v1); fixed for v2
 
-- **Date:** 2026-10-14 (M14) · **Decided by:** lead (autonomous run; the user can overrule)
+- **Date:** 2026-10-14 (M14) · **Decided by:** maintainers
 - **Finding:** `robot.launch.py` attaches the Nav2 parameter file to each composable node. launch_ros turns that file
   into parameter overrides for that node only, so the **costmap sub-nodes** (`/<rid>/local_costmap/local_costmap`,
   `/<rid>/global_costmap/global_costmap`, created inside the controller and planner servers) never received theirs.
@@ -14,4 +14,4 @@
 - **Decision:** v2 (`nav_profile` v2) passes one merged parameter file to the Nav2 container process with
   `--params-file`, which applies to every node in it, sub-nodes included. v1 keeps its launch unchanged so the
   recorded baseline stays reproducible; E-01 compares v1 *reservations* on the v2 profile anyway.
-- **Not changed:** `docs/source/` and past log entries.
+- **Not changed:** the original design notes and past run records.

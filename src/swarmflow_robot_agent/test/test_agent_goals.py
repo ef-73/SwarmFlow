@@ -1,5 +1,5 @@
 """T029: robot agent goal mode (api.py v2 lifecycle: ROUTE_GOALS, dwell by vertex kind, blocked, pallets).
-Lead test: do not edit."""
+"""
 
 from __future__ import annotations
 

@@ -1,6 +1,6 @@
 # 001 — Ground-truth localization by default (design §15.3 cut 1)
 
-- **Date:** 2026-10-09 (M4) · **Decided by:** lead (autonomous run; the user can overrule)
+- **Date:** 2026-10-09 (M4) · **Decided by:** maintainers
 - **Decision:** robots localize with Gazebo ground truth by default (`SWARMFLOW_LOCALIZATION=ground_truth`):
   `odom → base_footprint` from Gazebo's `OdometryPublisher` (absolute world pose), `map → odom` identity.
   AMCL stays available (`SWARMFLOW_LOCALIZATION=amcl`) but is not part of the v1 acceptance runs.

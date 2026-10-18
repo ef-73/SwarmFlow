@@ -1,4 +1,4 @@
-"""T041: pallet-stand models in the v2 world (improvements_v2 F-01). Lead test: do not edit."""
+"""T041: pallet-stand models in the v2 world (F-01)."""
 
 from __future__ import annotations
 

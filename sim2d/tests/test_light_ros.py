@@ -1,5 +1,5 @@
 """T025 light mode end to end: the unchanged orchestrator and robot agents drive kinematic robots, no Gazebo.
-Runs in the dev image with the workspace built. Lead test: do not edit."""
+Runs in the dev image with the workspace built."""
 
 from __future__ import annotations
 

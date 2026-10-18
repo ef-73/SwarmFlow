@@ -1,4 +1,4 @@
-"""swarmflow_core must not import rclpy or any ROS package (design §6.7, AGENTS.md §9). Lead test."""
+"""swarmflow_core must not import rclpy or any ROS package (design §6.7)."""
 import ast
 import pathlib
 

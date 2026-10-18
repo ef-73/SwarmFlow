@@ -1,4 +1,4 @@
-# v2 navigation profile (improvements_v2 M14: N-01, N-02, N-03), applied ON TOP of nav2_params.yaml for v2 layouts
+# v2 navigation profile (M14: N-01, N-02, N-03), applied ON TOP of nav2_params.yaml for v2 layouts
 # (robot.launch.py, nav_profile auto -> v2 when layout.yaml schema_version is 2). Only the differences live here.
 # - N-01: global costmap gets the lidar obstacle layer back (360° lidar clears all around, so marks of robots that
 #   moved do not go stale as they did with the 180° lidar in M8); A* (Smac 2D) planner; replanning at 1 Hz (BT).

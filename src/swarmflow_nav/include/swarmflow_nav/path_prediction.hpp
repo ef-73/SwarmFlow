@@ -1,4 +1,4 @@
-// Prediction of another robot along its published plan (improvements_v2 §15, J-04). Header-only so it is unit-tested
+// Prediction of another robot along its published plan (J-04, v2.1). Header-only so it is unit-tested
 // without ROS (test/test_path_prediction.cpp).
 #pragma once
 #include <algorithm>

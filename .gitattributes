@@ -1,4 +1,4 @@
-# Force LF everywhere: files are used inside Linux containers (AGENTS.md / design.md R3).
+# Force LF everywhere: files are used inside Linux containers (see CONTRIBUTING.md).
 * text=auto eol=lf
 
 # Windows-only scripts keep CRLF

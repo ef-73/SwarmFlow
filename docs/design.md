@@ -4,13 +4,10 @@
 
 | | |
 |---|---|
-| **Status** | **Final plan for v1** (2026-10-09): review items R1–R16 applied (`docs/milestones.md` §1); host Docker engine pending (D3, §8.0) |
-| **Supersedes** | v1.1 ([`docs/source/swarmflow_v1.1_original.md`](source/swarmflow_v1.1_original.md)) |
-| **Change basis** | [`docs/source/handoff.md`](source/handoff.md) — approved changes C1–C28 (traceability in [Appendix A](#appendix-a--approved-change-traceability-c1c28)) |
+| **Status** | **Final plan for v1** (2026-10-09): v1 released as `v1.0.0`; v2 and v2.1 built on it |
 | **Stack** | ROS 2 Jazzy · Gazebo Harmonic · Nav2 · Docker Compose · Python · Foxglove · Open-RMF (v2 Baseline C only) |
-| **Decisions after handoff** | **D1 (2026-10-08, user):** v1 uses SwarmFlow's own lightweight FCFS orchestrator + robot agent instead of Open-RMF; RMF moves to v2 as Baseline C. Supersedes the v1 parts of C3 and the RMF items of the handoff's 5-day plan. **D2 (2026-10-08, user):** the Gazebo GUI runs in a container and must be startable on Windows (§8.4). **D3 (2026-10-09, user):** Docker Desktop as the host Docker engine (§8.0). **D4 (2026-10-09, user):** the lead integrates into `main` (fast-forward + push) after `scripts/ci.sh` passes; this replaces the handoff's "the user merges" (C26/C27). |
+| **Key decisions** | **D1 (2026-10-08, user):** v1 uses SwarmFlow's own lightweight FCFS orchestrator + robot agent instead of Open-RMF; RMF moves to v2 as Baseline C. Supersedes the original plan's RMF-in-v1 approach. **D2 (2026-10-08, user):** the Gazebo GUI runs in a container and must be startable on Windows (§8.4). **D3 (2026-10-09, user):** Docker Desktop as the host Docker engine (§8.0). **D4 (2026-10-09, user):** the lead integrates into `main` (fast-forward + push) after `scripts/ci.sh` passes; merges are fast-forward only. |
 | **Host** | Windows 11 + Docker Desktop (WSL2 backend); CPU has a thermal limit (one Gazebo sim at a time) |
-| **Agent rules** | [`AGENTS.md`](../AGENTS.md) |
 
 **Verification legend.** Statements about third-party software are tagged:
 **[V]** verified against a cited source on 2026-10-08 · **[U]** unverified — must be checked by the
@@ -39,7 +36,7 @@ The project ships in two versions:
 | Navigation | Nav2 per robot (both versions — SwarmFlow writes **no** custom navigation) | Nav2 + footprint-aware planning (Smac Hybrid-A* + MPPI) |
 | Scope | Standard layout, 3 robots, one small payload, no workers | 3 layouts, 4 payload types, workers, closures, stress tests, 2D benchmarks |
 | UI | Gazebo GUI (containerized) + Foxglove | + custom React panel, RMF dashboard for Baseline C |
-| Duration | 5 days (hard) | ~2–3 weeks with 24/7 agents, bounded by user review/integration |
+| Duration | 5 days (hard) | ~2–3 weeks, bounded by integration in Gazebo |
 
 v1 is a complete, shippable project on its own (C1). v2 builds on it; nothing in v2 is required for v1.
 
@@ -143,7 +140,7 @@ simulation  │ Gazebo Harmonic: headless server container + GUI container + ros
 
 ## 5.2 Why not RMF in v1 (decision D1)
 
-The handoff planned RMF for v1 to get dispatch, traffic control and a dashboard for free. The verification below
+The original plan used RMF for v1 to get dispatch, traffic control and a dashboard for free. The verification below
 showed the integration is not free: free_fleet is source-only, needs a separate zenoh bridge per robot plus a zenoh
 router, forces Cyclone DDS, and expects a non-namespaced robot layout that our 3-robots-in-one-Gazebo setup only
 matches in an upstream "testing-only" mode. RMF delivery tasks also assume workcell plugins we don't have.
@@ -173,7 +170,7 @@ the world and the robots are unchanged (§13.3).
 
 The nav graph uses **RMF's nav-graph format from day one** (kept after D1), so Baseline C in v2 reads the same graph
 as SwarmFlow with no conversion. In v1 SwarmFlow's own layout generator writes that file directly (no RMF
-dependency in v1, AGENTS.md §11); the exact field layout is copied from an `rmf_demos` (`jazzy` branch) nav graph
+dependency in v1); the exact field layout is copied from an `rmf_demos` (`jazzy` branch) nav graph
 **[U — confirmed only when Baseline C loads our graph in v2]**. RMF's building-map tools (`rmf_building_map_tools`,
 released for Jazzy **[V]** [S7]) are not used in v1. SwarmFlow-only data (conflict zones, payload feasibility) lives in a sidecar file keyed by nav-graph vertex/lane
 names (§6.1), so the RMF graph file itself stays unmodified.
@@ -299,7 +296,7 @@ routing. Both happen from the same `ScenarioEvent` (§12.2). Exact runtime mask-
 
 ## 6.5 Reservation protocol (v1 with FCFS, fully specified) (C8)
 
-The handoff specified this protocol for v2; after D1 it is the **v1** traffic control, with the FCFS policy. The
+The original plan specified this protocol for v2; after D1 it is the **v1** traffic control, with the FCFS policy. The
 full rule set below (leases, heartbeats, orchestrator-down behaviour) is implemented in v1 — it is small, and the
 safety rules are not optional.
 
@@ -340,7 +337,7 @@ In Baseline C runs (v2), RMF's traffic schedule and negotiation replace this pro
 ## 6.6 `swarmflow_interfaces` — frozen in M2, Day 1 (C9)
 
 Package `src/swarmflow_interfaces/` (ament_cmake, rosidl). **Frozen** when the M2 contract branch lands; changes go
-through the contract-change process in `AGENTS.md`. Field lists below are the Day-0 draft; the lead finalizes
+through the contract-change process (§14.1). Field lists below are the Day-0 draft; finalized
 them on the M2 contract branch (`lead/contract-freeze`).
 
 **v2 additions (2026-10-11, `lead/contract-v2`, [decision 002](decisions/002-v2-contract-preapproval.md)):** all
@@ -747,7 +744,7 @@ bind-mounted sources are used **only by the `dev` service** for fast iteration.
 
 **Pure-Python code outside colcon** (`sim2d/`, `tools/layoutgen/`, `tools/scenarios/`, `tools/bench/`, `tools/metrics/`)
 has a `pyproject.toml` each and imports `swarmflow_core` as a normal package (`pip install -e src/swarmflow_core` in
-the `dev` image, or the same in a Codex sandbox — `swarmflow_core` has no ROS dependency). `scripts/ci.sh` lists every
+the `dev` image, or in any Python environment — `swarmflow_core` has no ROS dependency). `scripts/ci.sh` lists every
 pytest root explicitly.
 
 ## 8.3 Compose services
@@ -760,7 +757,7 @@ root, not `docker/`.
 
 **Volumes (R9), `dev` service only:** the repo's `src/` (and `layouts/`, `scenarios/`, `tests/`) are bind-mounted;
 `build/`, `install/` and `log/` are **named volumes**, because building on a bind-mounted Windows folder is slow and burns
-CPU. Each git worktree gets **its own** volumes: `scripts/ci.sh` and the commands in AGENTS.md set
+CPU. Each git worktree gets **its own** volumes: `scripts/ci.sh` and the commands in CONTRIBUTING.md set
 `COMPOSE_PROJECT_NAME=swarmflow-<worktree-name>`, so builds of different branches never overwrite each other. Only one
 build runs at a time across worktrees (`scripts/lock.sh build`, next to the sim lock). Results go to a bind-mounted `runs/`.
 
@@ -796,7 +793,7 @@ Requirement: the Gazebo GUI runs **in a container** and the user can start every
 over gz-transport on the shared Docker network (same `GZ_PARTITION` in both containers; discovery across containers
 **[U — spike step 1]**). The route is chosen by `SWARMFLOW_GUI=wslg|vnc|none`, default `wslg` set in the compose
 file (overridable from the shell or a local `.env`). With `none` the `gazebo_gui` container exits immediately —
-**agents and CI always use `none`** (AGENTS.md §5). The WSLg socket mount uses the short `-v` syntax so a missing host
+**headless runs and CI always use `none`** (§14.5). The WSLg socket mount uses the short `-v` syntax so a missing host
 path does not stop the container from starting **[U — spike]**. Two display routes:
 
 | Route | How it works | Status | Trade-off |
@@ -814,7 +811,7 @@ Under host option B (§8.0) compose runs inside a WSL distro, which is exactly t
 
 The laptop CPU throttles under sustained load. Controls, in order of use:
 
-1. One Gazebo at a time, lead-only (AGENTS.md §5); builds throttled to 2 workers.
+1. One Gazebo at a time (§14.5); builds throttled to 2 workers.
 2. Stop `gazebo_gui` when nobody is watching; on the WSLg route use the GPU (`/dev/dxg`) so the GUI doesn't software-render.
 3. **Cap Gazebo's real-time factor** (e.g. 0.5 via the world's physics `real_time_factor`) when the CPU is hot. All
    nodes run on sim time and all metrics are in sim time, so results stay valid; runs just take longer in wall time.
@@ -1025,56 +1022,46 @@ fleet sizes 3 (Gazebo) and 2–30 (2D); worker activity off / low / high. Every 
 - **Foxglove**: the Jazzy `foxglove_bridge` speaks subprotocol `foxglove.sdk.v1` (a current Foxglove app connects;
   Foxglove Studio 1.x does not).
 
-# 14. Multi-Agent Development (C23–C28)
+# 14. Development Process
 
-The project is built by Claude and ChatGPT/Codex agents running 24/7 in parallel; the user reviews; the lead integrates into `main` after CI passes (decision D4).
-Operational rules are in [`AGENTS.md`](../AGENTS.md); this section is the design rationale and ownership map.
+Day-to-day contributor rules are in [`CONTRIBUTING.md`](../CONTRIBUTING.md); this section is the rationale.
 
-## 14.1 Contract-first (C23)
+## 14.1 Contract-first
 
-Four contracts are drafted on Day 0 and frozen by midday on Day 1 (milestone M2, gate G2). Everything else is built
-in parallel against them.
+Four contracts were frozen before parallel work began (milestone M2). Everything else is built against them; a change
+needs an explicit decision (`docs/decisions/`) and lands on a dedicated `lead/contract-*` branch.
 
-| Contract | Path | Frozen by |
-|---|---|---|
-| ROS interfaces | `src/swarmflow_interfaces/**` (§6.6) | lead |
-| Layout / graph schema (RMF nav-graph format + SwarmFlow sidecar) | `layouts/schema/**` (§6.1) | lead |
-| Orchestrator library API (Python protocols) | `src/swarmflow_core/swarmflow_core/api.py` (§6.7) | lead |
-| Mock fixtures (synthetic robot-state streams, sample orders, sample nav graph) | `tests/fixtures/**` | lead. Day-3 recordings from Gazebo go to `tests/fixtures_gz/` (Lead-owned, not frozen), so frozen fixtures never change |
+| Contract | Path |
+|---|---|
+| ROS interfaces | `src/swarmflow_interfaces/**` (§6.6) |
+| Layout / graph schema (RMF nav-graph format + SwarmFlow sidecar) | `layouts/schema/**` (§6.1) |
+| Orchestrator library API (Python protocols) | `src/swarmflow_core/swarmflow_core/api.py` (§6.7) |
+| Mock fixtures (synthetic robot-state streams, sample orders, sample nav graph) | `tests/fixtures/**` (recordings from Gazebo go to `tests/fixtures_gz/`, not frozen) |
 
-## 14.2 Workstreams (C24)
+## 14.2 Workstreams
 
-| WS | Scope | Owned paths | Needs sim? | Acceptance (v1) |
-|---|---|---|---|---|
-| **A** | Docker, Gazebo world bringup, custom chassis, Nav2 bringup | `docker/`, `compose.yaml`, `src/swarmflow_description/`, `src/swarmflow_gazebo/`, `src/swarmflow_nav/`, `scripts/` (except `ci.sh`) | **Yes — lead runs it, human watching** | 3 namespaced robots each reach 5 random goals in the standard world; hello-multi-container test passes |
-| **B** | Orchestrator library (FCFS v1, predictive v2) + ROS adapter | `src/swarmflow_core/`, `src/swarmflow_orchestrator/` | No (unit tests, fake backend) | FCFS + reservation property tests pass; fake-backend end-to-end of 10 orders × 3 robots |
-| **C** | 2D kinematic sim + benchmark harness | `sim2d/`, `tools/bench/` | No | v1: skeleton runs the FCFS policy on the standard layout from `sim2d.json` deterministically |
-| **D** | Robot agent (v1, integration with A); RMF + free_fleet Baseline C and RMF state bridge (v2) | `src/swarmflow_robot_agent/`; `src/swarmflow_rmf/`, `config/rmf/` (v2) | Agent: no — unit tests against a fake Nav2 action server; the lead runs it in sim | Agent drives a fake `NavigateThroughPoses` server through a route with a zone hold (unit test); Day-2 gate (§15.2), run by the lead |
-| **E** | Foxglove layouts, viz node; v2 web panel + telemetry API on mock data | `viz/`, `src/swarmflow_viz/`, `web/`, `src/swarmflow_telemetry/` | No (mock data) | Foxglove layout shows robots, plans, zones, decisions from fixtures |
-| **F** | Layout generator, scenario/order generator, package pose-follower | `layouts/`, `tools/layoutgen/`, `tools/scenarios/`, `scenarios/`, `src/swarmflow_scenarios/`, `src/swarmflow_payload/` | No — the lead integrates the pose-follower in sim | Generator emits all §6.1 artefacts for `standard`; §7.2 invariants asserted in tests |
-| **Lead** | Contracts, integration, CI, docs, task cards, `main` | contract paths, `tests/`, `.github/`, `scripts/ci.sh`, `docs/`, `README.md`, `AGENTS.md`, `CLAUDE.md`, `.gitattributes`, `.gitignore`, `tools/metrics/` | Yes (only the lead runs Gazebo) | — |
+| WS | Scope | Paths | Acceptance (v1) |
+|---|---|---|---|
+| **A** | Docker, Gazebo world bringup, custom chassis, Nav2 bringup | `docker/`, `compose.yaml`, `src/swarmflow_description/`, `src/swarmflow_gazebo/`, `src/swarmflow_nav/`, `scripts/` | 3 namespaced robots each reach 5 random goals in the standard world |
+| **B** | Orchestrator library + ROS adapter | `src/swarmflow_core/`, `src/swarmflow_orchestrator/` | FCFS + reservation property tests pass; fake-backend end-to-end of 10 orders × 3 robots |
+| **C** | 2D kinematic sim + benchmark harness | `sim2d/`, `tools/bench/` | Skeleton runs the FCFS policy on the standard layout deterministically |
+| **D** | Robot agent | `src/swarmflow_robot_agent/` | Agent drives a fake `NavigateThroughPoses` server through a route with a zone hold; Day-2 gate (§15.2) |
+| **E** | Foxglove layouts, viz node, Gazebo panel | `viz/`, `src/swarmflow_viz/`, `src/swarmflow_gz_panel/` | Foxglove layout shows robots, plans, zones, decisions from fixtures |
+| **F** | Layout generator, scenario/order generator, package pose-follower | `layouts/`, `tools/layoutgen/`, `tools/scenarios/`, `scenarios/`, `src/swarmflow_scenarios/`, `src/swarmflow_payload/` | Generator emits all §6.1 artefacts for `standard`; §7.2 invariants asserted in tests |
+| **Integration** | Contracts, CI, docs, metrics, all Gazebo runs | contract paths, `tests/`, `.github/`, `scripts/ci.sh`, `docs/`, `tools/metrics/` | — |
 
-After D1 the robot agent belongs to WS-D from Day 1 (it is the robot-side half of the integration with WS-A), so no
-ownership hand-over is needed in v2.
+## 14.3 CI is the referee
 
-## 14.3 CI is the referee (C26)
-
-One script, `scripts/ci.sh` (Lead-owned), run in the `dev` image, is the referee (R2). It runs locally before every
-integration and in GitHub Actions (`.github/workflows/ci.yml`, remote `origin` = `github.com/ef-73/SwarmFlow`) on
-every push and PR:
-
-`ci.sh` runs its **git-based checks on the host** (git worktrees' `.git` file points to a host path that containers
-can't follow) and the build/test steps in the `dev` container, with `COMPOSE_PROJECT_NAME` per worktree (§8.3). When
-the lead verifies a task branch it runs **`main`'s copy** of `ci.sh` (`git show main:scripts/ci.sh`), and the GitHub
-workflow checks the script out from the base branch, so a branch can't weaken its own referee.
+One script, `scripts/ci.sh`, runs locally before every merge and in GitHub Actions (`.github/workflows/ci.yml`) on
+every push and PR. GitHub checks the script out from the base branch, so a branch can't weaken its own referee.
+Git-based checks run on the host; build and tests run in the `dev` container, with `COMPOSE_PROJECT_NAME` per
+worktree (§8.3).
 
 Host-side (git) checks:
 
-1. **Contract-diff:** fails if a branch other than `lead/contract-*` touches a frozen contract path (§14.1); on GitHub a
-   PR touching contracts additionally needs the user's `contract-change` label.
-2. **Owned-files:** files changed on a task branch ⊆ the owned files in its task card (§14.6), plus the card's own
-   `status`/`claimed_by` lines and the branch's `docs/agent_log/*-<task-id>.md` entries.
-3. **Lead-tests unchanged:** the lead-test files listed in the card are byte-identical to the lead's commit (hash).
+1. **Contract-diff:** fails if a branch other than `lead/contract-*` touches a frozen contract path (§14.1).
+2. **Owned-files** (task branches only): files changed stay inside the task's declared paths.
+3. **Acceptance tests unchanged** (task branches only): tests written up front for a task are byte-identical (hash).
 4. **Hygiene:** no file > 5 MB, nothing under `runs/`, no `*.db3`/`*.mcap`, no CRLF in `*.sh`/`*.py`/launch files, a
    simple secret-pattern scan (`ghp_`, `sk-`, `-----BEGIN … PRIVATE KEY-----`).
 5. **Generated layouts fresh:** regenerate `layouts/*/generated/` and `git diff --exit-code` (§6.1).
@@ -1085,50 +1072,33 @@ Container checks (`dev` image):
 7. `pytest` over every pure-Python root (`src/swarmflow_core`, `sim2d`, `tools/*`), no simulator.
 8. `test_no_ros_imports.py` for `swarmflow_core`.
 
-Not machine-checkable, reviewed by the lead: WIP limit, design fit, test quality.
+No Gazebo in CI. A branch is merged only after it is rebased onto `main` and `scripts/ci.sh` passes; `main` is
+fast-forwarded and must always be green.
 
-No Gazebo in CI. The user has authorized the lead to fast-forward `main` after `scripts/ci.sh` passes on the branch
-rebased onto `main` (R14); `main` must always be green (AGENTS.md §6).
+## 14.4 Integration and the simulator
 
-## 14.4 Integration is the bottleneck (C27)
+Everything that runs without the simulator (WS-B, C, E, F-layoutgen, D's agent logic) is developed against unit tests,
+fake backends, recorded fixtures and the 2D sim. Sim-dependent work (WS-A, D in sim, F-pose-follower) is integrated
+and tested in Gazebo by one person at a time.
 
-The user plus the lead own integration and all Gazebo/Nav2 debugging. Agents take everything that runs without the
-simulator (WS-B, C, E, F-layoutgen, D's unit-tested agent logic). **Only the lead runs Gazebo** (R8): sim-dependent
-work in WS-A, D and F-pose-follower is integrated and tested by the lead.
+## 14.5 Guardrails
 
-## 14.5 24/7 guardrails (C28)
-
-- **One Gazebo simulation at a time** — the user's CPU has a thermal limit. Only the lead runs Gazebo, and still takes
-  `scripts/sim_lock.sh` (WS-A, M1): an atomic `mkdir` lock in `$SWARMFLOW_LOCK_DIR` (one Windows path that every shell,
-  Windows or WSL, resolves to the same folder) **and** a check that no running container carries label
-  `swarmflow.sim=1` (the Docker engine is shared by all worktrees).
-- Agents default to unit tests and the 2D sim. Sim runs are time-boxed (≤ 20 min) and always torn down. Thermal
-  controls in §8.5.
-- Builds are throttled (`colcon build --parallel-workers 2`, `MAKEFLAGS=-j2`).
-- **Agent log:** one file per entry in `docs/agent_log/` so parallel branches never conflict (R6), reviewed by the
-  user in batches.
-- **WIP limit:** ≤ 2 unmerged branches per workstream (R15).
-- **Codex / cloud agents** can't reach the local Docker engine: they get only sim-free cards whose tests run with plain
-  `pytest` in their own sandbox (R12).
-
-## 14.6 Task cards (R7)
-
-Work is handed out as task cards in `docs/tasks/T<NNN>-<slug>.md` (template `docs/tasks/TEMPLATE.md`): owned files,
-lead tests, forbidden actions, commands, definition of done, model routing and risk level. Only the lead writes cards
-and **the lead assigns them** (`claimed_by` set by the lead when dispatching a subagent or naming a Codex agent), so
-claiming is a handoff, not a race. The lead may also write cards whose owned files sit in Lead paths (e.g.
-`tools/metrics/`, `README.md`, interface transcription before the freeze) and delegate them. Subagent model routing and
-the verification applied to each result are in `docs/milestones.md` §3.
+- **One Gazebo simulation at a time** — the development laptop has a thermal limit. `scripts/sim_lock.sh` takes an
+  atomic `mkdir` lock in `$SWARMFLOW_LOCK_DIR` (one folder that every shell, Windows or WSL, resolves to) **and**
+  checks that no running container carries label `swarmflow.sim=1`.
+- Sim runs are time-boxed (≤ 20 min) and always torn down. Thermal controls in §8.5.
+- Builds are throttled (`colcon build --parallel-workers 2`, `MAKEFLAGS=-j2`), one at a time (`scripts/lock.sh build`).
+- **WIP limit:** ≤ 2 unmerged branches per workstream.
 
 # 15. v1 Plan — 5 Days
 
 ## 15.1 Day-by-day
 
-Revised after D1 (no RMF in v1). The structure of the handoff plan is kept; the RMF lane is replaced by the robot agent.
+Revised after D1 (no RMF in v1). The structure of the original plan is kept; the RMF lane is replaced by the robot agent.
 **Day 0** (before the clock starts, R11): the four contracts are drafted on paper, so Day 1 only has to build-check and
-freeze them. The clock starts when a Docker engine exists (§8.0). Milestone mapping: `docs/milestones.md` §4.
+freeze them. The clock starts when a Docker engine exists (§8.0).
 
-| Day | Critical path (user + lead agent) | Parallel agent lanes |
+| Day | Critical path (Gazebo integration) | Parallel lanes |
 |---|---|---|
 | **1** | Docker/RMW + GUI spike (§8.1, §8.4); build-check and **freeze contracts** by midday (interfaces, graph schema, orchestrator API, fixtures) | **A:** chassis URDF/xacro + single robot Nav2 in world · **B:** FCFS orchestrator lib + reservation property tests · **D:** robot agent against a fake `NavigateThroughPoses` server (unit tests) · **F:** layout → world + nav graph generator, order generator |
 | **2** | Sim sessions in order (lead): ① robot agent on robot_1 → ② 3 namespaced Nav2 robots → ③ gate run. **Go/no-go at end of day** (§15.2) | **B:** orchestrator ROS adapter · **E:** Foxglove layout · **F:** package pose-follower node (unit tests; lead integrates on Day 3) |
@@ -1237,39 +1207,6 @@ with ROS 2, Docker and Gazebo.* It does not recreate any company's internal ware
 fleet congestion universally; it provides an extensible, measurable implementation of warehouse coordination techniques.
 
 ---
-
-# Appendix A — Approved change traceability (C1–C28)
-
-| # | Approved change (handoff) | Where |
-|---|---|---|
-| C1 | Replace 9 phases with v1 (5-day MVP) and v2 | §1, §4, §15, §16 |
-| C2 | Cuts: fleet expansion cut; descend animation stretch; modes as weight presets; deterministic replay 2D only | §2.3, §4.2, §9.5, §12.3 |
-| C3 | Open-RMF section (role, no custom nav, v1 use, v2 replacement, Baseline C, RMF nav-graph format, gate, verification) — **amended by D1**: RMF moved from v1 to v2 Baseline C; gate redefined for the SwarmFlow fleet layer | §5, §15.2 |
-| C4 | Non-goals list | §2.3 |
-| C5 | Warehouse topology graph as core abstraction; one layout → world, map, graph, 2D layout | §6.1 |
-| C6 | Robot agent per robot as only fleet→Nav2 bridge; route → `NavigateThroughPoses`; hold at zone entry | §6.3 |
-| C7 | Corridor closures via Nav2 keepout filters (handoff's "v1: RMF lane closures" → Baseline C only after D1; v1 has no closures) | §6.4 |
-| C8 | Reservation protocol: request/grant/deny/release, leases + heartbeats, release on exit, orchestrator-down behaviour (implemented in v1 after D1) | §6.5 |
-| C9 | `swarmflow_interfaces` frozen Day 1 with concrete definitions | §6.6 |
-| C10 | Orchestrator = pure-Python library + thin ROS and 2D adapters | §6.7 |
-| C11 | Custom chassis first; robot → payload → aisle table; wide infeasible in dense by construction | §7.1, §7.2 |
-| C12 | v2 SmacPlannerHybrid + MPPI with footprint checking; runtime footprint via costmap `footprint` topic | §7.3 |
-| C13 | Packages via pose-follower node | §7.4 |
-| C14 | Workers as moving primitives; actors only if LiDAR-visible | §7.5 |
-| C15 | Multi-robot bringup from Nav2 example, composition, explicit TF namespacing choice | §7.6 |
-| C16 | Day-1 environment spike (headless Gazebo, WSLg GUI, `/clock` + `use_sim_time`, RMW choice, hello multi-container) | §8.1 |
-| C17 | Images: `dev`, `sim`, one shared robot image via env vars | §8.2 |
-| C18 | Baseline A stuck-timeout rule → order failed | §13.3 |
-| C19 | Gazebo n runs with CIs; tipping point from 2D only, must agree with Gazebo at 3 robots | §13.2 |
-| C20 | Collision metric = pairwise footprint distance, not physics contacts | §13.1 |
-| C21 | Foxglove in v1; React panel in v2 | §11 |
-| C22 | Decision logging and Foxglove view are v1 features | §10, §11.1 |
-| C23 | Contract-first: interfaces, graph schema, orchestrator API, fixtures frozen Day 1 | §14.1 |
-| C24 | Workstreams A–F with branches, owned folders, acceptance tests | §14.2 |
-| C25 | Single `AGENTS.md` (+ `CLAUDE.md` pointer); per-task contract | §14, `AGENTS.md` |
-| C26 | CI is the referee: `colcon build` + `pytest` in `dev`, contract-diff; lead integrates green branches (D4) | §14.3 |
-| C27 | Integration is the bottleneck: user + lead own merges and sim debugging | §14.4 |
-| C28 | 24/7 guardrails: one Gazebo sim at a time (lock), thermal limit, agent log (one file per entry, R6) | §14.5, `AGENTS.md` |
 
 # Appendix B — Sources
 

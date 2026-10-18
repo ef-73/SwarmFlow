@@ -1,4 +1,4 @@
-"""T054: C++ TF / scan relay (X-01) behaves like the Python tf_relay it replaces. Lead test: do not edit.
+"""T054: C++ TF / scan relay (X-01) behaves like the Python tf_relay it replaces.
 Starts the installed `tf_relay_cpp` executable for robot_1 and checks /tf, /tf_static and /viz/robot_1/scan."""
 
 from __future__ import annotations

@@ -1,5 +1,5 @@
 """T036: light mode for v2 (goal tasks on warehouse_v2): graph-path expansion, deadlock breaker, end-to-end v2 demo.
-Lead test: do not edit."""
+"""
 
 from __future__ import annotations
 

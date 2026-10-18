@@ -40,22 +40,7 @@ starts from fresh containers, and every metric is computed from the recorded rob
 
 ## How it works
 
-```mermaid
-flowchart LR
-    S[Scenario engine<br/>seeded order stream] -->|orders| O[Fleet layer<br/>assigns orders]
-    O -->|goal lists| A1[Robot 1 agent]
-    O -->|goal lists| A2[Robot 2 agent]
-    O -->|goal lists| A3[Robot 3 agent]
-    A1 --> N1[Nav2<br/>planner + MPPI]
-    A2 --> N2[Nav2]
-    A3 --> N3[Nav2]
-    N1 <-->|predicted footprints<br/>of the other robots| N2
-    N2 <--> N3
-    N1 --> G[(Gazebo<br/>physics + sensors)]
-    N2 --> G
-    N3 --> G
-    G -->|states| M[Metrics + Foxglove]
-```
+![SwarmFlow architecture: the fleet layer assigns orders; each robot runs its own agent and Nav2 and avoids the others using their shared, predicted states](docs/evidence/architecture.svg)
 
 - **The fleet layer decides *who does what*.** Each order goes to the robot with the lowest cost: travel distance
   plus a congestion penalty for robots already heading to the same spot. Pick lists are ordered nearest-next, and
@@ -125,16 +110,14 @@ Everything else (Gazebo window, configuration, experiments, architecture, limita
 
 Built in 8 days, from an empty repository to v2.1, with a contract-first, test-gated process:
 
-- **Contracts first.** Message types, the layout schema and the orchestrator API were frozen before parallel work
-  began. Changes need an explicit decision ([decisions](docs/decisions/)).
-- **A referee, not trust.** One CI script ([`scripts/ci.sh`](scripts/ci.sh)) checks file ownership, frozen
-  contracts, hygiene, the build and **315 tests**. Nothing reaches `main` red.
-- **An AI-agent engineering team.** A lead agent (Claude) owned contracts, integration and every simulation run;
-  cheaper subagents implemented task cards in parallel against lead-written tests; the project owner set direction,
-  made the design calls and approved every release. Rules: [AGENTS.md](AGENTS.md). Every task has a log entry:
-  [agent log](docs/agent_log/).
-- **Documented end to end.** [Design](docs/design.md), [milestones](docs/milestones.md),
-  [v2 plan](docs/improvements_v2.md), [task cards](docs/tasks/), [evidence](docs/evidence/).
+- **Contracts first.** Message types, the layout schema and the fleet-layer API were frozen before parallel work
+  began; changes need an explicit, written decision ([decisions](docs/decisions/)).
+- **A referee, not trust.** One CI script ([`scripts/ci.sh`](scripts/ci.sh)) checks frozen contracts, hygiene, the
+  build and **315 tests** on every change. Nothing reaches `main` red.
+- **AI-assisted.** Most code was written by AI coding agents working in parallel against tests written up front; the
+  project owner set direction, made the design calls and reviewed every release.
+
+Design: [`docs/design.md`](docs/design.md). Contributing: [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Repository map
 

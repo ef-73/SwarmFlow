@@ -1,4 +1,4 @@
-"""M9 reservation hardening (independent review S2, S3, S6, T1, T2). Lead test: do not edit."""
+"""M9 reservation hardening (independent review S2, S3, S6, T1, T2)."""
 
 from __future__ import annotations
 

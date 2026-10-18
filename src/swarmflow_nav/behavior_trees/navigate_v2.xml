@@ -1,5 +1,5 @@
 <!--
-  SwarmFlow v2 navigation tree (improvements_v2 N-01, N-03), derived from navigate_through_poses.xml (v1):
+  SwarmFlow v2 navigation tree (N-01, N-03), derived from navigate_through_poses.xml (v1):
   - replanning at 1 Hz instead of every 3 s, so the path bends around other robots seen by the global obstacle layer;
   - recoveries: clear costmaps -> wait (per-robot duration: robot.launch.py writes a copy of this file with
     {recovery_wait_s} replaced, so two blocked robots do not retry in lockstep) -> back up 0.30 m. No Spin (it made

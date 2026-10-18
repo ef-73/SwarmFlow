@@ -1,5 +1,5 @@
 #!/bin/bash
-# Run demo_run.sh several times in a row (lead-only, sim lock per run) and print one metrics table.
+# Run demo_run.sh several times in a row (sim lock per run) and print one metrics table.
 # Owns its children (X-06): on exit or Ctrl-C the whole process group is stopped and the stack taken down,
 # so an interrupted batch never leaves an orphan run that tears down the next one (M8).
 # Usage: tests/integration/batch_runs.sh <prefix> <n> [minutes=10] [scenario=v1_demo] [policy=fcfs]

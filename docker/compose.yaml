@@ -1,5 +1,5 @@
 # SwarmFlow services (design §8.3). Paths are relative to this file (docker/).
-# Every Gazebo-starting service carries label swarmflow.sim=1 (AGENTS.md §5).
+# Every Gazebo-starting service carries label swarmflow.sim=1 (CONTRIBUTING.md).
 
 x-ros-env: &ros-env
   RMW_IMPLEMENTATION: rmw_cyclonedds_cpp
@@ -126,7 +126,7 @@ services:
       <<: *ros-env
       ROBOT_ID: robot_3
 
-  # v2 runs with 4-5 robots (improvements_v2 L-04): started only when named (demo_run.sh) or with --profile extra_robots
+  # v2 runs with 4-5 robots (L-04): started only when named (demo_run.sh) or with --profile extra_robots
   robot_4:
     <<: *robot
     profiles: ["extra_robots"]

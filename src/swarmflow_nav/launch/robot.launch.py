@@ -82,13 +82,13 @@ def setup(context):
         if horizon is not None and horizon != "":
             for cm in ("local_costmap", "global_costmap"):
                 base[cm][cm]["ros__parameters"]["other_robots"]["horizon_s"] = float(horizon)
-        # J-02 (improvements_v2 §15): SWARMFLOW_FOOTPRINT_CRITIC=1 makes MPPI score the whole footprint, not only the
+        # J-02 (v2.1): SWARMFLOW_FOOTPRINT_CRITIC=1 makes MPPI score the whole footprint, not only the
         # centre cell (pick points are 0.45 m from the rack; turning in place needs 0.47 m)
         fc = os.environ.get("SWARMFLOW_FOOTPRINT_CRITIC", "")
         if fc != "":
             critic = base["controller_server"]["ros__parameters"]["FollowPath"]["CostCritic"]
             critic["consider_footprint"] = fc in ("1", "true")
-        # J-04 (improvements_v2 §15): SWARMFLOW_PREDICT_ALONG_PLAN=1 predicts other robots along their published plans
+        # J-04 (v2.1): SWARMFLOW_PREDICT_ALONG_PLAN=1 predicts other robots along their published plans
         if os.environ.get("SWARMFLOW_PREDICT_ALONG_PLAN", "") in ("1", "true"):
             for cm in ("local_costmap", "global_costmap"):
                 base[cm][cm]["ros__parameters"]["other_robots"]["use_plans"] = True

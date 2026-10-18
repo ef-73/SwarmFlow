@@ -1,5 +1,5 @@
 #!/bin/bash
-# Atomic mkdir lock shared by every worktree and shell (AGENTS.md §5, design §14.5).
+# Atomic mkdir lock shared by every worktree and shell (CONTRIBUTING.md, design §14.5).
 #   scripts/lock.sh acquire <name> [task-id] [expected-minutes]
 #   scripts/lock.sh release <name> [--force]   (only the worktree that acquired it, unless --force)
 #   scripts/lock.sh status  <name>
