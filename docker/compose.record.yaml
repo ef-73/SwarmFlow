@@ -1,0 +1,19 @@
+# Video recording override (tools/metrics/record_demo.sh): the Gazebo server renders the demo cameras on the GPU,
+# like the gazebo_gui service (design §8.5 item 2); paths are relative to the root compose.yaml. Without it the cameras software-render on the CPU.
+#   docker compose -f compose.yaml -f docker/compose.record.yaml up -d gazebo ...
+services:
+  gazebo:
+    environment:
+      LD_LIBRARY_PATH: /usr/lib/wsl/lib
+      GALLIUM_DRIVER: d3d12
+      MESA_D3D12_DEFAULT_ADAPTER_NAME: ${SWARMFLOW_GPU_ADAPTER:-NVIDIA}
+      DISPLAY: ":0"
+      XDG_RUNTIME_DIR: /mnt/wslg/runtime-dir
+    devices:
+      - /dev/dxg
+    volumes:
+      - /usr/lib/wsl:/usr/lib/wsl:ro
+      - /run/desktop/mnt/host/wslg/.X11-unix:/tmp/.X11-unix
+      - /run/desktop/mnt/host/wslg:/mnt/wslg
+      - ./runs:/ws/runs
+      - ./tools/metrics:/ws/tools/metrics:ro

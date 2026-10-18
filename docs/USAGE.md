@@ -223,6 +223,10 @@ Scripts (they take the sim lock and run Gazebo):
 - `tests/integration/demo_run.sh <run_id> [minutes] [scenario] [policy] [screenshot]`: unattended scenario run
   (GUI screenshots near the end) followed by metrics and per-container CPU (`runs/<run_id>/cpu_end.txt`). Example:
   `tests/integration/demo_run.sh v1_corridor-independent-s1-r1 7 v1_corridor independent`.
+- `tools/metrics/record_demo.sh <run_id> [sim_minutes] [pallet_spot] [dock]`: the 3D demo video material. v2
+  warehouse, 4 robots, the `v2_demo` order stream plus one pallet order at the start, and three fixed Gazebo cameras
+  rendering on the GPU (`docker/compose.record.yaml`) in sim time. Then `tools/metrics/make_demo_video.py` edits
+  `runs/<run_id>/swarmflow_3d_demo.mp4` (1080p H.264) and a GIF preview; its docstring has the command.
 
 Metrics, run on the host (needs Python with PyYAML; or use the `dev` container):
 

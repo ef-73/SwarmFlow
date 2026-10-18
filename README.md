@@ -11,11 +11,12 @@ anticipate each other instead of waiting for a traffic controller.**
 ![Tests](https://img.shields.io/badge/tests-315_passing-2EA44F)
 ![Release](https://img.shields.io/badge/release-v2.1.0-orange)
 
-![Four robots fulfilling orders in a 20 x 32 m warehouse, replayed from a real 10-minute Gazebo run](docs/evidence/swarmflow_demo.gif)
+[![Four robots in the 3D Gazebo warehouse; one drives under a pallet and lifts it](docs/evidence/swarmflow_3d_preview.gif)](docs/evidence/swarmflow_3d_demo.mp4)
 
-*A real 10-minute Gazebo run, replayed top-down at 10× from the recorded robot states: four robots pick orders in
-the storage aisles and deliver them to the truck docks. 16 deliveries, no physical contact.
-([full-quality video](docs/evidence/v2_demo_replay_g7_gt_1.webm))*
+*A real Gazebo run, filmed by three cameras in simulation time: four robots pick shelf orders in the aisles, and one
+drives under a pallet, lifts it, carries it to a truck dock and sets it down.
+**[Watch the full 1080p video](docs/evidence/swarmflow_3d_demo.mp4)** (66 s: 9 orders, one of them a pallet, delivered in
+6 sim minutes, no contact).*
 
 ---
 
@@ -71,6 +72,11 @@ Problems found and solved along the way, each with evidence in the repo:
   overloaded host. Every run now records its CPU load, and only runs at matching load are compared.
 
 ## Results
+
+![Top-down replay of a 10-minute run: four robots, 16 deliveries](docs/evidence/swarmflow_demo.gif)
+
+*Top-down replay of a full 10-minute run at 10×, drawn from the recorded robot states: 16 deliveries, no physical
+contact ([full-quality video](docs/evidence/v2_demo_replay_g7_gt_1.webm)).*
 
 | Setup | Robots | Deliveries / 10 min | Stuck / failed | Closest approach (padded footprints) |
 |---|---|---|---|---|
