@@ -15,7 +15,7 @@ universally; it is an extensible, measurable implementation of warehouse coordin
 - A 20 × 32 m warehouse (`layouts/warehouse_v2`): two blocks of 5 rack rows, a 4 m central aisle, 64 pick points,
   4 truck docks with queue lanes, 8 home slots, pallet stands.
 - The orchestrator only **assigns** (shelf orders with 1–3 picks, pallet moves; nearest-next picks, congestion cost,
-  dock queues, blocked-robot handling). No aisle reservations.
+  dock queues claimed on arrival at the line, blocked-robot handling). No aisle reservations.
 - Robots handle each other locally: Nav2 with a 360° lidar, robots shared as predicted footprints in every costmap,
   keep-right lanes, no spin recovery. Robots drive under pallets, lift and carry them.
 - Light mode (no Gazebo, ~0.6 core for 8 robots), manual orders (CLI and Foxglove), a realism ladder (AMCL, network

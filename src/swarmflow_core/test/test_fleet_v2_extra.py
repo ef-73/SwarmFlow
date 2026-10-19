@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from test_fleet_v2 import (QUEUE_INDEX, V, LINKS, make_graph, only, pallet, shelf, snap, states)  # noqa: F401
+from test_fleet_v2 import (QUEUE_INDEX, V, LINKS, make_graph, only, pallet, shelf, snap, states,  # noqa: F401
+                           to_line)
 
 from swarmflow_core import api
 from swarmflow_core.api import OrderState, RobotMode, Vertex
@@ -29,15 +30,26 @@ def test_two_docks_with_queues_at_once():
     c.add_order(shelf("c", ["PK_A_2"], "DK2", t=0.2))
     c.add_order(shelf("d", ["PK_B_2"], "DK2", t=0.3))
     out = c.tick(1.0)
-    tails = {d.order_id: d.route[-1] for d in out.dispatches if d.order_id}
-    assert tails == {"a": "DK1", "b": "Q_DK1_1", "c": "DK2", "d": "Q_DK2_1"}
+    ds = {d.order_id: d for d in out.dispatches if d.order_id}
+    assert {o: d.route[-1] for o, d in ds.items()} == {"a": "X_0_5", "b": "X_0_5", "c": "X_0_3", "d": "X_0_3"}
     assert len({d.robot_id for d in out.dispatches}) == 4
+    fol = {}
+    for t, o in ((2.0, "a"), (3.0, "b"), (4.0, "c"), (5.0, "d")):  # each picks, then reaches its line
+        d = ds[o]
+        c.update_robot(snap(d.robot_id, d.route[0], RobotMode.NAVIGATING, d.task_id, o, nxt=d.route[-1]))
+        c.tick(t)
+        fol[o] = to_line(c, d, d.robot_id, o, t + 0.5)
+    assert {o: f.route[-1] for o, f in fol.items()} == {"a": "DK1", "b": "Q_DK1_1", "c": "DK2", "d": "Q_DK2_1"}
+    for o in ("b", "d"):
+        c.task_result(fol[o].task_id, True, "", 7.0)
+        c.update_robot(snap(fol[o].robot_id, fol[o].route[-1], RobotMode.IDLE, "", o))
+    c.tick(7.0)
     # free DK2 only: DK1's queue must not move
-    c.task_result(out.dispatches[[d.order_id for d in out.dispatches].index("c")].task_id, True, "", 5.0)
-    c.update_robot(snap("robot_3", "DK2"))
-    out = c.tick(5.0)
+    c.task_result(fol["c"].task_id, True, "", 8.0)
+    c.update_robot(snap(fol["c"].robot_id, "DK2"))
+    out = c.tick(8.0)
     moved = {d.order_id: tuple(d.route) for d in out.dispatches if d.order_id}
-    assert moved == {"d": ("PK_B_2", "DK2")}
+    assert moved == {"d": ("DK2",)}
     assert c.order_state("c") == OrderState.DELIVERED
 
 
@@ -93,13 +105,13 @@ def test_loaded_nav_failure_retries_with_remaining_goals():
     c.update_robot(snap("robot_1", "HM2"))
     c.add_order(shelf("s1", ["PK_A_1", "PK_A_2"], "DK2"))
     a = only(c.tick(1.0).dispatches, "robot_1")
-    assert tuple(a.route) == ("PK_A_1", "PK_A_2", "DK2")
+    assert tuple(a.route) == ("PK_A_1", "PK_A_2", "X_0_3")
     c.update_robot(snap("robot_1", "PK_A_1", RobotMode.NAVIGATING, a.task_id, "s1", nxt="PK_A_2"))
     c.tick(2.0)
     c.task_result(a.task_id, False, api.FAILURE_NAV_PREFIX + "PK_A_2", 3.0)
     out = c.tick(3.0)
     f = only([d for d in out.dispatches if d.order_id == "s1"], "robot_1")
-    assert tuple(f.route) == ("PK_A_2", "DK2") and f.task_id != a.task_id
+    assert tuple(f.route) == ("PK_A_2", "X_0_3") and f.task_id != a.task_id
     assert c.order_state("s1") == OrderState.PICKING_UP
 
 
@@ -159,7 +171,14 @@ def test_m1_down_waiting_robot_releases_dock_queue_slot():
     for i, p in enumerate(["PK_B_1", "PK_A_1", "PK_A_2"]):
         c.add_order(shelf(f"s{i + 1}", [p], "DK1", t=0.1 * i))
     out = c.tick(1.0)
-    q1 = [d for d in out.dispatches if d.route[-1] == "Q_DK1_1"][0]
+    ds = sorted((d for d in out.dispatches if d.order_id), key=lambda d: d.order_id)
+    fol = []
+    for t, d in zip((2.0, 3.0), ds):                                 # s1 reaches the line first, then s2
+        c.update_robot(snap(d.robot_id, d.route[0], RobotMode.NAVIGATING, d.task_id, d.order_id, nxt="X_0_5"))
+        c.tick(t)
+        fol.append(to_line(c, d, d.robot_id, d.order_id, t + 0.5))
+    q1 = fol[1]
+    assert q1.route[-1] == "Q_DK1_1"
     c.task_result(q1.task_id, True, "", 4.0)
     c.update_robot(snap(q1.robot_id, "Q_DK1_1", RobotMode.FAULT, "", q1.order_id, fault="X"))
     c.tick(4.0)
@@ -232,15 +251,13 @@ def test_l1_cancelled_set_is_pruned():
     c.add_order(shelf("s2", ["PK_A_1"], "DK1", t=0.1))
     out = c.tick(1.0)
     a1 = only(out.dispatches, "robot_1")
-    a2 = only(out.dispatches, "robot_2")
-    c.update_robot(snap("robot_2", "PK_A_1", RobotMode.NAVIGATING, a2.task_id, "s2", nxt="Q_DK1_1"))
-    c.task_result(a1.task_id, True, "", 5.0)
-    c.update_robot(snap("robot_1", "DK1"))
-    assert a2.task_id in c.tick(5.0).cancels
-    assert a2.task_id in c._cancelled
+    c.update_robot(snap("robot_1", "PK_B_1", RobotMode.NAVIGATING, a1.task_id, "s1", nxt="X_0_5"))
+    c.tick(2.0)
+    c.update_robot(snap("robot_1", "X_0_5", RobotMode.NAVIGATING, a1.task_id, "s1"))
+    assert a1.task_id in c.tick(5.0).cancels                        # replaced on arrival at the line
+    assert a1.task_id in c._cancelled and a1.task_id not in c._task_robot
     c.tick(5.0 + 61.0)
     assert not c._cancelled
-    assert a1.task_id not in c._task_robot
 
 
 def test_l3_duplicate_order_id_rejected():
@@ -258,6 +275,6 @@ def test_h1_robot_starting_on_its_first_pick_is_credited_by_later_goals():
     c.update_robot(snap("r1", "PK_A_1"))
     c.add_order(shelf("o", ["PK_A_1", "PK_A_2"], "DK2"))
     a = only(c.tick(1.0).dispatches, "r1")
-    assert tuple(a.route) == ("PK_A_1", "PK_A_2", "DK2")
-    c.update_robot(snap("r1", "PK_A_2", RobotMode.NAVIGATING, a.task_id, "o", nxt="DK2"))
+    assert tuple(a.route) == ("PK_A_1", "PK_A_2", "X_0_3")
+    c.update_robot(snap("r1", "PK_A_2", RobotMode.NAVIGATING, a.task_id, "o", nxt="X_0_3"))
     assert states(c.tick(2.0), "o") == [OrderState.PICKING_UP, OrderState.IN_TRANSIT]

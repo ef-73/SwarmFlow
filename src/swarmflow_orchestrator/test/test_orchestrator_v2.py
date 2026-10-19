@@ -104,7 +104,9 @@ def test_v2_shelf_order_end_to_end_and_transport_rejected(ros, tmp_path):
         assert g.route_kind == DispatchTask.Goal.ROUTE_GOALS
         assert g.order.order_id == "s1" and g.order.order_type == Order.TYPE_SHELF
         assert sorted(g.order.pick_vertices) == sorted(picks)
-        assert sorted(g.route[:-1]) == sorted(picks) and g.route[-1] == "DK2"
+        # the route ends at DK2's lane entry; the dock is claimed there and a follow-up goes to DK2
+        assert sorted(g.route[:-1]) == sorted(picks) and g.route[-1] == "X_1_7"
+        assert wait(lambda: any(tuple(x.route) == ("DK2",) for x in goals), 15.0), [tuple(x.route) for x in goals]
         assert wait(lambda: [s.state for s in statuses if s.order_id == "s1"][-1:] == [OrderStatus.STATE_DELIVERED],
                     20.0), [s.state for s in statuses if s.order_id == "s1"]
         seq = [s.state for s in statuses if s.order_id == "s1"]

@@ -16,6 +16,7 @@ docks with queue lanes.
 
 from __future__ import annotations
 
+import dataclasses
 import math
 
 import pytest
@@ -93,7 +94,7 @@ def test_nearest_robot_nearest_next_picks_then_dock(core):
     assert states(out, "s1") == [OrderState.QUEUED, OrderState.ASSIGNED]
     a = only(out.dispatches, "robot_2")             # HM3 -> PK_B_2 = 1+3+2 = 6 m beats HM1 -> PK_A_1 = 2+2+3 = 7 m
     assert a.order_id == "s1" and a.route_kind == api.ROUTE_GOALS
-    assert tuple(a.route) == ("PK_B_2", "PK_A_1", "DK1")
+    assert tuple(a.route) == ("PK_B_2", "PK_A_1", "X_0_5")   # DK1's lane entry: the place is claimed on arrival
     d = [x for x in out.decisions if x.decision_type == api.DecisionType.ASSIGN]
     assert d and d[0].robot_id == "robot_2" and "travel_to_first_goal_m" in d[0].cost_keys
     assert d[0].explanation
@@ -118,7 +119,7 @@ def test_congestion_prefers_robot_whose_first_goal_is_quiet(core):
     core.add_order(shelf("s1", ["PK_A_1", "PK_B_1"], "DK1"))
     out = core.tick(1.0)
     a = only(out.dispatches, "robot_2")
-    assert tuple(a.route) == ("PK_B_1", "PK_A_1", "DK1")
+    assert tuple(a.route) == ("PK_B_1", "PK_A_1", "X_0_5")
     d = [x for x in out.decisions if x.decision_type == api.DecisionType.ASSIGN][0]
     assert "congestion_m" in d.cost_keys
 
@@ -143,8 +144,10 @@ def test_shelf_lifecycle_and_home_after_delivery(core):
     a = only(core.tick(1.0).dispatches, "robot_2")
     core.update_robot(snap("robot_2", "PK_B_2", RobotMode.NAVIGATING, a.task_id, "s1", nxt="PK_A_1"))
     assert states(core.tick(2.0), "s1") == [OrderState.PICKING_UP]
-    core.update_robot(snap("robot_2", "PK_A_1", RobotMode.NAVIGATING, a.task_id, "s1", nxt="DK1"))
+    core.update_robot(snap("robot_2", "PK_A_1", RobotMode.NAVIGATING, a.task_id, "s1", nxt="X_0_5"))
     assert states(core.tick(3.0), "s1") == [OrderState.IN_TRANSIT]
+    a = to_line(core, a, "robot_2", "s1", 3.5)
+    assert tuple(a.route) == ("DK1",)
     core.update_robot(snap("robot_2", "DK1", RobotMode.UNLOADING, a.task_id, "s1"))
     assert states(core.tick(4.0), "s1") == []
     core.task_result(a.task_id, True, "", 9.0)
@@ -176,6 +179,21 @@ def test_idle_robots_go_home_never_two_to_one_slot(core):
 
 # ---- dock queues (O-05) --------------------------------------------------------------------------------------------
 
+def to_line(core, a, rid, oid, t):
+    """Drive ``rid`` (picks done) to its dock's lane entry on task ``a``; return the follow-up to its claimed place."""
+    entry = tuple(a.route)[-1]
+    core.update_robot(snap(rid, entry, RobotMode.NAVIGATING, a.task_id, oid))
+    out = core.tick(t)
+    assert a.task_id in out.cancels
+    grant = [d for d in out.decisions if d.decision_type == api.DecisionType.RESERVATION_GRANT and d.order_id == oid]
+    assert grant and grant[0].trigger == "arrived_at_dock_line"
+    f = only([d for d in out.dispatches if d.order_id == oid], rid)
+    core.task_result(a.task_id, False, api.FAILURE_CANCELLED, t + 0.1)          # the agent confirms our cancel
+    core.update_robot(snap(rid, entry, RobotMode.NAVIGATING, f.task_id, oid))
+    assert states(core.tick(t + 0.1), oid) == []
+    return f
+
+
 def _two_to_dk1(core):
     core.update_robot(snap("robot_1", "HM3"))
     core.update_robot(snap("robot_2", "HM2"))
@@ -185,23 +203,76 @@ def _two_to_dk1(core):
     return only(out.dispatches, "robot_1"), only(out.dispatches, "robot_2")
 
 
-def test_second_robot_for_a_busy_dock_queues(core):
+def test_no_place_is_claimed_at_dispatch(core):
     a1, a2 = _two_to_dk1(core)
-    assert tuple(a1.route) == ("PK_B_1", "DK1")
-    assert tuple(a2.route) == ("PK_A_1", "Q_DK1_1")
+    assert tuple(a1.route) == ("PK_B_1", "X_0_5") and tuple(a2.route) == ("PK_A_1", "X_0_5")
+    assert core._holder == {} and core._spot_owner == {}
+
+
+def test_arrival_order_at_the_line_decides_the_places(core):
+    a1, a2 = _two_to_dk1(core)                       # s1 (robot_1) was assigned first ...
+    for rid, a, oid, pk in (("robot_1", a1, "s1", "PK_B_1"), ("robot_2", a2, "s2", "PK_A_1")):
+        core.update_robot(snap(rid, pk, RobotMode.NAVIGATING, a.task_id, oid, nxt="X_0_5"))
+    core.tick(2.0)
+    f2 = to_line(core, a2, "robot_2", "s2", 3.0)     # ... but robot_2 reaches the line first: it gets the dock
+    assert tuple(f2.route) == ("DK1",)
+    f1 = to_line(core, a1, "robot_1", "s1", 4.0)
+    assert tuple(f1.route) == ("Q_DK1_1",)
+
+
+def test_robot_with_picks_left_near_the_line_does_not_claim(core):
+    core.update_robot(snap("robot_1", "X_0_4"))
+    core.add_order(shelf("s1", ["PK_B_1"], "DK1"))
+    a = only(core.tick(1.0).dispatches, "robot_1")
+    core.update_robot(snap("robot_1", "X_0_5", RobotMode.NAVIGATING, a.task_id, "s1", nxt="PK_B_1"))
+    out = core.tick(2.0)                             # at the entry, but not picked yet
+    assert not out.dispatches and not out.cancels and core._holder == {}
+
+
+def test_claim_waits_for_the_radius(core):
+    core.update_robot(snap("robot_1", "HM2"))
+    core.add_order(shelf("s1", ["PK_A_1"], "DK1"))
+    a = only(core.tick(1.0).dispatches, "robot_1")
+    core.update_robot(snap("robot_1", "PK_A_1", RobotMode.NAVIGATING, a.task_id, "s1", nxt="X_0_5"))
+    core.tick(2.0)
+    assert core.order_state("s1") == OrderState.IN_TRANSIT
+    far = dataclasses.replace(snap("robot_1", "X_0_2", RobotMode.NAVIGATING, a.task_id, "s1"), last_vertex="PK_A_1")
+    core.update_robot(far)                           # 6 m from the entry X_0_5
+    out = core.tick(3.0)
+    assert not out.dispatches and core._holder == {}
+    near = dataclasses.replace(snap("robot_1", "X_0_4", RobotMode.NAVIGATING, a.task_id, "s1"), last_vertex="PK_A_1")
+    core.update_robot(near)                          # 2 m from the entry
+    out = core.tick(4.0)
+    assert tuple(only(out.dispatches, "robot_1").route) == ("DK1",)
+    grant = [d for d in out.decisions if d.decision_type == api.DecisionType.RESERVATION_GRANT][0]
+    assert grant.cost_values == (2.0,)
+
+
+def test_capacity_counts_inbound_orders(core):
+    for r, at in (("robot_1", "HM3"), ("robot_2", "HM2"), ("robot_3", "HM1"), ("robot_4", "X_0_2")):
+        core.update_robot(snap(r, at))
+    for i, pk in enumerate(["PK_B_1", "PK_A_1", "PK_A_2", "PK_B_2"]):
+        core.add_order(shelf(f"s{i + 1}", [pk], "DK1", t=0.1 * i))
+    out = core.tick(1.0)
+    assert len([d for d in out.dispatches if d.order_id]) == 3       # DK1 + 2 queue spots
+    assert core.order_state("s4") == OrderState.QUEUED
 
 
 def test_queue_advances_when_dock_frees_after_arrival(core):
     a1, a2 = _two_to_dk1(core)
-    core.update_robot(snap("robot_2", "Q_DK1_1", RobotMode.NAVIGATING, a2.task_id, "s2"))
-    core.tick(2.0)
-    core.task_result(a2.task_id, True, "", 3.0)                     # arrived at its queue spot
+    core.update_robot(snap("robot_1", "PK_B_1", RobotMode.NAVIGATING, a1.task_id, "s1", nxt="X_0_5"))
+    core.update_robot(snap("robot_2", "PK_A_1", RobotMode.NAVIGATING, a2.task_id, "s2", nxt="X_0_5"))
+    core.tick(1.5)
+    f1 = to_line(core, a1, "robot_1", "s1", 2.0)
+    f2 = to_line(core, a2, "robot_2", "s2", 2.5)
+    assert tuple(f1.route) == ("DK1",) and tuple(f2.route) == ("Q_DK1_1",)
+    core.task_result(f2.task_id, True, "", 3.0)                     # arrived at its queue spot
     core.update_robot(snap("robot_2", "Q_DK1_1", RobotMode.IDLE, "", "s2"))
     out = core.tick(3.0)
     assert states(out, "s2") != [OrderState.DELIVERED]               # a queue spot does not deliver
     assert core.order_state("s2") == OrderState.IN_TRANSIT
     assert not [d for d in out.dispatches if d.robot_id == "robot_2"]  # waits: dock still busy, not sent home
-    core.task_result(a1.task_id, True, "", 10.0)
+    core.task_result(f1.task_id, True, "", 10.0)
     core.update_robot(snap("robot_1", "DK1"))
     out = core.tick(10.0)
     f = only(out.dispatches, "robot_2")
@@ -213,17 +284,51 @@ def test_queue_advances_when_dock_frees_after_arrival(core):
 
 def test_queue_advance_cancels_a_running_queue_task_without_failing_the_order(core):
     a1, a2 = _two_to_dk1(core)
-    core.update_robot(snap("robot_2", "PK_A_1", RobotMode.NAVIGATING, a2.task_id, "s2", nxt="Q_DK1_1"))
-    core.tick(2.0)
-    core.task_result(a1.task_id, True, "", 5.0)
+    core.update_robot(snap("robot_1", "PK_B_1", RobotMode.NAVIGATING, a1.task_id, "s1", nxt="X_0_5"))
+    core.update_robot(snap("robot_2", "PK_A_1", RobotMode.NAVIGATING, a2.task_id, "s2", nxt="X_0_5"))
+    core.tick(1.5)
+    f1 = to_line(core, a1, "robot_1", "s1", 2.0)
+    f2 = to_line(core, a2, "robot_2", "s2", 2.5)                    # driving to Q_DK1_1
+    core.task_result(f1.task_id, True, "", 5.0)
     core.update_robot(snap("robot_1", "DK1"))
     out = core.tick(5.0)
-    assert a2.task_id in out.cancels
+    assert f2.task_id in out.cancels
     f = only([d for d in out.dispatches if d.order_id == "s2"], "robot_2")
     assert tuple(f.route) == ("DK1",)
-    core.task_result(a2.task_id, False, api.FAILURE_CANCELLED, 5.5)
+    core.task_result(f2.task_id, False, api.FAILURE_CANCELLED, 5.5)
     out = core.tick(5.5)
     assert states(out, "s2") == [] and core.order_state("s2") == OrderState.IN_TRANSIT
+
+
+def test_task_ended_at_the_entry_claims_too(core):
+    core.update_robot(snap("robot_1", "HM3"))
+    core.add_order(shelf("s1", ["PK_B_1"], "DK1"))
+    a = only(core.tick(1.0).dispatches, "robot_1")
+    core.update_robot(snap("robot_1", "PK_B_1", RobotMode.NAVIGATING, a.task_id, "s1", nxt="X_0_5"))
+    core.tick(2.0)
+    core.task_result(a.task_id, True, "", 3.0)                       # reached the entry before a tick saw it near
+    core.update_robot(snap("robot_1", "X_0_5", RobotMode.IDLE, "", "s1"))
+    out = core.tick(3.0)
+    assert core.order_state("s1") == OrderState.IN_TRANSIT
+    assert tuple(only(out.dispatches, "robot_1").route) == ("DK1",)
+
+
+def test_requeue_frees_the_inbound_place(core):
+    core.update_robot(snap("robot_1", "HM2"))
+    core.add_order(shelf("s1", ["PK_A_2"], "DK1"))
+    a = only(core.tick(1.0).dispatches, "robot_1")
+    core.task_result(a.task_id, False, api.FAILURE_NAV_PREFIX + "PK_A_2", 2.0)
+    core.tick(2.0)
+    assert core.order_state("s1") == OrderState.QUEUED and core._dock_has_room("DK1")
+    assert all(not r.inbound for r in core._orders.values())
+
+
+def test_dock_without_queue_lane_is_claimed_at_dispatch():
+    c = FleetCoreV2(make_graph(), AssignPolicy(), queue_spots={})
+    c.update_robot(snap("robot_1", "HM3"))
+    c.add_order(shelf("s1", ["PK_B_1"], "DK1"))
+    a = only(c.tick(1.0).dispatches, "robot_1")
+    assert tuple(a.route) == ("PK_B_1", "DK1") and c._holder == {"DK1": "s1"}
 
 
 def test_three_robots_one_dock_queue_moves_up():
@@ -233,21 +338,25 @@ def test_three_robots_one_dock_queue_moves_up():
     for i, p in enumerate(["PK_B_1", "PK_A_1", "PK_A_2"]):
         c.add_order(shelf(f"s{i + 1}", [p], "DK1", t=0.1 * i))
     out = c.tick(1.0)
-    tails = sorted(tuple(d.route)[-1] for d in out.dispatches)
-    assert tails == ["DK1", "Q_DK1_1", "Q_DK1_2"]
-    by_tail = {tuple(d.route)[-1]: d for d in out.dispatches}
-    for d in out.dispatches:
-        if tuple(d.route)[-1] != "DK1":
-            c.task_result(d.task_id, True, "", 4.0)
-            c.update_robot(snap(d.robot_id, tuple(d.route)[-1], RobotMode.IDLE, "", d.order_id))
-    c.tick(4.0)
-    head = by_tail["DK1"]
-    c.task_result(head.task_id, True, "", 8.0)
-    c.update_robot(snap(head.robot_id, "DK1"))
-    out = c.tick(8.0)
+    ds = sorted((d for d in out.dispatches if d.order_id), key=lambda d: d.order_id)
+    t, fol = 2.0, {}
+    for d in ds:                                     # each picks, then reaches the line, in order s1, s2, s3
+        c.update_robot(snap(d.robot_id, d.route[0], RobotMode.NAVIGATING, d.task_id, d.order_id, nxt="X_0_5"))
+        c.tick(t)
+        fol[d.order_id] = to_line(c, d, d.robot_id, d.order_id, t + 0.5)
+        t += 1.0
+    assert {o: tuple(f.route) for o, f in fol.items()} == {"s1": ("DK1",), "s2": ("Q_DK1_1",), "s3": ("Q_DK1_2",)}
+    for o in ("s2", "s3"):
+        f = fol[o]
+        c.task_result(f.task_id, True, "", 8.0)
+        c.update_robot(snap(f.robot_id, f.route[-1], RobotMode.IDLE, "", o))
+    c.tick(8.0)
+    c.task_result(fol["s1"].task_id, True, "", 9.0)
+    c.update_robot(snap(fol["s1"].robot_id, "DK1"))
+    out = c.tick(9.0)
     moves = {d.robot_id: tuple(d.route) for d in out.dispatches if d.order_id}
-    assert moves[by_tail["Q_DK1_1"].robot_id] == ("DK1",)
-    assert moves[by_tail["Q_DK1_2"].robot_id] == ("Q_DK1_1",)
+    assert moves[fol["s2"].robot_id] == ("DK1",)
+    assert moves[fol["s3"].robot_id] == ("Q_DK1_1",)
 
 
 # ---- pallets ---------------------------------------------------------------------------------------------------------
@@ -256,11 +365,13 @@ def test_pallet_lifecycle_is_forward_only(core):
     core.update_robot(snap("robot_1", "HM1"))
     core.add_order(pallet("p1", "PL_1", "DK2"))
     a = only(core.tick(1.0).dispatches, "robot_1")
-    assert tuple(a.route) == ("PL_1", "DK2") and a.route_kind == api.ROUTE_GOALS
+    assert tuple(a.route) == ("PL_1", "X_0_3") and a.route_kind == api.ROUTE_GOALS   # DK2's lane entry
     core.update_robot(snap("robot_1", "PL_1", RobotMode.LIFTING, a.task_id, "p1"))
     assert states(core.tick(2.0), "p1") == [OrderState.PICKING_UP]
     core.update_robot(snap("robot_1", "X_0_1", RobotMode.CARRYING, a.task_id, "p1", payload="pallet"))
     assert states(core.tick(3.0), "p1") == [OrderState.IN_TRANSIT]
+    a = to_line(core, a, "robot_1", "p1", 3.5)                       # a carried pallet claims its place too
+    assert tuple(a.route) == ("DK2",)
     core.update_robot(snap("robot_1", "DK2", RobotMode.LIFTING, a.task_id, "p1", payload="pallet"))
     assert states(core.tick(4.0), "p1") == []                       # setting down at the dock: no state change
     core.task_result(a.task_id, True, "", 15.0)
@@ -323,7 +434,7 @@ def test_blocked_loaded_robot_retries_then_fails(core):
         out = _blocked(core, "robot_1", "X_0_2", task, "s1", t + api.BLOCKED_REQUEUE_S + 0.1, "DK2")
         assert task in out.cancels, attempt
         f = only([d for d in out.dispatches if d.order_id == "s1"], "robot_1")
-        assert tuple(f.route) == ("DK2",)
+        assert tuple(f.route) == ("X_0_3",)                         # no place claimed while blocked
         core.task_result(task, False, api.FAILURE_CANCELLED, t + api.BLOCKED_REQUEUE_S + 0.2)
         task, t = f.task_id, t + 100.0
         assert core.order_state("s1") == OrderState.IN_TRANSIT

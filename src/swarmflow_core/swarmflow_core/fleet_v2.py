@@ -6,9 +6,14 @@ Same surface as :class:`swarmflow_core.fleet.FleetCore` (``add_order``, ``update
 ``swarmflow_core.api`` module docstring (v2 section). Pure Python, deterministic, time passed in.
 
 Design notes
-- Dock holding (O-05): ``_holder[dock]`` is the order whose last goal is the dock, from its dispatch until the result
-  of that task (a follow-up task of the same order keeps the hold). A new route for a held dock ends at the lowest
-  free queue spot instead (``_spot_owner``); no free spot means the order simply stays QUEUED. When a dock frees, the
+- Dock line (O-05): a place at a dock is claimed on arrival at its line, not at dispatch. A dock with a queue lane
+  has a lane entry (the vertex in front of its last queue spot); a route to that dock ends at the entry, and the order
+  is *inbound*. Once its picks are done and its robot is within ``LINE_CLAIM_RADIUS_M`` of the entry (or its task to
+  the entry has ended), it claims the dock if free, else the lowest free queue spot, in order of arrival at the line;
+  its task is replaced by one to that place. Orders are only assigned while holder + queued + inbound orders leave a
+  place for them, so an arriving robot always finds one. A dock without a queue lane is claimed at dispatch.
+- Dock holding: ``_holder[dock]`` is the order whose last goal is the dock, from its claim until the result of that
+  task (a follow-up task of the same order keeps the hold); queue spots are owned in ``_spot_owner``. When a dock frees, the
   queue owners in index order each move up (first -> dock, k-th remaining -> k-th lowest spot); an order whose target
   changes has its running task cancelled (``TickOutput.cancels``) and a follow-up dispatched in the same tick.
   Task ids the core cancelled itself are remembered; their results change nothing.
@@ -44,6 +49,7 @@ _FORWARD = [OrderState.QUEUED, OrderState.ASSIGNED, OrderState.PICKING_UP, Order
 _RANK = {s: i for i, s in enumerate(_FORWARD)}
 _ACTIVE = (OrderState.ASSIGNED, OrderState.PICKING_UP, OrderState.IN_TRANSIT)
 BAD_HOME_TTL_S = 120.0   #: a failed home slot is avoided for this long (cleared earlier by any success)
+LINE_CLAIM_RADIUS_M = 3.0   #: a loaded robot this close to its dock's lane entry claims its place in the line
 _QUEUE_NAME = re.compile(r"Q_(.+)_(\d+)")
 
 
@@ -57,7 +63,9 @@ class _Order:
     retries: int = 0                  #: follow-ups after failures / blocked while loaded
     n_tasks: int = 0
     picks_left: List[str] = field(default_factory=list)   #: goals before the target not yet reached
-    target: str = ""                  #: final goal of the current/next task: the dock or a queue spot
+    target: str = ""                  #: final goal of the current/next task: the dock, a queue spot or a lane entry
+    inbound: str = ""                 #: dock this order heads for without a claimed place yet
+    near_line_since: float = -1.0     #: first tick its robot was seen near the lane entry (arrival order)
     followup: bool = False
     followup_reason: str = ""
 
@@ -88,6 +96,15 @@ class FleetCoreV2:
             self._spots.setdefault(dock, []).append((idx, vertex))
         for lst in self._spots.values():
             lst.sort()
+        # lane entry: the neighbour of a dock's last queue spot that is neither a queue spot nor a dock
+        self._entry: Dict[str, str] = {}
+        for dock, lst in self._spots.items():
+            last = lst[-1][1]
+            for n in sorted(graph.successors(last)):
+                v = graph.vertices.get(n)
+                if v is not None and v.kind not in ("queue", "dock"):
+                    self._entry[dock] = n
+                    break
         self._pending: List[OrderSpec] = []
         self._orders: Dict[str, _Order] = {}
         self._robots: Dict[str, RobotSnapshot] = {}
@@ -181,7 +198,7 @@ class FleetCoreV2:
             del self._holder[dock]
         for spot in [v for v, o in self._spot_owner.items() if o == oid]:
             del self._spot_owner[spot]
-        rec.target = ""
+        rec.target, rec.inbound, rec.near_line_since = "", "", -1.0
 
     def _drop_robot(self, rec: _Order) -> None:
         self._order_of_robot.pop(rec.robot_id, None)
@@ -264,6 +281,7 @@ class FleetCoreV2:
         self._results_step(out, t, forced_home)                        # (3) task results
         self._blocked_step(out, t, forced_home)                        # (4) blocked robots
         self._advance_queues(out)                                      # (5) dock freed -> queue moves up
+        self._claim_line(out, t)                                       # (5b) arrived at a dock line -> claim
         self._followups(out, t)                                        # (6) follow-up tasks
         self._plan(out, t, forced_home)                                # (7) new assignments
         self._home_step(out, t, forced_home)                           # (8) home slots
@@ -410,6 +428,41 @@ class FleetCoreV2:
                 self._cancel_task(out, rec)
                 self._flag_followup(rec, "queue_advance")
 
+    # ---- (5b) arrival at a dock line ---------------------------------------------------------------------------
+
+    def _claim_line(self, out: TickOutput, t: float) -> None:
+        cands = []
+        for oid in sorted(self._orders):
+            rec = self._orders[oid]
+            if not rec.inbound or rec.state not in _ACTIVE or rec.picks_left:
+                continue
+            s = self._robots.get(rec.robot_id)
+            if s is not None and s.mode in (RobotMode.STUCK, RobotMode.FAULT):
+                continue                                             # blocked: claims once it moves again
+            v = self.graph.vertices[self._entry[rec.inbound]]
+            d = math.hypot(s.x - v.x, s.y - v.y) if s is not None else math.inf
+            arrived = rec.task_id == "" and not rec.followup        # its task to the entry has ended
+            if d > LINE_CLAIM_RADIUS_M and not arrived:
+                continue
+            if rec.near_line_since < 0:
+                rec.near_line_since = t
+            cands.append((rec.near_line_since, oid, d))
+        for _, oid, d in sorted(cands):                              # arrival order at the line
+            rec = self._orders[oid]
+            dock = rec.inbound
+            target = self._claim_dock(oid, dock)
+            if target is None:                                       # cannot happen while _plan gates capacity
+                continue
+            rec.inbound, rec.target = "", target
+            self._cancel_task(out, rec)
+            self._flag_followup(rec, "dock_line")
+            out.decisions.append(make_decision(
+                t=t, event_id=f"{t:.3f}-{oid}-LINE", policy=self.policy.name,
+                decision_type=DecisionType.RESERVATION_GRANT, robot_id=rec.robot_id, order_id=oid,
+                trigger="arrived_at_dock_line", previous_decision=f"heading for {dock}",
+                new_decision=f"{rec.robot_id} -> {target}", cost_keys=("distance_to_line_entry_m",),
+                cost_values=(round(d, 3) if math.isfinite(d) else -1.0,)))
+
     # ---- (6) follow-up tasks --------------------------------------------------------------------------------------
 
     def _followups(self, out: TickOutput, t: float) -> None:
@@ -418,7 +471,7 @@ class FleetCoreV2:
             if not rec.followup or rec.state not in _ACTIVE:
                 continue
             rec.followup = False
-            goals = tuple(rec.picks_left) + (rec.target,)
+            goals = tuple(rec.picks_left) + (rec.target or self._entry[rec.inbound],)
             task_id = self._start_task(rec, goals)
             out.dispatches.append(Assignment(rec.robot_id, oid, task_id, goals, api.ROUTE_GOALS))
             out.decisions.append(make_decision(
@@ -440,9 +493,12 @@ class FleetCoreV2:
     # ---- (7) planning ---------------------------------------------------------------------------------------------
 
     def _dock_has_room(self, dock: str) -> bool:
-        if dock not in self._holder:
-            return True
-        return any(v not in self._spot_owner for _, v in self._spots.get(dock, ()))
+        if dock not in self._entry:                                    # no queue lane: claimed at dispatch
+            if dock not in self._holder:
+                return True
+            return any(v not in self._spot_owner for _, v in self._spots.get(dock, ()))
+        used = (dock in self._holder) + sum(1 for _, v in self._spots[dock] if v in self._spot_owner)             + sum(1 for r in self._orders.values() if r.inbound == dock)
+        return used < 1 + len(self._spots[dock])
 
     def _claim_dock(self, oid: str, dock: str) -> Optional[str]:
         if dock not in self._holder:
@@ -478,7 +534,14 @@ class FleetCoreV2:
                 dropped.add(a.order_id)
                 continue
             goals = list(a.route)
-            if goals[-1] == rec.spec.dropoff_vertex:
+            inbound = ""
+            if goals[-1] == rec.spec.dropoff_vertex and goals[-1] in self._entry:
+                if not self._dock_has_room(goals[-1]):                 # filled earlier in this plan
+                    dropped.add(a.order_id)
+                    continue
+                inbound = goals[-1]
+                target = goals[-1] = self._entry[inbound]
+            elif goals[-1] == rec.spec.dropoff_vertex:
                 target = self._claim_dock(a.order_id, goals[-1])
                 if target is None:                                     # dock held and every queue spot taken
                     dropped.add(a.order_id)
@@ -492,7 +555,8 @@ class FleetCoreV2:
                 self._home_target.pop(home, None)
                 self._cancelled[home] = (self._now, a.robot_id)
                 out.cancels.append(home)
-            rec.robot_id, rec.target, rec.retries = a.robot_id, target, 0
+            rec.robot_id, rec.target, rec.retries = a.robot_id, ("" if inbound else target), 0
+            rec.inbound, rec.near_line_since = inbound, -1.0
             rec.picks_left = goals[:-1]
             self._order_of_robot[a.robot_id] = a.order_id
             task_id = self._start_task(rec, tuple(goals))

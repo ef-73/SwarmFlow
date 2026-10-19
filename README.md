@@ -44,8 +44,9 @@ starts from fresh containers, and every metric is computed from the recorded rob
 ![SwarmFlow architecture: the fleet layer assigns orders; each robot runs its own agent and Nav2 and avoids the others using their shared, predicted states](docs/evidence/architecture.svg)
 
 - **The fleet layer decides *who does what*.** Each order goes to the robot with the lowest cost: travel distance
-  plus a congestion penalty for robots already heading to the same spot. Pick lists are ordered nearest-next, and
-  docks have queues.
+  plus a congestion penalty for robots already heading to the same spot. Pick lists are ordered nearest-next. Each
+  dock has a queue lane, and a robot claims its place in it only when it arrives at the line, so places go first
+  come, first served.
 - **Each robot decides *how to get there*.** Every robot stamps the others into its own costmap: their footprints
   now, and where they will be over the next 2 seconds. It keeps right in every aisle and plans around everything
   else itself. There is no central traffic control, and avoidance keeps working if the fleet layer goes down.
