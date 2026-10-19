@@ -313,6 +313,23 @@ def test_task_ended_at_the_entry_claims_too(core):
     assert tuple(only(out.dispatches, "robot_1").route) == ("DK1",)
 
 
+def test_task_ending_away_from_the_line_never_claims_and_goes_on_to_the_line(core):
+    # seen in Gazebo (run dl_2): the task was reported done while the robot was still at its pick, 18 m from the line
+    core.update_robot(snap("robot_1", "HM3"))
+    core.add_order(shelf("s1", ["PK_B_2"], "DK1"))
+    a = only(core.tick(1.0).dispatches, "robot_1")
+    core.update_robot(snap("robot_1", "PK_B_2", RobotMode.NAVIGATING, a.task_id, "s1", nxt="X_0_5"))
+    core.tick(2.0)
+    core.task_result(a.task_id, True, "", 3.0)
+    core.update_robot(snap("robot_1", "PK_B_2", RobotMode.IDLE, "", "s1"))          # 5.4 m from the entry X_0_5
+    out = core.tick(3.0)
+    assert core._holder == {} and core._spot_owner == {}
+    assert not [d for d in out.decisions if d.decision_type == api.DecisionType.RESERVATION_GRANT]
+    f = only(out.dispatches, "robot_1")
+    assert tuple(f.route) == ("X_0_5",) and f.order_id == "s1"
+    assert to_line(core, f, "robot_1", "s1", 4.0).route == ("DK1",)
+
+
 def test_requeue_frees_the_inbound_place(core):
     core.update_robot(snap("robot_1", "HM2"))
     core.add_order(shelf("s1", ["PK_A_2"], "DK1"))

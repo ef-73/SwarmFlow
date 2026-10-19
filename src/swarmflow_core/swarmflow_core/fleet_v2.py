@@ -8,8 +8,9 @@ Same surface as :class:`swarmflow_core.fleet.FleetCore` (``add_order``, ``update
 Design notes
 - Dock line (O-05): a place at a dock is claimed on arrival at its line, not at dispatch. A dock with a queue lane
   has a lane entry (the vertex in front of its last queue spot); a route to that dock ends at the entry, and the order
-  is *inbound*. Once its picks are done and its robot is within ``LINE_CLAIM_RADIUS_M`` of the entry (or its task to
-  the entry has ended), it claims the dock if free, else the lowest free queue spot, in order of arrival at the line;
+  is *inbound*. Once its picks are done and its robot is within ``LINE_CLAIM_RADIUS_M`` of the entry, it claims the
+  dock if free, else the lowest free queue spot, in order of arrival at the line (a task that ends farther away is
+  re-dispatched to the entry);
   its task is replaced by one to that place. Orders are only assigned while holder + queued + inbound orders leave a
   place for them, so an arriving robot always finds one. A dock without a queue lane is claimed at dispatch.
 - Dock holding: ``_holder[dock]`` is the order whose last goal is the dock, from its claim until the result of that
@@ -441,8 +442,9 @@ class FleetCoreV2:
                 continue                                             # blocked: claims once it moves again
             v = self.graph.vertices[self._entry[rec.inbound]]
             d = math.hypot(s.x - v.x, s.y - v.y) if s is not None else math.inf
-            arrived = rec.task_id == "" and not rec.followup        # its task to the entry has ended
-            if d > LINE_CLAIM_RADIUS_M and not arrived:
+            if d > LINE_CLAIM_RADIUS_M:
+                if rec.task_id == "" and not rec.followup:          # its task ended away from the line (seen in
+                    self._flag_followup(rec, "to_dock_line")         # Gazebo): send it on, never claim from afar
                 continue
             if rec.near_line_since < 0:
                 rec.near_line_since = t
