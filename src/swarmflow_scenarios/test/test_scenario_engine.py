@@ -75,7 +75,7 @@ def test_orders_published_in_order_and_record_written(ros, tmp_path):
         ("o0001", "L1", "D1"), ("o0002", "L3", "D2")]
     assert all(o.payload_type == "small" and o.priority == 0 for o in got)
     assert (got[1].release_time.sec + got[1].release_time.nanosec * 1e-9) >= \
-        (got[0].release_time.sec + got[0].release_time.nanosec * 1e-9) + 0.4
+        (got[0].release_time.sec + got[0].release_time.nanosec * 1e-9) + 0.4 - 1e-3   # wall-clock timer jitter
     cfg = yaml.safe_load((run_dir / "config.yaml").read_text(encoding="utf-8"))
     assert cfg["git_sha"] == "abc123" and cfg["image_digests"] == "dev@sha256:0"
     assert cfg["scenario"]["name"] == "tiny" and cfg["scenario"]["seed"] == 3
