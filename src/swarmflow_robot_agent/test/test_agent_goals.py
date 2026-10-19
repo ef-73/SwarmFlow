@@ -139,6 +139,21 @@ def test_nav_failure_reports_blocked_and_retries_same_goal(agent):
     assert agent.state().task_id == "task_1"
 
 
+def test_nav_success_far_from_the_goal_is_spurious_and_the_goal_is_resent(agent):
+    # Nav2 can report a preempting goal as succeeded while the robot is still at the previous goal (seen in Gazebo)
+    start(agent, ["PK_A_1", "DK1"])
+    at(agent, "PK_A_1", 5.0)                                       # reached the pick: DK1 sent next
+    acts = agent.on_nav_result(True, 5.1)                           # "success" for DK1, 4.5 m away
+    assert not of(acts, TaskFinished)
+    nav = of(acts, Navigate)
+    assert nav and nav[0].vertices == ("DK1",)
+    s = agent.state()
+    assert s.task_id == "task_1" and s.next_vertex == "DK1" and s.mode == RobotMode.NAVIGATING
+    at(agent, "DK1", 20.0)
+    agent.on_nav_result(True, 20.0)                                 # a real arrival still counts
+    assert agent.state().mode == RobotMode.UNLOADING
+
+
 def test_cancel_still_finishes_with_cancelled(agent):
     start(agent, ["PK_A_2", "DK1"])
     acts = agent.cancel(3.0)

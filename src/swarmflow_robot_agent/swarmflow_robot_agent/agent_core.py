@@ -34,6 +34,7 @@ GOAL_RETRY_MIN_S = 1.0        #: v2 goal mode: a failed Navigate is re-sent afte
 GOAL_RETRY_MAX_S = 3.0
 GOAL_PROGRESS_MOVE_M = 0.5    #: v2 goal mode: displacement this far from the last reference also counts as progress
 PREDOCK_M = 1.2               #: pallet docking (T042): Nav2 goal this far in front of the pallet, along its yaw
+NAV_SUCCESS_MAX_M = 1.0      #: v2 goal mode: a Nav2 success this far from the goal is spurious and the goal is re-sent
 DOCK_AHEAD_M = 0.7            #: deep drop: drive this far past the dock vertex along the dock yaw
 UNDOCK_M = 0.9                #: back out this far (along the dock yaw) after setting the pallet down
 DOCK_TOL_LAT_M = 0.03         #: dock drive reached: across-track tolerance
@@ -944,6 +945,13 @@ class AgentCore:
             self._goal_retry_at = t + self._rng.uniform(GOAL_RETRY_MIN_S, GOAL_RETRY_MAX_S)
             return []
         name = self._route[self._goal_i]
+        d = self._goal_dist()
+        if d is not None and d > NAV_SUCCESS_MAX_M and t - self._pose_t <= POSE_STALE_S:
+            # Nav2 reported success for a goal the robot is not at: when a new goal preempts one that is just
+            # finishing, Nav2 can report the new goal succeeded (seen in Gazebo: a task "finished" at its last pick,
+            # 18 m from its final goal). Send the goal again instead of skipping it.
+            self._nav_inflight = True
+            return [self._goal_navigate(name)]
         self._last_vertex = name
         self._goal_retry_at = None
         self._goal_clear_blocked()
