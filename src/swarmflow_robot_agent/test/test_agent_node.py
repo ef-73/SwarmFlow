@@ -113,3 +113,54 @@ def test_agent_drives_fake_nav2_with_zone_hold(ros):
         ex.shutdown()
         for n in (agent, nav, orch):
             n.destroy_node()
+
+
+def test_reservations_are_published_from_the_plan_and_others_are_read(ros):
+    """T068 wiring: own Nav2 plan in, reservation out on /fleet/trajectories, other robots' reservations in."""
+    from geometry_msgs.msg import PoseStamped
+    from nav_msgs.msg import Path
+
+    from swarmflow_core import api
+
+    agent = AgentNode(namespace="robot_1", cli_args=TF_REMAP, parameter_overrides=[
+        Parameter("robot_id", value="robot_1"), Parameter("layout_dir", value=str(FIX)),
+        Parameter("traffic_control", value=False), Parameter("yield_to_others", value=True),
+        Parameter("unjam", value=True)])
+    peer = rclpy.create_node("peer")
+    got = []
+    peer.create_subscription(Path, "/fleet/trajectories", got.append, 10)
+    plan_pub = peer.create_publisher(Path, "/robot_1/plan", 1)
+    traj_pub = peer.create_publisher(Path, "/fleet/trajectories", 10)
+    ex = MultiThreadedExecutor(num_threads=2)
+    ex.add_node(agent)
+    ex.add_node(peer)
+    th = threading.Thread(target=ex.spin, daemon=True)
+    th.start()
+    try:
+        now = agent.get_clock().now().nanoseconds * 1e-9
+        with agent._lock:
+            agent.core.on_pose(1.3, 1.1, 0.0, 0.5, now)
+            agent.core.start_task("t1", "o1", ["L1"], now, route_kind=api.ROUTE_GOALS, order_type=api.ORDER_SHELF)
+
+        def path(frame, pts, stamp=0.0):
+            m = Path()
+            m.header.frame_id = frame
+            m.header.stamp.sec = int(stamp)
+            for x, y in pts:
+                p = PoseStamped()
+                p.pose.position.x, p.pose.position.y = x, y
+                m.poses.append(p)
+            return m
+
+        assert _wait(lambda: (plan_pub.publish(path("map", [(1.3, 1.1), (3.3, 1.1)])) or
+                              any(m.header.frame_id == "robot_1" and len(m.poses) > 2 for m in got)), 10.0)
+        mine = [m for m in got if m.header.frame_id == "robot_1"][-1]
+        assert abs(mine.poses[-1].pose.position.x - 3.3) < 0.3              # timed along the plan
+        traj_pub.publish(path("robot_9;pallet", [(5.0, 5.0)], stamp=3.0))
+        assert _wait(lambda: "robot_9" in agent.core._others_res, 5.0)
+        r9 = agent.core._others_res["robot_9"][0]
+        assert r9.pallet and r9.reserved_t == 3.0 and r9.points[0][1:] == (5.0, 5.0)
+    finally:
+        ex.shutdown()
+        agent.destroy_node()
+        peer.destroy_node()

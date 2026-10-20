@@ -14,7 +14,9 @@ from typing import Iterable, Optional
 import rclpy
 import tf2_ros
 from geometry_msgs.msg import PoseStamped, Twist
+from nav2_msgs.action import BackUp as BackUpAction
 from nav2_msgs.action import NavigateThroughPoses
+from nav_msgs.msg import Path
 from rcl_interfaces.msg import Parameter as ParameterMsg
 from rcl_interfaces.msg import ParameterType, ParameterValue
 from rcl_interfaces.srv import SetParameters
@@ -32,11 +34,14 @@ from swarmflow_interfaces.action import DispatchTask
 from swarmflow_interfaces.msg import ReservationHeartbeat, ReservationRelease, RobotState, ZoneReservation
 from swarmflow_interfaces.srv import RequestReservation as RequestReservationSrv
 
-from .agent_core import (DRIVE_HZ, DRIVE_MAX_MPS, DRIVE_MAX_RADPS, DRIVE_POSE_MAX_AGE_S, AgentCore, CancelNav,
-                         DockDrive, FootprintSync, drive_command, Navigate, Release, RequestReservation, SetFootprint,
-                         StopDrive, TaskFinished)
+from .agent_core import (DRIVE_HZ, DRIVE_MAX_MPS, DRIVE_MAX_RADPS, DRIVE_POSE_MAX_AGE_S, AgentCore, BackUp,
+                         CancelBackUp, CancelNav, DockDrive, FootprintSync, drive_command, Navigate, Release,
+                         RequestReservation, SetFootprint, StopDrive, TaskFinished)
+from .trajectory import Reservation
 
 MAX_POSE_AGE_S = 1.0
+TRAJ_PERIOD_S = 0.5           #: T068: reservation publish period
+PALLET_TAG = ";pallet"        #: T068: /fleet/trajectories header.frame_id = "<robot_id>[;pallet]"
 POSE_STALE_S = 1.0
 MAX_ANGULAR_RADPS = 3.0
 FOOTPRINT_NORMAL = "[[0.35, 0.30], [0.35, -0.30], [-0.35, -0.30], [-0.35, 0.30]]"   #: nav2_params.yaml 0.70 x 0.60
@@ -78,13 +83,17 @@ class AgentNode(Node):
         self.declare_parameter("map_frame", "map")
         self.declare_parameter("base_frame", "base_footprint")
         self.declare_parameter("tick_hz", 10.0)
-        self.declare_parameter("yield_to_others", False)     # T067 (SWARMFLOW_YIELD)
+        self.declare_parameter("yield_to_others", False)     # T068 (SWARMFLOW_YIELD): reserved trajectories
+        self.declare_parameter("unjam", False)               # T068 (SWARMFLOW_UNJAM): deadlock breaker
         self.robot_id = self.get_parameter("robot_id").value
         self._map_frame = self.get_parameter("map_frame").value
         self._base_frame = self.get_parameter("base_frame").value
         graph = load_layout(self.get_parameter("layout_dir").value)
         self.core = AgentCore(self.robot_id, graph, traffic_control=bool(self.get_parameter("traffic_control").value),
-                              yield_to_others=bool(self.get_parameter("yield_to_others").value))
+                              yield_to_others=bool(self.get_parameter("yield_to_others").value),
+                              unjam=bool(self.get_parameter("unjam").value))
+        self._backup_goal = None
+        self._backup_seq = 0
 
         self._lock = threading.RLock()
         self._cb = ReentrantCallbackGroup()
@@ -123,10 +132,15 @@ class AgentNode(Node):
                                  callback_group=cb)
         self.create_subscription(ZoneReservation, "/fleet/reservations", self._on_lease_event, _QOS_LATCHED,
                                  callback_group=cb)
-        if self.core.yield_to_others:
-            self.create_subscription(RobotState, "/fleet/robot_states", self._on_other_state,
-                                     QoSProfile(depth=20, reliability=ReliabilityPolicy.BEST_EFFORT),
+        if self.core.yield_to_others or self.core.unjam:
+            best_effort = QoSProfile(depth=20, reliability=ReliabilityPolicy.BEST_EFFORT)
+            self.create_subscription(RobotState, "/fleet/robot_states", self._on_other_state, best_effort,
                                      callback_group=cb)
+            self.create_subscription(Path, "/fleet/trajectories", self._on_trajectory, best_effort, callback_group=cb)
+            self.create_subscription(Path, "plan", self._on_plan, QoSProfile(depth=1), callback_group=cb)
+            self._traj_pub = self.create_publisher(Path, "/fleet/trajectories", _QOS10)   # reliable: any reader
+            self.create_timer(TRAJ_PERIOD_S, self._publish_trajectory, callback_group=cb)
+            self._backup_client = ActionClient(self, BackUpAction, "backup", callback_group=cb)
         self._server = ActionServer(self, DispatchTask, "dispatch_task", self._execute,
                                     goal_callback=self._on_goal, cancel_callback=lambda _h: CancelResponse.ACCEPT,
                                     callback_group=cb)
@@ -146,6 +160,10 @@ class AgentNode(Node):
                 self._send_nav(a)
             elif isinstance(a, CancelNav):
                 self._cancel_nav()
+            elif isinstance(a, BackUp):
+                self._start_backup(a)
+            elif isinstance(a, CancelBackUp):
+                self._cancel_backup()
             elif isinstance(a, DockDrive):
                 self._start_drive(a)
             elif isinstance(a, StopDrive):
@@ -345,7 +363,82 @@ class AgentNode(Node):
             return
         mode = _MODE_NAMES.get(msg.mode, "FAULT")
         with self._lock:
-            self.core.on_other(msg.robot_id, msg.x, msg.y, msg.yaw, msg.linear_speed, mode, self._now())
+            self.core.on_other(msg.robot_id, msg.x, msg.y, msg.yaw, msg.linear_speed, mode, self._now(),
+                               fault_reason=msg.fault_reason)
+
+    # -- reserved trajectories (T068) ------------------------------------------------------------------------------
+    def _on_plan(self, msg: Path) -> None:
+        with self._lock:
+            self.core.on_plan([(p.pose.position.x, p.pose.position.y) for p in msg.poses], self._now())
+
+    def _on_trajectory(self, msg: Path) -> None:
+        rid, _, tag = msg.header.frame_id.partition(";")
+        if rid == self.robot_id or not rid:
+            return
+        pts = tuple((p.header.stamp.sec + p.header.stamp.nanosec * 1e-9, p.pose.position.x, p.pose.position.y)
+                    for p in msg.poses)
+        st = msg.header.stamp
+        with self._lock:
+            self.core.on_reservation(Reservation(rid, st.sec + st.nanosec * 1e-9, tag == "pallet", pts), self._now())
+
+    def _publish_trajectory(self) -> None:
+        with self._lock:
+            res = self.core.reservation(self._now())
+        if res is None:
+            return
+        m = Path()
+        m.header.stamp = _to_time_msg(res.reserved_t)
+        m.header.frame_id = res.robot_id + (PALLET_TAG if res.pallet else "")
+        for t, x, y in res.points:
+            p = PoseStamped()
+            p.header.stamp = _to_time_msg(t)
+            p.header.frame_id = self._map_frame
+            p.pose.position.x, p.pose.position.y = x, y
+            p.pose.orientation.w = 1.0
+            m.poses.append(p)
+        self._traj_pub.publish(m)
+
+    # -- deadlock breaker: Nav2 BackUp (T068) --------------------------------------------------------------------
+    def _start_backup(self, b: BackUp) -> None:
+        self._backup_seq += 1
+        seq = self._backup_seq
+        if not self._backup_client.server_is_ready():
+            self.get_logger().warn("backup behaviour not available")
+            self._run(self.core.on_backup_result(False, self._now()))
+            return
+        goal = BackUpAction.Goal()
+        goal.target.x = float(b.dist)
+        goal.speed = float(b.speed)
+        goal.time_allowance.sec = 10
+        self._backup_client.send_goal_async(goal).add_done_callback(lambda f, s=seq: self._on_backup_accepted(f, s))
+
+    def _on_backup_accepted(self, fut, seq: int) -> None:
+        with self._lock:
+            handle = fut.result()
+            if seq != self._backup_seq:
+                if handle is not None and handle.accepted:
+                    handle.cancel_goal_async()
+                return
+            if handle is None or not handle.accepted:
+                self._run(self.core.on_backup_result(False, self._now()))
+                return
+            self._backup_goal = handle
+            handle.get_result_async().add_done_callback(lambda f, s=seq: self._on_backup_result(f, s))
+
+    def _on_backup_result(self, fut, seq: int) -> None:
+        with self._lock:
+            if seq != self._backup_seq:
+                return
+            self._backup_goal = None
+            res = fut.result()
+            ok = res is not None and res.status == GoalStatus.STATUS_SUCCEEDED
+            self._run(self.core.on_backup_result(ok, self._now()))
+
+    def _cancel_backup(self) -> None:
+        self._backup_seq += 1
+        if self._backup_goal is not None:
+            self._backup_goal.cancel_goal_async()
+            self._backup_goal = None
 
     def _on_tick(self) -> None:
         with self._lock:
@@ -380,7 +473,7 @@ class AgentNode(Node):
                 self._angular = 0.0                   # no fresh pose: do not keep publishing an old turn rate
             self._run(self.core.tick(t))
             for e in self.core.yield_events:
-                self.get_logger().info(f"YIELD {e}")
+                self.get_logger().info(f"COORD {e}")
             self.core.yield_events.clear()
 
     def _publish_state(self) -> None:

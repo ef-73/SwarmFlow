@@ -12,8 +12,9 @@ x-ros-env: &ros-env
   SWARMFLOW_PREDICTION_HORIZON: ${SWARMFLOW_PREDICTION_HORIZON:-}
   SWARMFLOW_FOOTPRINT_CRITIC: ${SWARMFLOW_FOOTPRINT_CRITIC:-}
   SWARMFLOW_PREDICT_ALONG_PLAN: ${SWARMFLOW_PREDICT_ALONG_PLAN:-}
-  # T067: robots yield to each other (1 = on)
+  # T068: robots yield on reserved trajectories / break deadlock cycles (1 = on)
   SWARMFLOW_YIELD: ${SWARMFLOW_YIELD:-}
+  SWARMFLOW_UNJAM: ${SWARMFLOW_UNJAM:-}
 
 services:
   dev:

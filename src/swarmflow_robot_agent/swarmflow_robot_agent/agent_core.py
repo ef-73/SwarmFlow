@@ -24,7 +24,9 @@ from swarmflow_core import api
 from swarmflow_core.api import ReleaseReason, RobotMode
 from swarmflow_core.graph import WarehouseGraph, point_in_polygon
 
-from .yield_policy import YIELD_COOLDOWN_S, Body, keep_yielding, should_yield
+from .deadlock import BLOCKED, Breaker, nodes_from
+from .trajectory import (Reservation, corridor_clear, first_conflict, outranks, priority_key, time_parameterise,
+                         wait_index)
 
 ZONE_SPEED_MPS = 0.5          #: assumed speed through a zone when estimating ``expected_exit_t``
 POSE_STALE_S = 1.0            #: a pose older than this makes ``state()`` report FAULT / STALE_POSE
@@ -36,8 +38,17 @@ GOAL_RETRY_MIN_S = 1.0        #: v2 goal mode: a failed Navigate is re-sent afte
 GOAL_RETRY_MAX_S = 3.0
 GOAL_PROGRESS_MOVE_M = 0.5    #: v2 goal mode: displacement this far from the last reference also counts as progress
 GOAL_PROGRESS_TURN_RAD = 0.5  #: v2 goal mode: so does turning this much closer to facing the goal (T066)
-YIELD_STATE_MAX_AGE_S = 1.0   #: T067: another robot's state older than this is ignored for yielding
+OTHER_MAX_AGE_S = 2.0         #: T068: another robot's state / reservation older than this is ignored
+PLAN_MAX_AGE_S = 3.0          #: T068: own Nav2 plan older than this: no reservation from it
 YIELD_REASON_PREFIX = "YIELD:"  #: fault_reason while yielding: YIELD:<other robot>, mode WAITING_RESERVATION
+YIELD_MAX_S = 20.0            #: T068: wait at most this long, then go on (the deadlock breaker covers real jams)
+YIELD_COOLDOWN_S = 5.0        #: no yielding to the same robot again this soon (10 s after a timeout)
+YIELD_CHECK_S = 0.5           #: reservations are compared at 2 Hz
+CORRIDOR_AFTER = 4            #: the corridor checked before resuming reaches this many samples past the conflict
+AHEAD_SAMPLES = 5             #: deadlock graph: the first samples of a reservation (2 m at 0.5 m/s, 0.5 s)
+UNJAM_REASON = "UNJAM"        #: fault_reason while backing out of a deadlock cycle
+UNJAM_BACKUP_M = 0.6
+UNJAM_TIMEOUT_S = 15.0
 PREDOCK_M = 1.2               #: pallet docking (T042): Nav2 goal this far in front of the pallet, along its yaw
 NAV_SUCCESS_MAX_M = 1.0      #: v2 goal mode: a Nav2 success this far from the goal is spurious and the goal is re-sent
 DOCK_AHEAD_M = 0.0            #: drop: drive this far past the dock vertex along the dock yaw (T066: 0, the pallet
@@ -69,6 +80,18 @@ class DockDrive:
     """Straight closed-loop drive to ``target`` (x, y, yaw) along the target heading; ``reverse`` backs up."""
     target: Tuple[float, float, float]
     reverse: bool = False
+
+
+@dataclass(frozen=True)
+class BackUp:
+    """Nav2's collision-checked BackUp behaviour (deadlock breaker, T068)."""
+    dist: float
+    speed: float = 0.15
+
+
+@dataclass(frozen=True)
+class CancelBackUp:
+    pass
 
 
 @dataclass(frozen=True)
@@ -222,14 +245,23 @@ def drive_command(pose, target, reverse: bool):
 
 class AgentCore:
     def __init__(self, robot_id: str, graph: WarehouseGraph, traffic_control: bool = True, rng_seed: int = 0,
-                 yield_to_others: bool = False):
+                 yield_to_others: bool = False, unjam: bool = False):
         self.robot_id = robot_id
-        # T067 yield (switch SWARMFLOW_YIELD): stop and wait for another robot about to meet this one (yield_policy)
+        # T068 (switches SWARMFLOW_YIELD, SWARMFLOW_UNJAM): reserved trajectories (trajectory.py) and the deadlock
+        # breaker (deadlock.py)
         self.yield_to_others = yield_to_others
-        self._others: Dict[str, Tuple[Body, float]] = {}       #: other robot -> (latest state, time received)
-        self._yield: Optional[Tuple[str, float, str]] = None    #: (other robot, since, reason) while yielding
+        self.unjam = unjam
+        self._plan: Tuple[Tuple[float, float], ...] = ()       #: own Nav2 plan (x, y)
+        self._plan_t = -math.inf
+        self._res_t: Optional[float] = None                     #: reservation time: start of the current goal
+        self._others: Dict[str, Tuple[dict, float]] = {}        #: other robot -> (latest state, time received)
+        self._others_res: Dict[str, Tuple[Reservation, float]] = {}   #: other robot -> (reservation, time received)
+        self._yield: Optional[dict] = None                      #: while yielding: other, since, corridor, wait_xy
         self._yield_cool: Dict[str, float] = {}                 #: other robot -> no yielding to it before this time
-        self.yield_events: List[dict] = []                      #: yield start / end, drained by the node
+        self._yield_next_check = -math.inf
+        self._breaker = Breaker(robot_id)
+        self._unjam_since: Optional[float] = None               #: backing out of a deadlock cycle since
+        self.yield_events: List[dict] = []                      #: yield / unjam events, drained by the node
         self.graph = graph
         self.traffic_control = traffic_control
         self._rng = random.Random(rng_seed)
@@ -320,7 +352,21 @@ class AgentCore:
         return ""
 
     def yielding_to(self) -> str:
-        return self._yield[0] if self._yield is not None else ""
+        return self._yield["other"] if self._yield is not None else ""
+
+    def reservation(self, t: float) -> Optional[Reservation]:
+        """This robot's reserved trajectory (T068), or None without a goal task (idle robots reserve nothing)."""
+        if not (self._goal_mode and self._route) or self._res_t is None or not self._have_pose:
+            return None
+        pallet = self._pallet_on_board or (self._carrying and self._order_type == api.ORDER_PALLET)
+        if self._yield is not None:
+            wx, wy = self._yield["wait_xy"]
+            return Reservation(self.robot_id, self._res_t, pallet, ((t, wx, wy),))
+        if self._goal_moving() and self._mode != RobotMode.STUCK and t - self._plan_t <= PLAN_MAX_AGE_S:
+            pts = time_parameterise(self._plan, self._x, self._y, t)
+        else:
+            pts = ((t, self._x, self._y),)
+        return Reservation(self.robot_id, self._res_t, pallet, pts)
 
     def state(self) -> api.RobotSnapshot:
         active = bool(self._route)
@@ -337,7 +383,7 @@ class AgentCore:
             task_id=self._task_id, order_id=self._order_id,
             held_lease_ids=tuple(self.heartbeat_lease_ids()), linear_speed=self._speed,
             fault_reason=overlay or self._fault or (self._fault_reason_stuck if self._mode == RobotMode.STUCK else "")
-            or (f"{YIELD_REASON_PREFIX}{self._yield[0]}" if self._yield is not None else ""),
+            or (f"{YIELD_REASON_PREFIX}{self._yield['other']}" if self._yield is not None else ""),
             next_vertex=self._next_vertex(), remaining_route=self._remaining_route())
 
     def _next_vertex(self) -> str:
@@ -427,10 +473,29 @@ class AgentCore:
                 self._last_vertex = near
         return []
 
-    def on_other(self, robot_id: str, x: float, y: float, yaw: float, speed: float, mode: str, t: float) -> None:
-        """Another robot's published state (``/fleet/robot_states``), for the yield decision (T067)."""
+    def on_other(self, robot_id: str, x: float, y: float, yaw: float, speed: float, mode: str, t: float,
+                 fault_reason: str = "") -> None:
+        """Another robot's published state (``/fleet/robot_states``), for the deadlock breaker (T068)."""
         if robot_id != self.robot_id:
-            self._others[robot_id] = (Body(robot_id, x, y, yaw, speed, getattr(mode, "value", mode)), t)
+            self._others[robot_id] = ({"robot_id": robot_id, "x": x, "y": y, "yaw": yaw, "speed": speed,
+                                       "mode": getattr(mode, "value", mode), "fault_reason": fault_reason}, t)
+
+    def on_reservation(self, res: Reservation, t: float) -> None:
+        """Another robot's reserved trajectory (``/fleet/trajectories``)."""
+        if res.robot_id != self.robot_id:
+            self._others_res[res.robot_id] = (res, t)
+
+    def on_plan(self, points: Sequence[Tuple[float, float]], t: float) -> None:
+        """This robot's Nav2 plan (``plan``, map frame)."""
+        self._plan, self._plan_t = tuple((float(x), float(y)) for x, y in points), t
+
+    def on_backup_result(self, success: bool, t: float) -> List[object]:
+        """Nav2 BackUp finished (deadlock breaker): plan to the current goal again."""
+        if self._unjam_since is None:
+            return []
+        self.yield_events.append({"type": "unjam_end", "t": t, "robot_id": self.robot_id, "backed_up": success})
+        self._unjam_since = None
+        return self._resume_goal(t)
 
     def on_nav_result(self, success: bool, t: float) -> List[object]:
         if self._goal_mode and self._route:
@@ -597,6 +662,8 @@ class AgentCore:
         acts: List[object] = []
         if self._mode == RobotMode.NAVIGATING or (self._goal_mode and self._nav_inflight):
             acts.append(CancelNav())
+        if self._unjam_since is not None:
+            acts.append(CancelBackUp())
         acts += self._dock_abort()
         acts += self._release_all(ReleaseReason.TASK_CANCELLED)
         task = self._task_id
@@ -807,8 +874,10 @@ class AgentCore:
         self._dock = None
         if self._yield is not None:
             self.yield_events.append({"type": "yield_end", "t": self._pose_t, "robot_id": self.robot_id,
-                                      "other": self._yield[0], "waited_s": None})
+                                      "other": self._yield["other"], "waited_s": None})
         self._yield = None
+        self._unjam_since = None
+        self._res_t = None
         for lease in self._leases:
             lease.exit_idx = None
         self._route = []
@@ -922,6 +991,8 @@ class AgentCore:
         self._fault_reason_stuck = ""
         self._goal_retry_at = None
         self._nav_inflight = True
+        self._res_t = t                                   # reserved from now (kept through retries and waiting)
+        self._plan, self._plan_t = (), -math.inf          # the old plan led to the previous goal
         self._gref_t = t
         self._gref_d = self._goal_dist()
         self._gref_xy = (self._x, self._y) if self._have_pose else None
@@ -1004,9 +1075,18 @@ class AgentCore:
     def _goal_tick(self, t: float) -> List[object]:
         if self._dock is not None:
             return self._dock_tick(t)
+        if self._unjam_since is not None:
+            if t - self._unjam_since < UNJAM_TIMEOUT_S:
+                return []                                 # backing up: wait for the BackUp result
+            return [CancelBackUp()] + self.on_backup_result(False, t)
+        if self.unjam:
+            acts = self._unjam_check(t)
+            if acts is not None:
+                return acts
         if self._yield is not None:
             return self._yield_tick(t)
-        if self.yield_to_others:
+        if self.yield_to_others and t >= self._yield_next_check:
+            self._yield_next_check = t + YIELD_CHECK_S
             acts = self._yield_check(t)
             if acts is not None:
                 return acts
@@ -1039,61 +1119,111 @@ class AgentCore:
             return [self._goal_navigate(self._route[self._goal_i])]
         return []
 
-    # -- yield (T067) ----------------------------------------------------------------------------------------------
-    def _me(self) -> Body:
-        return Body(self.robot_id, self._x, self._y, self._yaw, self._speed, self._mode.value)
+    # -- reserved trajectories and the deadlock breaker (T068) ---------------------------------------------------
+    def _fresh_res(self, t: float) -> List[Reservation]:
+        return [r for _, (r, tr) in sorted(self._others_res.items()) if t - tr <= OTHER_MAX_AGE_S]
 
-    def _fresh_others(self, t: float):
-        return [(rid, b) for rid, (b, tr) in sorted(self._others.items()) if t - tr <= YIELD_STATE_MAX_AGE_S]
+    def _in_aisle(self, x: float, y: float) -> bool:
+        """Inside a dead-end storage aisle: the nearest graph vertex is a pick point."""
+        return self.graph.vertices[self.graph.nearest_vertex(x, y)].kind == "pick"
 
     def _yield_check(self, t: float) -> Optional[List[object]]:
-        """Start yielding when another robot is about to meet this one and has the right of way."""
-        if (self._mode != RobotMode.NAVIGATING or self._goal_i >= len(self._route) or not self._have_pose
-                or t - self._pose_t > POSE_STALE_S or self._carrying or self._pallet_on_board):
+        """Yield to the highest-ranked robot whose reservation meets this robot's at a similar time, by waiting at a
+        point of this robot's own path that is clear of the other's reservation (never in its way)."""
+        if (self._mode not in (RobotMode.NAVIGATING, RobotMode.CARRYING) or self._goal_i >= len(self._route)
+                or not self._have_pose or t - self._pose_t > POSE_STALE_S):
             return None
         goal = self.graph.vertices[self._route[self._goal_i]]
-        if goal.kind in ("dock", "queue") or self._goal_dwell(goal.name) is not None and self._near_goal(goal.name, t):
-            return None                                   # the dock line has its own order; never stop on a goal
-        me = self._me()
-        for rid, other in self._fresh_others(t):
-            if t < self._yield_cool.get(rid, -math.inf):
+        if goal.kind in ("dock", "queue"):
+            return None                                   # the dock line has its own order
+        mine = self.reservation(t)
+        if mine is None or len(mine.points) < 2:
+            return None
+        for other in sorted(self._fresh_res(t), key=priority_key):
+            if not outranks(other, mine) or t < self._yield_cool.get(other.robot_id, -math.inf):
                 continue
-            reason = should_yield(me, other)
-            if reason is None:
+            c = first_conflict(mine.points, other.points, t)
+            if c is None:
                 continue
-            if self.graph.vertices[self.graph.nearest_vertex(self._x, self._y)].kind == "pick":
-                # inside a storage aisle (nearest vertex a pick point): a robot standing there blocks the dead-end
-                # aisle for the robot it waits for (y067_3: two robots face to face for 5 min). Wait only outside,
-                # e.g. at the aisle mouth before entering.
-                return None
-            acts: List[object] = [CancelNav()] if self._nav_inflight else []
-            self._nav_inflight = False
-            self._goal_retry_at = None
+            w = wait_index(mine.points, c, other.points, self._in_aisle)
+            if w is None:
+                return None                               # no place out of its way: do not stop in its path
+            _, wx, wy = mine.points[w]
+            corridor = tuple((x, y) for _, x, y in mine.points[w:c + CORRIDOR_AFTER + 1])
+            self._yield = {"other": other.robot_id, "since": t, "corridor": corridor, "wait_xy": (wx, wy)}
             self._mode = RobotMode.WAITING_RESERVATION
-            self._yield = (rid, t, reason)
-            self.yield_events.append({"type": "yield_start", "t": t, "robot_id": self.robot_id, "other": rid,
-                                      "reason": reason, "x": round(self._x, 2), "y": round(self._y, 2)})
-            return acts
+            self._goal_retry_at = None
+            self.yield_events.append({"type": "yield_start", "t": t, "robot_id": self.robot_id,
+                                      "other": other.robot_id, "conflict_in_s": round(mine.points[c][0] - t, 1),
+                                      "wait_x": round(wx, 2), "wait_y": round(wy, 2)})
+            if w == 0:                                    # here is clear of it: stop here
+                acts: List[object] = [CancelNav()] if self._nav_inflight else []
+                self._nav_inflight = False
+                return acts
+            self._nav_inflight = True                     # drive on to the wait point and stop there
+            yaw = math.atan2(wy - self._y, wx - self._x)
+            return [Navigate(("WAIT",), ((wx, wy, yaw),))]
         return None
 
     def _yield_tick(self, t: float) -> List[object]:
-        rid, since, _reason = self._yield
-        entry = self._others.get(rid)
-        other = entry[0] if entry is not None and t - entry[1] <= YIELD_STATE_MAX_AGE_S else None
-        if keep_yielding(self._me(), other, since, t):
+        y = self._yield
+        entry = self._others_res.get(y["other"])
+        fresh = entry is not None and t - entry[1] <= OTHER_MAX_AGE_S
+        timed_out = t - y["since"] >= YIELD_MAX_S
+        if fresh and not timed_out and not corridor_clear(y["corridor"], entry[0].points):
             return []
         self._yield = None
-        self._yield_cool[rid] = t + YIELD_COOLDOWN_S
-        self.yield_events.append({"type": "yield_end", "t": t, "robot_id": self.robot_id, "other": rid,
-                                  "waited_s": round(t - since, 2)})
-        if self._goal_i >= len(self._route):
+        self._yield_cool[y["other"]] = t + (2 * YIELD_COOLDOWN_S if timed_out else YIELD_COOLDOWN_S)
+        self.yield_events.append({"type": "yield_end", "t": t, "robot_id": self.robot_id, "other": y["other"],
+                                  "waited_s": round(t - y["since"], 2), "timed_out": timed_out})
+        return self._resume_goal(t)
+
+    def _resume_goal(self, t: float) -> List[object]:
+        """Go on to the current goal (same reservation time) after waiting or backing up."""
+        if not self._route or self._goal_i >= len(self._route):
             return []
         self._mode = self._moving_mode()
+        self._fault_reason_stuck = ""
+        self._goal_retry_at = None
         self._gref_t, self._gref_d = t, self._goal_dist()
         self._gref_xy = (self._x, self._y)
         self._gref_h = self._goal_heading_err()
         self._nav_inflight = True
         return [self._goal_navigate(self._route[self._goal_i])]
+
+    def _unjam_check(self, t: float) -> Optional[List[object]]:
+        """Deadlock breaker: on a wait-for cycle that lasted, act when it is this robot's turn (deadlock.py)."""
+        fresh = self._fresh_res(t)
+        keys = {r.robot_id: priority_key(r) for r in fresh}
+        ahead = {r.robot_id: [(x, y) for _, x, y in r.points[:AHEAD_SAMPLES]] for r in fresh}
+        me = self.reservation(t)
+        if me is not None:
+            keys[self.robot_id] = priority_key(me)
+            ahead[self.robot_id] = [(x, y) for _, x, y in me.points[:AHEAD_SAMPLES]]
+        s = self.state()
+        states = [st for st, tr in self._others.values() if t - tr <= OTHER_MAX_AGE_S]
+        states.append({"robot_id": self.robot_id, "x": s.x, "y": s.y, "yaw": s.yaw, "mode": s.mode.value,
+                       "fault_reason": s.fault_reason})
+        act = self._breaker.update(nodes_from(states, keys, ahead), t)
+        if act is None:
+            return None
+        cycle, rank = act
+        self.yield_events.append({"type": "deadlock_cycle", "t": t, "robot_id": self.robot_id,
+                                  "cycle": sorted(cycle), "rank": rank})
+        if self._yield is not None:                       # waiting is part of the cycle: stop waiting
+            other = self._yield["other"]
+            self._yield = None
+            self._yield_cool[other] = t + 2 * YIELD_COOLDOWN_S
+            return self._resume_goal(t)
+        if self._mode == RobotMode.STUCK and self._fault_reason_stuck == BLOCKED:
+            acts: List[object] = [CancelNav()] if self._nav_inflight else []
+            self._nav_inflight = False
+            self._goal_retry_at = None
+            self._unjam_since = t
+            self._fault_reason_stuck = UNJAM_REASON
+            self.yield_events.append({"type": "unjam_start", "t": t, "robot_id": self.robot_id})
+            return acts + [BackUp(UNJAM_BACKUP_M)]
+        return None
 
     # -- pallet docking (T042) -------------------------------------------------------------------------------------
     # Nav2 cannot plan between pallet legs, so the last metre in and out is a straight DockDrive. The drive runs only
