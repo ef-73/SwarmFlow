@@ -3,13 +3,14 @@
 *The project overview is the [README](../README.md). This page has every detail: setup, configuration, experiments, architecture and limitations.*
 
 *An interactive warehouse robotics digital twin and experimental fleet-optimization platform built with ROS 2, Docker
-and Gazebo.* Differential-drive robots navigate a shared 3D warehouse in Gazebo Harmonic, collect packages at loading
+and Gazebo, exploring warehouse fleets that deploy without floor infrastructure (no QR-code grid, no tape): robots
+navigate free space on a lidar map and coordinate with each other.* Differential-drive robots navigate a shared 3D warehouse in Gazebo Harmonic, collect packages at loading
 stations and carry them to delivery stations, while a fleet layer decides who carries what and who may enter which
 corridor when. It does not recreate any company's internal warehouse software or claim to have solved fleet congestion
 universally; it is an extensible, measurable implementation of warehouse coordination techniques
 ([design](design.md), section 19).
 
-**v2** (released as `v2.0.0` / `v2.1.0`, results in
+**v2** (released as `v2.0.0` / `v2.1.0`; v2.2 on `main`, results in
 [v2_benchmarks](results/v2_benchmarks.md) and [v2_realism_ladder](results/v2_realism_ladder.md)):
 
 - A 20 × 32 m warehouse (`layouts/warehouse_v2`): two blocks of 5 rack rows, a 4 m central aisle, 64 pick points,
@@ -17,7 +18,11 @@ universally; it is an extensible, measurable implementation of warehouse coordin
 - The orchestrator only **assigns** (shelf orders with 1–3 picks, pallet moves; nearest-next picks, congestion cost,
   dock queues claimed on arrival at the line, blocked-robot handling). No aisle reservations.
 - Robots handle each other locally: Nav2 with a 360° lidar, robots shared as predicted footprints in every costmap,
-  keep-right lanes, no spin recovery. Robots drive under pallets, lift and carry them.
+  keep-right lanes, no spin recovery. Robots drive under pallets, lift and carry them; shelf-order boxes appear on
+  the robot at each pick.
+- v2.2: robots publish reserved trajectories (`/fleet/trajectories`) and yield only to an older reservation they would
+  meet at a similar time, waiting clear of its path; a fleet-wide wait-for graph finds deadlock cycles of any size
+  and breaks them one robot at a time; realistic acceleration limits smooth the motion.
 - Light mode (no Gazebo, ~0.6 core for 8 robots), manual orders (CLI and Foxglove), a realism ladder (AMCL, network
   delay/loss, lidar noise).
 - Run it: with `SWARMFLOW_LAYOUT=warehouse_v2 SWARMFLOW_POLICY=assign SWARMFLOW_SCENARIO=v2_steady
@@ -185,6 +190,9 @@ quick start.
 | `SWARMFLOW_PREDICTION_HORIZON` | `2.0` | v2: seconds of other-robot prediction in the costmaps; `0` = current footprints only. 5 s was tried in v2.1 and lost ([v2_benchmarks](results/v2_benchmarks.md#v21-anti-jamming-m18-2026-10-15)). |
 | `SWARMFLOW_PREDICT_ALONG_PLAN` | off | v2.1 experiment: `1` predicts other robots along their published Nav2 plans instead of a straight line. Off: it did not reduce stuck episodes. |
 | `SWARMFLOW_FOOTPRINT_CRITIC` | off | v2.1 experiment: `1` makes MPPI score the whole footprint. Off: with pick points 0.45 m from the racks it stalls robots in the storage aisles. |
+| `SWARMFLOW_YIELD` | on | v2.2: yield on reserved trajectories (`trajectory.py`); `0` = off. |
+| `SWARMFLOW_UNJAM` | on | v2.2: deadlock breaker on the fleet's wait-for graph (`deadlock.py`); `0` = off. |
+| `SWARMFLOW_SMOOTH` | on | v2.2: acceleration limits 1.5 m/s², 2.5 rad/s² in MPPI and the velocity smoother, MPPI turn-rate noise 0.3; `0` = the v2.1 profile. Results in [v2_benchmarks](results/v2_benchmarks.md#reservations-deadlock-breaker-smoother-motion-t066t070-2026-10-1920). |
 | `SWARMFLOW_LOCALIZATION` | `ground_truth` | Robot localization: `ground_truth` (Gazebo pose) or `amcl` (tuned on v2 layouts; see limitations and the [realism ladder](results/v2_realism_ladder.md)). |
 | `SWARMFLOW_AGENT` | `true` | Start the robot agent inside each robot container. |
 | `SWARMFLOW_TRAFFIC_CONTROL` | `true` | Robot agent honours zone reservations. `false` makes robots drive straight into aisles. |

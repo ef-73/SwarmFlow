@@ -41,8 +41,10 @@ cv2.rectangle(base, px(B["x_min"], B["y_max"]), px(B["x_max"], B["y_min"]), (200
 x0 = W - PANEL + 10
 cv2.putText(base, "SwarmFlow v2", (x0, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.9, TEXT, 2, cv2.LINE_AA)
 cv2.putText(base, "warehouse_v2, 20 x 32 m", (x0, 66), cv2.FONT_HERSHEY_SIMPLEX, 0.5, DIM, 1, cv2.LINE_AA)
-cv2.putText(base, "10-min Gazebo run, 4 robots", (x0, 88), cv2.FONT_HERSHEY_SIMPLEX, 0.5, DIM, 1, cv2.LINE_AA)
 robots = d["robots"]; modes = d["modes"]
+cv2.putText(base, f"10-min Gazebo run, {len(robots)} robots", (x0, 88), cv2.FONT_HERSHEY_SIMPLEX, 0.5, DIM, 1,
+            cv2.LINE_AA)
+LABEL = {"WAITING_RESERVATION": "yielding"}   # v2: WAITING_RESERVATION only means yielding to another robot
 idx = {r: 0 for r in robots}
 trail = {r: [] for r in robots}
 ev = d["events"]
@@ -81,7 +83,7 @@ for f in range(nfr + 1):
     for j, (rid, mode, oid, col) in enumerate(lines):
         yy = y0 + 80 + j * 30
         cv2.rectangle(img, (x0, yy - 14), (x0 + 16, yy + 2), col, -1)
-        cv2.putText(img, f"{rid}  {mode.lower():<10} {oid}", (x0 + 24, yy), cv2.FONT_HERSHEY_SIMPLEX, 0.48,
+        cv2.putText(img, f"{rid}  {LABEL.get(mode, mode.lower()):<10} {oid}", (x0 + 24, yy), cv2.FONT_HERSHEY_SIMPLEX, 0.48,
                     (90, 90, 240) if mode == "STUCK" else TEXT, 1, cv2.LINE_AA)
     yy = y0 + 100 + len(lines) * 30
     cv2.putText(img, "recent:", (x0, yy), cv2.FONT_HERSHEY_SIMPLEX, 0.5, DIM, 1, cv2.LINE_AA)

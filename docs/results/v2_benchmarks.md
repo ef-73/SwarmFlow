@@ -159,3 +159,104 @@ orders and 7 and 9 stuck episodes, none at the docks. Robot CPU was 93–110 % p
 **Not counted.** `dlbug_1`, `dlbug_2`: the first build, which could claim a place from a task that ended away from the
 line (the agent bug above); `dlbug_2` claimed DK1 from 18 m away and jammed. `dlrace_1`: the second build, without the
 agent fix: a task ended at its last pick, the robot was sent back out of a dead-end aisle and jammed at its mouth.
+
+## Reservations, deadlock breaker, smoother motion (T066–T070, 2026-10-19/20)
+
+**Pallets, boxes, spinning (T066).**
+- **Pallets.** A pallet order now stops 1.2 m before the dock and drives straight onto the dock pad. The pallet is set
+  down on the dock pose itself, centred and square; before, it landed 0.7 m past the pad, slightly turned. The truck
+  takes it after 6 s (was 30 s), before the next robot in the line arrives.
+- **Boxes.** Shelf orders now show their boxes in Gazebo: one box per pick, stacked on the robot's deck, taken by the
+  truck when the unload ends (`ShelfBoxCore`).
+- **The "spinning stuck robots".** They were robots U-turning at a dead-end pick. Turning in place did not count as
+  progress, so after 10 s the agent reported STUCK. Turning towards the goal now counts as progress. STUCK episodes
+  with more than 90° of turning per run: before (`dl_*`) 3 / 2 / 3; after, all off (`o069_*`) 0 / 0 / 0. The U-turns
+  themselves remain, because aisles are dead ends (turn-on-the-spot episodes 9.3 per run before, 10.3 after).
+
+**Pick points moved away from the racks: reverted.**
+- Moving pick points 0.75 m from the rack face (`b066_1` first build: 5 deliveries) or 0.6 m (`pick06_1`: 9) left a
+  passing robot too little room in the 2.2 m aisles: two robots in one aisle could not pass each other.
+- Back to 0.45 m.
+
+**Stop-in-place yield (T067): not adopted.**
+- The rule: when another robot comes closer than 1 m within 4 s at constant velocity, the later robot stops where it
+  is.
+- v1: 15 / 15 / 10 deliveries, 0 / 0 / 3 failed.
+- v2 (no yield inside aisles): 10 / 16, 4 / 0 failed. In `y067v1_3` and `y167_1` it fired too late and stopped the
+  robot *in* the other robot's path. Nav2 cannot route around a robot 0.8 m ahead, so both stayed blocked for 5 min.
+
+**Reserved trajectories + deadlock breaker (T068).** Built on the literature:
+- **Reactive avoidance deadlocks in corridors.** ORCA-style planners stall when agents meet head-on in a corridor
+  ([AAAI SoCS paper](https://ojs.aaai.org/index.php/SOCS/article/download/43087/50647/47192),
+  [Robotica](https://www.cambridge.org/core/journals/robotica/article/addressing-the-deadlock-problem-of-the-optimal-reciprocal-collision-avoidance-algorithm-in-distributed-multirobot-navigation/70CEA27CFAE13D30DD3ABCD189F9019D)).
+- **Space-time reservations with priority to the earlier reservation**
+  ([WHCA*](https://w9-pathfinding.readthedocs.io/latest/mapf/WHCAStar.html)).
+- **Lower priority waits out of the way**, as in decentralised AGV warehouse control
+  ([Draganjac et al., IEEE TASE 2016](https://researchgate.net/profile/Damjan-Miklic/publication/309056924_Decentralized_Control_of_Multi-AGV_Systems_in_Autonomous_Warehousing_Applications/links/5be55f684585150b2ba910b3/Decentralized-Control-of-Multi-AGV-Systems-in-Autonomous-Warehousing-Applications.pdf)).
+- **Confined bidirectional lanes are where schedule negotiation struggles**
+  ([Open-RMF maintainers](https://discourse.openrobotics.org/t/scalability-of-openrmf-for-large-multi-robot-deployments-in-dynamic-environments-e-g-airports/53697)).
+
+How it works:
+- **Reservations.**
+  - Every robot publishes its Nav2 plan timed at 0.5 m/s (0.5 s samples, 15 s) on `/fleet/trajectories`, stamped with
+    the time it started its current goal.
+  - A robot yields only when its path meets a higher-priority robot's reserved path at a similar time (closer than
+    1 m, within 1.5 s plus 15 % of the look-ahead, conflict within 8 s). Paths that cross at different times are no
+    conflict.
+  - Priority: pallet first, then the older reservation, then robot id. This is a total order, so waiting can never
+    form a cycle, for any number of robots.
+  - The robot waits at the last point of its own path that is 1.3 m clear of the other's reservation and outside
+    storage aisles. With no such point it does not stop.
+- **Deadlock breaker.**
+  - Every robot builds the same wait-for graph from what all robots publish: yield edges, plus "blocked behind the
+    nearest robot in front". Each robot waits for at most one other, so every cycle (2, 3 or more robots) is found by
+    following edges.
+  - A cycle that lasts 8 s is broken one member at a time, lowest priority first, then one every 10 s.
+  - The acting robot backs up 0.6 m along its own recent track (space it just drove through), only if no robot is
+    there or behind it; otherwise it skips its turn and the next member acts.
+  - Nav2's BackUp behaviour was tried first and refused every time: its costmap check collides with the other robot's
+    padded mark when two robots are jammed nose to nose (`r068v0_1`).
+
+**Smoother motion (T069).**
+- Realistic acceleration limits in MPPI and the velocity smoother: 1.5 m/s² and 2.5 rad/s² (were 3.0 / 3.5 and
+  2.5 / 3.2).
+- MPPI turn-rate sampling noise 0.3 (was 0.4).
+- Measured from every robot's wheel odometry at 20 Hz (`tests/integration/smooth_probe.py`).
+- The first profile also added Nav2's TwirlingCritic and a stronger path smoother (`s069v0_1`: 0 deliveries). The
+  critic penalises the turn rate itself (it is meant for omnidirectional robots), so robots could not U-turn at aisle
+  ends and cut rack corners. Both were dropped.
+
+**Results.** `v2_demo`, 600 s, fresh containers. All runs below have the smoothness probe running in robot_1's
+container. It costs about 25 % of a core, which matters: the earlier all-off runs without it (`b066_*`) gave
+16 / 13 / 15. So a new all-off control was run at the same load (`o069_*`).
+
+| Setup | Robots | Deliveries / 10 min | Failed orders | Contacts (< −0.10 m) | RMS heading accel (rad/s²) | RMS accel (m/s²) | Steering reversals / m |
+|---|---|---|---|---|---|---|---|
+| All off (`o069_*`) | 4 | 11 / 15 / 8 → 11.3 ± 3.5 | 1 / 0 / 5 | 0 | 0.38 | 0.18 | 0.45 |
+| Breaker (`u068_*`) | 4 | 11 / 13 / 12 → 12.0 ± 1.0 | 1 / 0 / 1 | 1 | 0.40 | 0.20 | 0.48 |
+| Reservations + breaker (`r068_*`) | 4 | 15 / 11 / 11 → 12.3 ± 2.3 | 0 / 1 / 1 | 1 | 0.39 | 0.20 | 0.47 |
+| Smoothing + breaker (`s069_*`) | 4 | 13 / 13 / 14 → **13.3 ± 0.6** | 0 / 0 / 0 | 1 | **0.30** | **0.15** | **0.42** |
+| All off (`f066_*`) | 5 | 8 / 14 → 11.0 | 4 / 3 | 0 | 0.42 | 0.22 | 0.49 |
+| Reservations + breaker (`g068_*`) | 5 | 17 / 17 → **17.0** | **0 / 0** | 0 | 0.40 | 0.22 | 0.46 |
+
+- **Breaker.** In `u068_2` it found 3 cycles and resolved each one; in two of them the lowest-ranked robot correctly
+  skipped (no safe way back) and the next one backed out.
+- **Yields.** 10–19 per run, about 9 s each.
+- **The three contacts.**
+  - `u068_2`: two robots had been jammed at −0.104 m for 14 s before the breaker acted. Its reverse drive deepened
+    that by 6 mm while straightening, then cleared to +0.55 m.
+  - `r068_3` (−0.114 m) and `s069_2` (−0.101 m) happened in ordinary driving at walking pace, with neither feature
+    acting.
+
+**Decision.**
+- The rule fixed before the runs (mean deliveries ≥ control − 1, failed orders, permanent jams and contacts not
+  higher) is met by reservations + breaker with 5 robots. With 4 robots, every setting fails only on contacts: 1 vs 0
+  in 3 runs, none caused by the features.
+- The project owner adopted all three as defaults on these numbers: `SWARMFLOW_YIELD`, `SWARMFLOW_UNJAM` and
+  `SWARMFLOW_SMOOTH` are on unless set to `0`.
+
+**Not counted.**
+- `b066_1` / `pick06_1`: pick-distance builds, reverted.
+- `y067v1_*`, `y167_*`: stop-in-place yield (above).
+- `r068v0_1`, `u068v0_1`: the breaker build with Nav2 BackUp, which never moved.
+- `s069v0_1`: the first smoothing profile.
