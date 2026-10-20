@@ -111,7 +111,7 @@
   "edges": [
     {
       "from": "DK1",
-      "length_m": 1.6,
+      "length_m": 1.8,
       "to": "Q_DK1_1",
       "zone": null
     },
@@ -123,7 +123,7 @@
     },
     {
       "from": "DK2",
-      "length_m": 1.6,
+      "length_m": 1.8,
       "to": "Q_DK2_1",
       "zone": null
     },
@@ -135,7 +135,7 @@
     },
     {
       "from": "DK3",
-      "length_m": 1.6,
+      "length_m": 1.8,
       "to": "Q_DK3_1",
       "zone": null
     },
@@ -147,7 +147,7 @@
     },
     {
       "from": "DK4",
-      "length_m": 1.6,
+      "length_m": 1.8,
       "to": "Q_DK4_1",
       "zone": null
     },
@@ -213,7 +213,7 @@
     },
     {
       "from": "PK_E1_N_01",
-      "length_m": 0.82,
+      "length_m": 0.61,
       "to": "X_0_4",
       "zone": null
     },
@@ -255,7 +255,7 @@
     },
     {
       "from": "PK_E1_S_01",
-      "length_m": 0.82,
+      "length_m": 0.61,
       "to": "X_0_4",
       "zone": null
     },
@@ -297,7 +297,7 @@
     },
     {
       "from": "PK_E2_N_01",
-      "length_m": 0.82,
+      "length_m": 0.61,
       "to": "X_0_7",
       "zone": null
     },
@@ -339,7 +339,7 @@
     },
     {
       "from": "PK_E2_S_01",
-      "length_m": 0.82,
+      "length_m": 0.61,
       "to": "X_0_7",
       "zone": null
     },
@@ -381,7 +381,7 @@
     },
     {
       "from": "PK_E3_N_01",
-      "length_m": 0.82,
+      "length_m": 0.61,
       "to": "X_1_0",
       "zone": null
     },
@@ -423,7 +423,7 @@
     },
     {
       "from": "PK_E3_S_01",
-      "length_m": 0.82,
+      "length_m": 0.61,
       "to": "X_1_0",
       "zone": null
     },
@@ -465,7 +465,7 @@
     },
     {
       "from": "PK_E4_N_01",
-      "length_m": 0.82,
+      "length_m": 0.61,
       "to": "X_1_3",
       "zone": null
     },
@@ -507,7 +507,7 @@
     },
     {
       "from": "PK_E4_S_01",
-      "length_m": 0.82,
+      "length_m": 0.61,
       "to": "X_1_3",
       "zone": null
     },
@@ -549,7 +549,7 @@
     },
     {
       "from": "PK_W1_N_01",
-      "length_m": 0.82,
+      "length_m": 0.61,
       "to": "X_0_3",
       "zone": null
     },
@@ -591,7 +591,7 @@
     },
     {
       "from": "PK_W1_S_01",
-      "length_m": 0.82,
+      "length_m": 0.61,
       "to": "X_0_3",
       "zone": null
     },
@@ -633,7 +633,7 @@
     },
     {
       "from": "PK_W2_N_01",
-      "length_m": 0.82,
+      "length_m": 0.61,
       "to": "X_0_6",
       "zone": null
     },
@@ -675,7 +675,7 @@
     },
     {
       "from": "PK_W2_S_01",
-      "length_m": 0.82,
+      "length_m": 0.61,
       "to": "X_0_6",
       "zone": null
     },
@@ -717,7 +717,7 @@
     },
     {
       "from": "PK_W3_N_01",
-      "length_m": 0.82,
+      "length_m": 0.61,
       "to": "X_0_9",
       "zone": null
     },
@@ -759,7 +759,7 @@
     },
     {
       "from": "PK_W3_S_01",
-      "length_m": 0.82,
+      "length_m": 0.61,
       "to": "X_0_9",
       "zone": null
     },
@@ -801,7 +801,7 @@
     },
     {
       "from": "PK_W4_N_01",
-      "length_m": 0.82,
+      "length_m": 0.61,
       "to": "X_1_2",
       "zone": null
     },
@@ -843,7 +843,7 @@
     },
     {
       "from": "PK_W4_S_01",
-      "length_m": 0.82,
+      "length_m": 0.61,
       "to": "X_1_2",
       "zone": null
     },
@@ -915,7 +915,7 @@
     },
     {
       "from": "Q_DK1_1",
-      "length_m": 1.6,
+      "length_m": 1.8,
       "to": "DK1",
       "zone": null
     },
@@ -945,13 +945,13 @@
     },
     {
       "from": "Q_DK1_3",
-      "length_m": 2.4,
+      "length_m": 2.2,
       "to": "X_1_5",
       "zone": null
     },
     {
       "from": "Q_DK2_1",
-      "length_m": 1.6,
+      "length_m": 1.8,
       "to": "DK2",
       "zone": null
     },
@@ -981,13 +981,13 @@
     },
     {
       "from": "Q_DK2_3",
-      "length_m": 2.4,
+      "length_m": 2.2,
       "to": "X_1_7",
       "zone": null
     },
     {
       "from": "Q_DK3_1",
-      "length_m": 1.6,
+      "length_m": 1.8,
       "to": "DK3",
       "zone": null
     },
@@ -1017,13 +1017,13 @@
     },
     {
       "from": "Q_DK3_3",
-      "length_m": 2.4,
+      "length_m": 2.2,
       "to": "X_2_0",
       "zone": null
     },
     {
       "from": "Q_DK4_1",
-      "length_m": 1.6,
+      "length_m": 1.8,
       "to": "DK4",
       "zone": null
     },
@@ -1053,7 +1053,7 @@
     },
     {
       "from": "Q_DK4_3",
-      "length_m": 2.4,
+      "length_m": 2.2,
       "to": "X_2_2",
       "zone": null
     },
@@ -1125,13 +1125,13 @@
     },
     {
       "from": "X_0_3",
-      "length_m": 0.82,
+      "length_m": 0.61,
       "to": "PK_W1_N_01",
       "zone": null
     },
     {
       "from": "X_0_3",
-      "length_m": 0.82,
+      "length_m": 0.61,
       "to": "PK_W1_S_01",
       "zone": null
     },
@@ -1143,13 +1143,13 @@
     },
     {
       "from": "X_0_4",
-      "length_m": 0.82,
+      "length_m": 0.61,
       "to": "PK_E1_N_01",
       "zone": null
     },
     {
       "from": "X_0_4",
-      "length_m": 0.82,
+      "length_m": 0.61,
       "to": "PK_E1_S_01",
       "zone": null
     },
@@ -1185,13 +1185,13 @@
     },
     {
       "from": "X_0_6",
-      "length_m": 0.82,
+      "length_m": 0.61,
       "to": "PK_W2_N_01",
       "zone": null
     },
     {
       "from": "X_0_6",
-      "length_m": 0.82,
+      "length_m": 0.61,
       "to": "PK_W2_S_01",
       "zone": null
     },
@@ -1203,13 +1203,13 @@
     },
     {
       "from": "X_0_7",
-      "length_m": 0.82,
+      "length_m": 0.61,
       "to": "PK_E2_N_01",
       "zone": null
     },
     {
       "from": "X_0_7",
-      "length_m": 0.82,
+      "length_m": 0.61,
       "to": "PK_E2_S_01",
       "zone": null
     },
@@ -1245,13 +1245,13 @@
     },
     {
       "from": "X_0_9",
-      "length_m": 0.82,
+      "length_m": 0.61,
       "to": "PK_W3_N_01",
       "zone": null
     },
     {
       "from": "X_0_9",
-      "length_m": 0.82,
+      "length_m": 0.61,
       "to": "PK_W3_S_01",
       "zone": null
     },
@@ -1263,13 +1263,13 @@
     },
     {
       "from": "X_1_0",
-      "length_m": 0.82,
+      "length_m": 0.61,
       "to": "PK_E3_N_01",
       "zone": null
     },
     {
       "from": "X_1_0",
-      "length_m": 0.82,
+      "length_m": 0.61,
       "to": "PK_E3_S_01",
       "zone": null
     },
@@ -1317,13 +1317,13 @@
     },
     {
       "from": "X_1_2",
-      "length_m": 0.82,
+      "length_m": 0.61,
       "to": "PK_W4_N_01",
       "zone": null
     },
     {
       "from": "X_1_2",
-      "length_m": 0.82,
+      "length_m": 0.61,
       "to": "PK_W4_S_01",
       "zone": null
     },
@@ -1335,13 +1335,13 @@
     },
     {
       "from": "X_1_3",
-      "length_m": 0.82,
+      "length_m": 0.61,
       "to": "PK_E4_N_01",
       "zone": null
     },
     {
       "from": "X_1_3",
-      "length_m": 0.82,
+      "length_m": 0.61,
       "to": "PK_E4_S_01",
       "zone": null
     },
@@ -1371,7 +1371,7 @@
     },
     {
       "from": "X_1_5",
-      "length_m": 2.4,
+      "length_m": 2.2,
       "to": "Q_DK1_3",
       "zone": null
     },
@@ -1401,7 +1401,7 @@
     },
     {
       "from": "X_1_7",
-      "length_m": 2.4,
+      "length_m": 2.2,
       "to": "Q_DK2_3",
       "zone": null
     },
@@ -1455,7 +1455,7 @@
     },
     {
       "from": "X_2_0",
-      "length_m": 2.4,
+      "length_m": 2.2,
       "to": "Q_DK3_3",
       "zone": null
     },
@@ -1491,7 +1491,7 @@
     },
     {
       "from": "X_2_2",
-      "length_m": 2.4,
+      "length_m": 2.2,
       "to": "Q_DK4_3",
       "zone": null
     },
@@ -1859,322 +1859,322 @@
     "PK_E1_N_01": {
       "kind": "pick",
       "x": 13.0,
-      "y": 10.75
+      "y": 10.45
     },
     "PK_E1_N_02": {
       "kind": "pick",
       "x": 15.0,
-      "y": 10.75
+      "y": 10.45
     },
     "PK_E1_N_03": {
       "kind": "pick",
       "x": 17.0,
-      "y": 10.75
+      "y": 10.45
     },
     "PK_E1_N_04": {
       "kind": "pick",
       "x": 19.0,
-      "y": 10.75
+      "y": 10.45
     },
     "PK_E1_S_01": {
       "kind": "pick",
       "x": 13.0,
-      "y": 9.45
+      "y": 9.75
     },
     "PK_E1_S_02": {
       "kind": "pick",
       "x": 15.0,
-      "y": 9.45
+      "y": 9.75
     },
     "PK_E1_S_03": {
       "kind": "pick",
       "x": 17.0,
-      "y": 9.45
+      "y": 9.75
     },
     "PK_E1_S_04": {
       "kind": "pick",
       "x": 19.0,
-      "y": 9.45
+      "y": 9.75
     },
     "PK_E2_N_01": {
       "kind": "pick",
       "x": 13.0,
-      "y": 13.95
+      "y": 13.65
     },
     "PK_E2_N_02": {
       "kind": "pick",
       "x": 15.0,
-      "y": 13.95
+      "y": 13.65
     },
     "PK_E2_N_03": {
       "kind": "pick",
       "x": 17.0,
-      "y": 13.95
+      "y": 13.65
     },
     "PK_E2_N_04": {
       "kind": "pick",
       "x": 19.0,
-      "y": 13.95
+      "y": 13.65
     },
     "PK_E2_S_01": {
       "kind": "pick",
       "x": 13.0,
-      "y": 12.65
+      "y": 12.95
     },
     "PK_E2_S_02": {
       "kind": "pick",
       "x": 15.0,
-      "y": 12.65
+      "y": 12.95
     },
     "PK_E2_S_03": {
       "kind": "pick",
       "x": 17.0,
-      "y": 12.65
+      "y": 12.95
     },
     "PK_E2_S_04": {
       "kind": "pick",
       "x": 19.0,
-      "y": 12.65
+      "y": 12.95
     },
     "PK_E3_N_01": {
       "kind": "pick",
       "x": 13.0,
-      "y": 17.15
+      "y": 16.85
     },
     "PK_E3_N_02": {
       "kind": "pick",
       "x": 15.0,
-      "y": 17.15
+      "y": 16.85
     },
     "PK_E3_N_03": {
       "kind": "pick",
       "x": 17.0,
-      "y": 17.15
+      "y": 16.85
     },
     "PK_E3_N_04": {
       "kind": "pick",
       "x": 19.0,
-      "y": 17.15
+      "y": 16.85
     },
     "PK_E3_S_01": {
       "kind": "pick",
       "x": 13.0,
-      "y": 15.85
+      "y": 16.15
     },
     "PK_E3_S_02": {
       "kind": "pick",
       "x": 15.0,
-      "y": 15.85
+      "y": 16.15
     },
     "PK_E3_S_03": {
       "kind": "pick",
       "x": 17.0,
-      "y": 15.85
+      "y": 16.15
     },
     "PK_E3_S_04": {
       "kind": "pick",
       "x": 19.0,
-      "y": 15.85
+      "y": 16.15
     },
     "PK_E4_N_01": {
       "kind": "pick",
       "x": 13.0,
-      "y": 20.35
+      "y": 20.05
     },
     "PK_E4_N_02": {
       "kind": "pick",
       "x": 15.0,
-      "y": 20.35
+      "y": 20.05
     },
     "PK_E4_N_03": {
       "kind": "pick",
       "x": 17.0,
-      "y": 20.35
+      "y": 20.05
     },
     "PK_E4_N_04": {
       "kind": "pick",
       "x": 19.0,
-      "y": 20.35
+      "y": 20.05
     },
     "PK_E4_S_01": {
       "kind": "pick",
       "x": 13.0,
-      "y": 19.05
+      "y": 19.35
     },
     "PK_E4_S_02": {
       "kind": "pick",
       "x": 15.0,
-      "y": 19.05
+      "y": 19.35
     },
     "PK_E4_S_03": {
       "kind": "pick",
       "x": 17.0,
-      "y": 19.05
+      "y": 19.35
     },
     "PK_E4_S_04": {
       "kind": "pick",
       "x": 19.0,
-      "y": 19.05
+      "y": 19.35
     },
     "PK_W1_N_01": {
       "kind": "pick",
       "x": 7.0,
-      "y": 10.75
+      "y": 10.45
     },
     "PK_W1_N_02": {
       "kind": "pick",
       "x": 5.0,
-      "y": 10.75
+      "y": 10.45
     },
     "PK_W1_N_03": {
       "kind": "pick",
       "x": 3.0,
-      "y": 10.75
+      "y": 10.45
     },
     "PK_W1_N_04": {
       "kind": "pick",
       "x": 1.0,
-      "y": 10.75
+      "y": 10.45
     },
     "PK_W1_S_01": {
       "kind": "pick",
       "x": 7.0,
-      "y": 9.45
+      "y": 9.75
     },
     "PK_W1_S_02": {
       "kind": "pick",
       "x": 5.0,
-      "y": 9.45
+      "y": 9.75
     },
     "PK_W1_S_03": {
       "kind": "pick",
       "x": 3.0,
-      "y": 9.45
+      "y": 9.75
     },
     "PK_W1_S_04": {
       "kind": "pick",
       "x": 1.0,
-      "y": 9.45
+      "y": 9.75
     },
     "PK_W2_N_01": {
       "kind": "pick",
       "x": 7.0,
-      "y": 13.95
+      "y": 13.65
     },
     "PK_W2_N_02": {
       "kind": "pick",
       "x": 5.0,
-      "y": 13.95
+      "y": 13.65
     },
     "PK_W2_N_03": {
       "kind": "pick",
       "x": 3.0,
-      "y": 13.95
+      "y": 13.65
     },
     "PK_W2_N_04": {
       "kind": "pick",
       "x": 1.0,
-      "y": 13.95
+      "y": 13.65
     },
     "PK_W2_S_01": {
       "kind": "pick",
       "x": 7.0,
-      "y": 12.65
+      "y": 12.95
     },
     "PK_W2_S_02": {
       "kind": "pick",
       "x": 5.0,
-      "y": 12.65
+      "y": 12.95
     },
     "PK_W2_S_03": {
       "kind": "pick",
       "x": 3.0,
-      "y": 12.65
+      "y": 12.95
     },
     "PK_W2_S_04": {
       "kind": "pick",
       "x": 1.0,
-      "y": 12.65
+      "y": 12.95
     },
     "PK_W3_N_01": {
       "kind": "pick",
       "x": 7.0,
-      "y": 17.15
+      "y": 16.85
     },
     "PK_W3_N_02": {
       "kind": "pick",
       "x": 5.0,
-      "y": 17.15
+      "y": 16.85
     },
     "PK_W3_N_03": {
       "kind": "pick",
       "x": 3.0,
-      "y": 17.15
+      "y": 16.85
     },
     "PK_W3_N_04": {
       "kind": "pick",
       "x": 1.0,
-      "y": 17.15
+      "y": 16.85
     },
     "PK_W3_S_01": {
       "kind": "pick",
       "x": 7.0,
-      "y": 15.85
+      "y": 16.15
     },
     "PK_W3_S_02": {
       "kind": "pick",
       "x": 5.0,
-      "y": 15.85
+      "y": 16.15
     },
     "PK_W3_S_03": {
       "kind": "pick",
       "x": 3.0,
-      "y": 15.85
+      "y": 16.15
     },
     "PK_W3_S_04": {
       "kind": "pick",
       "x": 1.0,
-      "y": 15.85
+      "y": 16.15
     },
     "PK_W4_N_01": {
       "kind": "pick",
       "x": 7.0,
-      "y": 20.35
+      "y": 20.05
     },
     "PK_W4_N_02": {
       "kind": "pick",
       "x": 5.0,
-      "y": 20.35
+      "y": 20.05
     },
     "PK_W4_N_03": {
       "kind": "pick",
       "x": 3.0,
-      "y": 20.35
+      "y": 20.05
     },
     "PK_W4_N_04": {
       "kind": "pick",
       "x": 1.0,
-      "y": 20.35
+      "y": 20.05
     },
     "PK_W4_S_01": {
       "kind": "pick",
       "x": 7.0,
-      "y": 19.05
+      "y": 19.35
     },
     "PK_W4_S_02": {
       "kind": "pick",
       "x": 5.0,
-      "y": 19.05
+      "y": 19.35
     },
     "PK_W4_S_03": {
       "kind": "pick",
       "x": 3.0,
-      "y": 19.05
+      "y": 19.35
     },
     "PK_W4_S_04": {
       "kind": "pick",
       "x": 1.0,
-      "y": 19.05
+      "y": 19.35
     },
     "PL_E1": {
       "kind": "pallet",
@@ -2201,84 +2201,84 @@
       "queue_index": 1,
       "queue_of": "DK1",
       "x": 2.0,
-      "y": 29.0
+      "y": 28.8
     },
     "Q_DK1_2": {
       "kind": "queue",
       "queue_index": 2,
       "queue_of": "DK1",
       "x": 2.0,
-      "y": 27.4
+      "y": 27.2
     },
     "Q_DK1_3": {
       "kind": "queue",
       "queue_index": 3,
       "queue_of": "DK1",
       "x": 2.0,
-      "y": 25.8
+      "y": 25.6
     },
     "Q_DK2_1": {
       "kind": "queue",
       "queue_index": 1,
       "queue_of": "DK2",
       "x": 6.5,
-      "y": 29.0
+      "y": 28.8
     },
     "Q_DK2_2": {
       "kind": "queue",
       "queue_index": 2,
       "queue_of": "DK2",
       "x": 6.5,
-      "y": 27.4
+      "y": 27.2
     },
     "Q_DK2_3": {
       "kind": "queue",
       "queue_index": 3,
       "queue_of": "DK2",
       "x": 6.5,
-      "y": 25.8
+      "y": 25.6
     },
     "Q_DK3_1": {
       "kind": "queue",
       "queue_index": 1,
       "queue_of": "DK3",
       "x": 13.5,
-      "y": 29.0
+      "y": 28.8
     },
     "Q_DK3_2": {
       "kind": "queue",
       "queue_index": 2,
       "queue_of": "DK3",
       "x": 13.5,
-      "y": 27.4
+      "y": 27.2
     },
     "Q_DK3_3": {
       "kind": "queue",
       "queue_index": 3,
       "queue_of": "DK3",
       "x": 13.5,
-      "y": 25.8
+      "y": 25.6
     },
     "Q_DK4_1": {
       "kind": "queue",
       "queue_index": 1,
       "queue_of": "DK4",
       "x": 18.0,
-      "y": 29.0
+      "y": 28.8
     },
     "Q_DK4_2": {
       "kind": "queue",
       "queue_index": 2,
       "queue_of": "DK4",
       "x": 18.0,
-      "y": 27.4
+      "y": 27.2
     },
     "Q_DK4_3": {
       "kind": "queue",
       "queue_index": 3,
       "queue_of": "DK4",
       "x": 18.0,
-      "y": 25.8
+      "y": 25.6
     },
     "X_0_0": {
       "kind": "intersection",

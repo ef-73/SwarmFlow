@@ -1,17 +1,21 @@
 """Pallet follower core (F-03). Pure Python: no ROS, no gz; time is always an argument.
 
 A pallet order's pallet rides on the robot that carries it: not while LIFTING, raised by ``LIFT_Z`` while CARRYING and
-UNLOADING, and set down (z 0) at the robot's pose when the robot leaves UNLOADING; it never moves again afterwards.
+UNLOADING, and set down (z 0) when the robot leaves UNLOADING: on the dock pad (the dock's pose) when the robot is
+within ``DOCK_SNAP_M`` of a dock, else at the robot's pose (T066). The truck takes it ``TRUCK_AFTER_S`` later.
 """
 
 from __future__ import annotations
 
-from typing import Dict, List, Mapping, Tuple
+import math
+from typing import Dict, List, Mapping, Optional, Tuple
 
 from swarmflow_core import api
 
 LIFT_Z = 0.05
-TRUCK_AFTER_S = 30.0          # the truck takes a pallet set down at a dock this long afterwards
+TRUCK_AFTER_S = 6.0           # the truck takes a pallet set down at a dock this long afterwards (T066: before the
+                              # next robot in the dock line arrives; was 30 s, the next robot parked under it)
+DOCK_SNAP_M = 0.6             # a pallet set down this close to a dock lands centred and square on the dock pad
 POOL_SPACING = 1.5
 CARRY_FOOTPRINT: List[Tuple[float, float]] = [(0.625, 0.525), (0.625, -0.525), (-0.625, -0.525), (-0.625, 0.525)]
 
@@ -30,7 +34,9 @@ class _Robot:
 
 
 class PalletCore:
-    def __init__(self, spots: Mapping[str, Pose4], pool_origin: Tuple[float, float] = (-3.0, 0.0)):
+    def __init__(self, spots: Mapping[str, Pose4], pool_origin: Tuple[float, float] = (-3.0, 0.0),
+                 docks: Optional[Mapping[str, Tuple[float, float, float]]] = None):
+        self.docks: Dict[str, Tuple[float, float, float]] = {k: tuple(v) for k, v in (docks or {}).items()}
         self.pool_origin = (float(pool_origin[0]), float(pool_origin[1]))
         self._set_down_t: Dict[str, float] = {}             # pallet -> set-down time, until the truck takes it
         self._taken = 0
@@ -70,6 +76,9 @@ class PalletCore:
 
     def _set_down(self, r: _Robot, t: float) -> None:
         x, y, yaw = r.pose
+        dock = min(self.docks.values(), key=lambda d: math.hypot(d[0] - x, d[1] - y), default=None)
+        if dock is not None and math.hypot(dock[0] - x, dock[1] - y) <= DOCK_SNAP_M:
+            x, y, yaw = dock
         self._pending[r.pallet] = (x, y, 0.0, yaw)
         self._set_down_t[r.pallet] = t
         self._done.add(r.pallet)

@@ -181,3 +181,24 @@ def test_angular_speed_reported(agent):
 def test_unknown_goal_rejected(agent):
     with pytest.raises(ValueError):
         agent.start_task("t", "o", ["NOPE"], 1.0, route_kind=api.ROUTE_GOALS)
+
+
+def test_a_slow_u_turn_towards_the_goal_is_progress_not_blocked(agent):
+    """T066: after a pick the robot turns on the spot to head back; that turn is progress, never BLOCKED."""
+    start(agent, ["PK_A_2"])
+    bearing = math.atan2(5.0 - (-1.0), 2.0 - 0.0)
+    yaw0 = bearing + math.pi                                       # facing straight away from the goal
+    n = int(api.BLOCKED_REPORT_S) * 2
+    for k in range(n + 1):                                         # turns 180 degrees in 2 x BLOCKED_REPORT_S
+        agent.on_pose(0.0, -1.0, yaw0 - math.pi * k / n, 0.0, 2.0 + k)
+        agent.tick(2.0 + k)
+        assert agent.state().mode == RobotMode.NAVIGATING
+
+
+def test_turning_back_and_forth_on_the_spot_is_not_progress(agent):
+    start(agent, ["PK_A_2"])
+    bearing = math.atan2(5.0 - (-1.0), 2.0 - 0.0)
+    for k in range(int(api.BLOCKED_REPORT_S) + 2):
+        agent.on_pose(0.0, -1.0, bearing + math.pi + (0.3 if k % 2 else -0.3), 0.0, 2.0 + k)
+        agent.tick(2.0 + k)
+    assert agent.state().mode == RobotMode.STUCK

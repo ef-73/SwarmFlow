@@ -33,9 +33,11 @@ PALLET_LIFT_S = 3.0           #: v2 goal mode: dwell (mode LIFTING) when picking
 GOAL_RETRY_MIN_S = 1.0        #: v2 goal mode: a failed Navigate is re-sent after a uniform delay in this range
 GOAL_RETRY_MAX_S = 3.0
 GOAL_PROGRESS_MOVE_M = 0.5    #: v2 goal mode: displacement this far from the last reference also counts as progress
+GOAL_PROGRESS_TURN_RAD = 0.5  #: v2 goal mode: so does turning this much closer to facing the goal (T066)
 PREDOCK_M = 1.2               #: pallet docking (T042): Nav2 goal this far in front of the pallet, along its yaw
 NAV_SUCCESS_MAX_M = 1.0      #: v2 goal mode: a Nav2 success this far from the goal is spurious and the goal is re-sent
-DOCK_AHEAD_M = 0.7            #: deep drop: drive this far past the dock vertex along the dock yaw
+DOCK_AHEAD_M = 0.0            #: drop: drive this far past the dock vertex along the dock yaw (T066: 0, the pallet
+                              #: is set down centred on the dock pad; it was 0.7 m past it)
 UNDOCK_M = 0.9                #: back out this far (along the dock yaw) after setting the pallet down
 DOCK_TOL_LAT_M = 0.03         #: dock drive reached: across-track tolerance
 DOCK_TOL_LON_M = 0.02         #: dock drive reached: along-track tolerance
@@ -269,6 +271,7 @@ class AgentCore:
         self._gref_d: Optional[float] = None   #: blocked detection: distance to the goal at the last progress
         self._gref_t = 0.0
         self._gref_xy: Optional[Tuple[float, float]] = None   #: position at the last progress reference
+        self._gref_h: Optional[float] = None   #: heading error to the goal at the last progress reference (T066)
         # pallet docking (T042): phase None | "pick_drive" | "lift" | "drop_drive" | "unload" | "back_drive"
         self._pallet_on_board = False          #: set at lift completion, cleared when it is set down; survives tasks
         self._dock: Optional[str] = None
@@ -853,9 +856,10 @@ class AgentCore:
         return self._order_type == api.ORDER_PALLET and self.graph.vertices[name].kind in ("pallet", "dock")
 
     def _goal_pose(self, name: str) -> Tuple[float, float, float]:
-        """Nav2 target of a goal: the vertex pose, or for a pallet the pre-dock pose in front of it."""
+        """Nav2 target of a goal: the vertex pose, or for a pallet order's pallet / dock the pre-dock pose in front of it
+        (T066: the dock too, so the straight drive onto the dock pad has room to correct a lateral offset)."""
         v = self.graph.vertices[name]
-        if self._order_type == api.ORDER_PALLET and v.kind == "pallet":
+        if self._order_type == api.ORDER_PALLET and v.kind in ("pallet", "dock"):
             return (v.x - PREDOCK_M * math.cos(self._goal_yaw), v.y - PREDOCK_M * math.sin(self._goal_yaw),
                     self._goal_yaw)
         return (v.x, v.y, self._goal_yaw)
@@ -897,6 +901,7 @@ class AgentCore:
         self._gref_t = t
         self._gref_d = self._goal_dist()
         self._gref_xy = (self._x, self._y) if self._have_pose else None
+        self._gref_h = self._goal_heading_err()
         return [self._goal_navigate(name)]
 
     def _goal_dist(self) -> Optional[float]:
@@ -904,6 +909,13 @@ class AgentCore:
             return None
         x, y, _ = self._goal_pose(self._route[self._goal_i])
         return math.hypot(x - self._x, y - self._y)
+
+    def _goal_heading_err(self) -> Optional[float]:
+        """|angle| between the robot's heading and the direction to the current goal."""
+        if not self._have_pose or self._goal_i >= len(self._route):
+            return None
+        x, y, _ = self._goal_pose(self._route[self._goal_i])
+        return abs(_wrap(math.atan2(y - self._y, x - self._x) - self._yaw))
 
     def _goal_moving(self) -> bool:
         return self._mode in (RobotMode.NAVIGATING, RobotMode.CARRYING, RobotMode.STUCK)
@@ -981,9 +993,12 @@ class AgentCore:
         if d is not None:
             moved = (self._gref_xy is not None
                      and math.hypot(self._x - self._gref_xy[0], self._y - self._gref_xy[1]) >= GOAL_PROGRESS_MOVE_M)
-            if self._gref_d is None or self._gref_d - d >= api.STUCK_MIN_PROGRESS_M or moved:
-                # progress: closer to the goal, or displaced (a detour around an obstacle); turning in place is not
-                self._gref_d, self._gref_t, self._gref_xy = d, t, (self._x, self._y)
+            h = self._goal_heading_err()
+            turned = self._gref_h is not None and h is not None and self._gref_h - h >= GOAL_PROGRESS_TURN_RAD
+            if self._gref_d is None or self._gref_d - d >= api.STUCK_MIN_PROGRESS_M or moved or turned:
+                # progress: closer to the goal, displaced (a detour around an obstacle), or turned towards the goal
+                # (a U-turn after a pick; T066). Turning away from it or on the spot back and forth is not.
+                self._gref_d, self._gref_t, self._gref_xy, self._gref_h = d, t, (self._x, self._y), h
                 if self._goal_retry_at is None:           # a failed Navigate stays reported until it is re-sent
                     self._goal_clear_blocked()
             elif self._mode != RobotMode.STUCK and t - self._gref_t >= api.BLOCKED_REPORT_S:

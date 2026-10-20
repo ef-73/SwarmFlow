@@ -9,8 +9,8 @@ import pytest
 
 from swarmflow_core import api
 from swarmflow_core.api import RobotMode
-from swarmflow_robot_agent.agent_core import (DOCK_AHEAD_M, PALLET_LIFT_S, UNDOCK_M, AgentCore, CancelNav, DockDrive,
-                                              Navigate, SetFootprint, StopDrive, TaskFinished)
+from swarmflow_robot_agent.agent_core import (DOCK_AHEAD_M, PALLET_LIFT_S, PREDOCK_M, UNDOCK_M, AgentCore, CancelNav,
+                                              DockDrive, Navigate, SetFootprint, StopDrive, TaskFinished)
 from test_pallet_docking import N, graph  # noqa: E402  (shared fixture graph)
 
 from swarmflow_robot_agent import agent_core as an  # noqa: E402
@@ -106,7 +106,7 @@ def test_cancel_while_backing_out_stops_and_restores_footprint(agent):
     docked(agent)
     agent.on_pose(0.0, 4.0, N, 0.0, 12.0)
     agent.tick(12.0 + PALLET_LIFT_S)
-    agent.on_pose(6.0, 8.0, N, 0.0, 40.0)
+    agent.on_pose(6.0, 8.0 - PREDOCK_M, N, 0.0, 40.0)
     agent.on_nav_result(True, 40.0)
     agent.on_pose(6.0, 8.0 + DOCK_AHEAD_M, N, 0.0, 45.0)
     acts = agent.tick(45.0 + api.UNLOAD_DWELL_PALLET_S)
@@ -119,7 +119,7 @@ def test_dock_timeout_on_the_way_back_restores_normal_footprint(agent):
     docked(agent)
     agent.on_pose(0.0, 4.0, N, 0.0, 12.0)
     agent.tick(12.0 + PALLET_LIFT_S)
-    agent.on_pose(6.0, 8.0, N, 0.0, 40.0)
+    agent.on_pose(6.0, 8.0 - PREDOCK_M, N, 0.0, 40.0)
     agent.on_nav_result(True, 40.0)
     agent.on_pose(6.0, 8.0 + DOCK_AHEAD_M, N, 0.0, 45.0)
     agent.tick(45.0 + api.UNLOAD_DWELL_PALLET_S)
@@ -152,7 +152,7 @@ def to_unload(a):
     docked(a)
     a.on_pose(0.0, 4.0, N, 0.0, 12.0)
     a.tick(12.0 + PALLET_LIFT_S)
-    a.on_pose(6.0, 8.0, N, 0.0, 40.0)
+    a.on_pose(6.0, 8.0 - PREDOCK_M, N, 0.0, 40.0)
     a.on_nav_result(True, 40.0)
     return a.on_pose(6.0, 8.0 + DOCK_AHEAD_M, N, 0.0, 45.0)
 
@@ -190,7 +190,7 @@ def test_follow_up_to_the_dock_is_accepted_after_cancel_and_finishes_the_unload(
     carry_then_cancel(agent)
     acts = agent.start_task("t2", "p1", ["DK1"], 30.0, route_kind=api.ROUTE_GOALS, order_type=api.ORDER_PALLET)
     assert of(acts, Navigate)[0].vertices == ("DK1",) and agent.state().mode == RobotMode.CARRYING
-    agent.on_pose(6.0, 8.0, N, 0.0, 40.0)
+    agent.on_pose(6.0, 8.0 - PREDOCK_M, N, 0.0, 40.0)
     dd = of(agent.on_nav_result(True, 40.0), DockDrive)
     assert dd and not dd[0].reverse
     agent.on_pose(6.0, 8.0 + DOCK_AHEAD_M, N, 0.0, 45.0)
@@ -204,11 +204,11 @@ def test_follow_up_to_the_dock_is_accepted_after_cancel_and_finishes_the_unload(
 def test_pallet_on_board_survives_a_failed_task_as_stuck(agent):
     carry_then_cancel(agent)
     agent.start_task("t2", "p1", ["DK1"], 30.0, route_kind=api.ROUTE_GOALS, order_type=api.ORDER_PALLET)
-    agent.on_pose(6.0, 8.0, N, 0.0, 40.0)
+    agent.on_pose(6.0, 8.0 - PREDOCK_M, N, 0.0, 40.0)
     agent.on_nav_result(True, 40.0)
     acts = []
     for k in range(40):                                                   # stuck in front of the dock
-        agent.on_pose(6.0, 8.0, N, 0.0, 41.0 + k)
+        agent.on_pose(6.0, 8.0 - PREDOCK_M, N, 0.0, 41.0 + k)
         acts += agent.tick(41.0 + k)
     assert of(acts, TaskFinished) and not of(acts, SetFootprint)
     assert agent.state().mode == RobotMode.STUCK

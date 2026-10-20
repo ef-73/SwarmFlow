@@ -66,3 +66,26 @@ def test_two_robots_two_pallets(core):
     core.on_robot_state(st("robot_2", "CARRYING", "p2", 15.0, 7.0, 0.0), 5.0)
     moved = core.tick(5.0)
     assert set(moved) == {"pallet_PL_W1", "pallet_PL_E1"}
+
+
+DOCKS = {"DK2": (6.5, 30.6, math.pi / 2)}
+
+
+def _drop_at(x, y, yaw):
+    c = PalletCore(SPOTS, docks=DOCKS)
+    c.on_order("p1", api.ORDER_PALLET, "pallet_PL_W1")
+    c.on_robot_state(st("robot_1", "CARRYING", "p1", x, y, yaw), 50.0)
+    c.tick(50.0)
+    c.on_robot_state(st("robot_1", "UNLOADING", "p1", x, y, yaw), 60.0)
+    c.tick(60.0)
+    c.on_robot_state(st("robot_1", "LIFTING", "p1", x, y, yaw), 70.5)            # starts backing out
+    return c.tick(70.5)["pallet_PL_W1"]
+
+
+def test_set_down_near_a_dock_is_centred_and_square_on_the_pad():
+    """T066: the robot stops a few cm off and slightly turned; the pallet still lands on the dock pose."""
+    assert _drop_at(6.53, 30.62, math.pi / 2 + 0.05) == pytest.approx((6.5, 30.6, 0.0, math.pi / 2))
+
+
+def test_set_down_away_from_a_dock_stays_at_the_robot():
+    assert _drop_at(6.5, 28.0, 1.0) == pytest.approx((6.5, 28.0, 0.0, 1.0))

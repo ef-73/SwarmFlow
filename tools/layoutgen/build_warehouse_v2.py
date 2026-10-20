@@ -20,6 +20,8 @@ PALLET_Y = 5.5
 DOCK_Y = 30.6
 DOCK_X = {1: 2.0, 2: 6.5, 3: 13.5, 4: 18.0}
 EXIT_X = (4.25, 15.75)
+PICK_FROM_RACK = 0.75     # pick point to rack face (T066; was 0.45)
+QUEUE_FIRST = 1.8         # dock to first queue spot: a robot backing out from under a pallet (0.9 m) stays clear (T066)
 
 
 def r(v):
@@ -66,7 +68,9 @@ def build():
                            "x_max": 8.0 if side == "W" else 20.0, "y_max": r(y_hi), "axis": "x", "keep": "right"})
             mouth = node(xm, yc)
             lane(node(10, yc), mouth, 4.0)
-            for face, fy in (("S", y_lo + 0.45), ("N", y_hi - 0.45)):
+            # pick points 0.75 m from the rack face: the robot side keeps 0.45 m from the rack, out of the 0.7 m
+            # inflation (at 0.45 m MPPI stalled next to the rack and the robot turned in place to get out, T066)
+            for face, fy in (("S", y_lo + PICK_FROM_RACK), ("N", y_hi - PICK_FROM_RACK)):
                 prev = mouth
                 for ss, x in enumerate(xs, start=1):
                     prev_n = prev
@@ -99,7 +103,8 @@ def build():
         prev = dk
         qs = []
         for i in range(1, 4):
-            q = st(f"Q_DK{k}_{i}", "queue", x, DOCK_Y - 1.6 * i, HALF_PI, queue_of=dk, queue_index=i)
+            q = st(f"Q_DK{k}_{i}", "queue", x, DOCK_Y - QUEUE_FIRST - 1.6 * (i - 1), HALF_PI, queue_of=dk,
+                   queue_index=i)
             lane(prev, q, 2.0)
             prev = q
         lane(prev, node(x, CROSS_N_Y), 2.0)

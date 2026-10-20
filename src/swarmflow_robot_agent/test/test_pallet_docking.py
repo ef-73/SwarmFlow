@@ -85,12 +85,13 @@ def _to_dock(agent):
     _dock_under(agent)
     agent.on_pose(0.0, 4.0, N, 0.0, 14.0)
     agent.tick(14.0 + PALLET_LIFT_S)
-    agent.on_pose(6.0, 8.0, N, 0.0, 40.0)
+    agent.on_pose(6.0, 8.0 - PREDOCK_M, N, 0.0, 40.0)
     return agent.on_nav_result(True, 40.0)
 
 
-def test_deep_drop_unload_back_out_normal_footprint(agent):
+def test_drop_on_the_dock_pad_unload_back_out_normal_footprint(agent):
     acts = _to_dock(agent)
+    assert DOCK_AHEAD_M == 0.0                                       # T066: the pallet goes down on the dock pad
     dd = of(acts, DockDrive)
     assert dd and not dd[0].reverse and dd[0].target == pytest.approx((6.0, 8.0 + DOCK_AHEAD_M, N))
     assert agent.state().mode == RobotMode.CARRYING
@@ -145,3 +146,12 @@ def test_shelf_orders_never_dock(agent):
     agent.on_pose(6.0, 8.0, N, 0.0, 20.0)
     acts = agent.on_nav_result(True, 20.0)
     assert not of(acts, DockDrive) and agent.state().mode == RobotMode.UNLOADING
+
+
+def test_pallet_dock_goal_is_the_pre_dock_pose(agent):
+    """T066: Nav2 stops PREDOCK_M before a pallet order's dock; the straight drive has room to fix a lateral offset."""
+    _dock_under(agent)
+    agent.on_pose(0.0, 4.0, N, 0.0, 14.0)
+    acts = agent.tick(14.0 + PALLET_LIFT_S)
+    nav = of(acts, Navigate)
+    assert nav and nav[0].vertices == ("DK1",) and nav[0].poses[0] == pytest.approx((6.0, 8.0 - PREDOCK_M, N))

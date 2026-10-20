@@ -17,86 +17,86 @@ racks:
   - {name: R_E4, x_min: 12.0, y_min: 17.6, x_max: 20.0, y_max: 18.6, height_m: 2.0}
   - {name: R_E5, x_min: 12.0, y_min: 20.8, x_max: 20.0, y_max: 21.8, height_m: 2.0}
 stations:
-  - {name: PK_W1_S_01, type: pick, pose: {x: 7, y: 9.45, yaw: 3.141593}}
-  - {name: PK_W1_S_02, type: pick, pose: {x: 5, y: 9.45, yaw: 3.141593}}
-  - {name: PK_W1_S_03, type: pick, pose: {x: 3, y: 9.45, yaw: 3.141593}}
-  - {name: PK_W1_S_04, type: pick, pose: {x: 1, y: 9.45, yaw: 3.141593}}
-  - {name: PK_W1_N_01, type: pick, pose: {x: 7, y: 10.75, yaw: 3.141593}}
-  - {name: PK_W1_N_02, type: pick, pose: {x: 5, y: 10.75, yaw: 3.141593}}
-  - {name: PK_W1_N_03, type: pick, pose: {x: 3, y: 10.75, yaw: 3.141593}}
-  - {name: PK_W1_N_04, type: pick, pose: {x: 1, y: 10.75, yaw: 3.141593}}
-  - {name: PK_E1_S_01, type: pick, pose: {x: 13, y: 9.45, yaw: 0.0}}
-  - {name: PK_E1_S_02, type: pick, pose: {x: 15, y: 9.45, yaw: 0.0}}
-  - {name: PK_E1_S_03, type: pick, pose: {x: 17, y: 9.45, yaw: 0.0}}
-  - {name: PK_E1_S_04, type: pick, pose: {x: 19, y: 9.45, yaw: 0.0}}
-  - {name: PK_E1_N_01, type: pick, pose: {x: 13, y: 10.75, yaw: 0.0}}
-  - {name: PK_E1_N_02, type: pick, pose: {x: 15, y: 10.75, yaw: 0.0}}
-  - {name: PK_E1_N_03, type: pick, pose: {x: 17, y: 10.75, yaw: 0.0}}
-  - {name: PK_E1_N_04, type: pick, pose: {x: 19, y: 10.75, yaw: 0.0}}
-  - {name: PK_W2_S_01, type: pick, pose: {x: 7, y: 12.65, yaw: 3.141593}}
-  - {name: PK_W2_S_02, type: pick, pose: {x: 5, y: 12.65, yaw: 3.141593}}
-  - {name: PK_W2_S_03, type: pick, pose: {x: 3, y: 12.65, yaw: 3.141593}}
-  - {name: PK_W2_S_04, type: pick, pose: {x: 1, y: 12.65, yaw: 3.141593}}
-  - {name: PK_W2_N_01, type: pick, pose: {x: 7, y: 13.95, yaw: 3.141593}}
-  - {name: PK_W2_N_02, type: pick, pose: {x: 5, y: 13.95, yaw: 3.141593}}
-  - {name: PK_W2_N_03, type: pick, pose: {x: 3, y: 13.95, yaw: 3.141593}}
-  - {name: PK_W2_N_04, type: pick, pose: {x: 1, y: 13.95, yaw: 3.141593}}
-  - {name: PK_E2_S_01, type: pick, pose: {x: 13, y: 12.65, yaw: 0.0}}
-  - {name: PK_E2_S_02, type: pick, pose: {x: 15, y: 12.65, yaw: 0.0}}
-  - {name: PK_E2_S_03, type: pick, pose: {x: 17, y: 12.65, yaw: 0.0}}
-  - {name: PK_E2_S_04, type: pick, pose: {x: 19, y: 12.65, yaw: 0.0}}
-  - {name: PK_E2_N_01, type: pick, pose: {x: 13, y: 13.95, yaw: 0.0}}
-  - {name: PK_E2_N_02, type: pick, pose: {x: 15, y: 13.95, yaw: 0.0}}
-  - {name: PK_E2_N_03, type: pick, pose: {x: 17, y: 13.95, yaw: 0.0}}
-  - {name: PK_E2_N_04, type: pick, pose: {x: 19, y: 13.95, yaw: 0.0}}
-  - {name: PK_W3_S_01, type: pick, pose: {x: 7, y: 15.85, yaw: 3.141593}}
-  - {name: PK_W3_S_02, type: pick, pose: {x: 5, y: 15.85, yaw: 3.141593}}
-  - {name: PK_W3_S_03, type: pick, pose: {x: 3, y: 15.85, yaw: 3.141593}}
-  - {name: PK_W3_S_04, type: pick, pose: {x: 1, y: 15.85, yaw: 3.141593}}
-  - {name: PK_W3_N_01, type: pick, pose: {x: 7, y: 17.15, yaw: 3.141593}}
-  - {name: PK_W3_N_02, type: pick, pose: {x: 5, y: 17.15, yaw: 3.141593}}
-  - {name: PK_W3_N_03, type: pick, pose: {x: 3, y: 17.15, yaw: 3.141593}}
-  - {name: PK_W3_N_04, type: pick, pose: {x: 1, y: 17.15, yaw: 3.141593}}
-  - {name: PK_E3_S_01, type: pick, pose: {x: 13, y: 15.85, yaw: 0.0}}
-  - {name: PK_E3_S_02, type: pick, pose: {x: 15, y: 15.85, yaw: 0.0}}
-  - {name: PK_E3_S_03, type: pick, pose: {x: 17, y: 15.85, yaw: 0.0}}
-  - {name: PK_E3_S_04, type: pick, pose: {x: 19, y: 15.85, yaw: 0.0}}
-  - {name: PK_E3_N_01, type: pick, pose: {x: 13, y: 17.15, yaw: 0.0}}
-  - {name: PK_E3_N_02, type: pick, pose: {x: 15, y: 17.15, yaw: 0.0}}
-  - {name: PK_E3_N_03, type: pick, pose: {x: 17, y: 17.15, yaw: 0.0}}
-  - {name: PK_E3_N_04, type: pick, pose: {x: 19, y: 17.15, yaw: 0.0}}
-  - {name: PK_W4_S_01, type: pick, pose: {x: 7, y: 19.05, yaw: 3.141593}}
-  - {name: PK_W4_S_02, type: pick, pose: {x: 5, y: 19.05, yaw: 3.141593}}
-  - {name: PK_W4_S_03, type: pick, pose: {x: 3, y: 19.05, yaw: 3.141593}}
-  - {name: PK_W4_S_04, type: pick, pose: {x: 1, y: 19.05, yaw: 3.141593}}
-  - {name: PK_W4_N_01, type: pick, pose: {x: 7, y: 20.35, yaw: 3.141593}}
-  - {name: PK_W4_N_02, type: pick, pose: {x: 5, y: 20.35, yaw: 3.141593}}
-  - {name: PK_W4_N_03, type: pick, pose: {x: 3, y: 20.35, yaw: 3.141593}}
-  - {name: PK_W4_N_04, type: pick, pose: {x: 1, y: 20.35, yaw: 3.141593}}
-  - {name: PK_E4_S_01, type: pick, pose: {x: 13, y: 19.05, yaw: 0.0}}
-  - {name: PK_E4_S_02, type: pick, pose: {x: 15, y: 19.05, yaw: 0.0}}
-  - {name: PK_E4_S_03, type: pick, pose: {x: 17, y: 19.05, yaw: 0.0}}
-  - {name: PK_E4_S_04, type: pick, pose: {x: 19, y: 19.05, yaw: 0.0}}
-  - {name: PK_E4_N_01, type: pick, pose: {x: 13, y: 20.35, yaw: 0.0}}
-  - {name: PK_E4_N_02, type: pick, pose: {x: 15, y: 20.35, yaw: 0.0}}
-  - {name: PK_E4_N_03, type: pick, pose: {x: 17, y: 20.35, yaw: 0.0}}
-  - {name: PK_E4_N_04, type: pick, pose: {x: 19, y: 20.35, yaw: 0.0}}
+  - {name: PK_W1_S_01, type: pick, pose: {x: 7, y: 9.75, yaw: 3.141593}}
+  - {name: PK_W1_S_02, type: pick, pose: {x: 5, y: 9.75, yaw: 3.141593}}
+  - {name: PK_W1_S_03, type: pick, pose: {x: 3, y: 9.75, yaw: 3.141593}}
+  - {name: PK_W1_S_04, type: pick, pose: {x: 1, y: 9.75, yaw: 3.141593}}
+  - {name: PK_W1_N_01, type: pick, pose: {x: 7, y: 10.45, yaw: 3.141593}}
+  - {name: PK_W1_N_02, type: pick, pose: {x: 5, y: 10.45, yaw: 3.141593}}
+  - {name: PK_W1_N_03, type: pick, pose: {x: 3, y: 10.45, yaw: 3.141593}}
+  - {name: PK_W1_N_04, type: pick, pose: {x: 1, y: 10.45, yaw: 3.141593}}
+  - {name: PK_E1_S_01, type: pick, pose: {x: 13, y: 9.75, yaw: 0.0}}
+  - {name: PK_E1_S_02, type: pick, pose: {x: 15, y: 9.75, yaw: 0.0}}
+  - {name: PK_E1_S_03, type: pick, pose: {x: 17, y: 9.75, yaw: 0.0}}
+  - {name: PK_E1_S_04, type: pick, pose: {x: 19, y: 9.75, yaw: 0.0}}
+  - {name: PK_E1_N_01, type: pick, pose: {x: 13, y: 10.45, yaw: 0.0}}
+  - {name: PK_E1_N_02, type: pick, pose: {x: 15, y: 10.45, yaw: 0.0}}
+  - {name: PK_E1_N_03, type: pick, pose: {x: 17, y: 10.45, yaw: 0.0}}
+  - {name: PK_E1_N_04, type: pick, pose: {x: 19, y: 10.45, yaw: 0.0}}
+  - {name: PK_W2_S_01, type: pick, pose: {x: 7, y: 12.95, yaw: 3.141593}}
+  - {name: PK_W2_S_02, type: pick, pose: {x: 5, y: 12.95, yaw: 3.141593}}
+  - {name: PK_W2_S_03, type: pick, pose: {x: 3, y: 12.95, yaw: 3.141593}}
+  - {name: PK_W2_S_04, type: pick, pose: {x: 1, y: 12.95, yaw: 3.141593}}
+  - {name: PK_W2_N_01, type: pick, pose: {x: 7, y: 13.65, yaw: 3.141593}}
+  - {name: PK_W2_N_02, type: pick, pose: {x: 5, y: 13.65, yaw: 3.141593}}
+  - {name: PK_W2_N_03, type: pick, pose: {x: 3, y: 13.65, yaw: 3.141593}}
+  - {name: PK_W2_N_04, type: pick, pose: {x: 1, y: 13.65, yaw: 3.141593}}
+  - {name: PK_E2_S_01, type: pick, pose: {x: 13, y: 12.95, yaw: 0.0}}
+  - {name: PK_E2_S_02, type: pick, pose: {x: 15, y: 12.95, yaw: 0.0}}
+  - {name: PK_E2_S_03, type: pick, pose: {x: 17, y: 12.95, yaw: 0.0}}
+  - {name: PK_E2_S_04, type: pick, pose: {x: 19, y: 12.95, yaw: 0.0}}
+  - {name: PK_E2_N_01, type: pick, pose: {x: 13, y: 13.65, yaw: 0.0}}
+  - {name: PK_E2_N_02, type: pick, pose: {x: 15, y: 13.65, yaw: 0.0}}
+  - {name: PK_E2_N_03, type: pick, pose: {x: 17, y: 13.65, yaw: 0.0}}
+  - {name: PK_E2_N_04, type: pick, pose: {x: 19, y: 13.65, yaw: 0.0}}
+  - {name: PK_W3_S_01, type: pick, pose: {x: 7, y: 16.15, yaw: 3.141593}}
+  - {name: PK_W3_S_02, type: pick, pose: {x: 5, y: 16.15, yaw: 3.141593}}
+  - {name: PK_W3_S_03, type: pick, pose: {x: 3, y: 16.15, yaw: 3.141593}}
+  - {name: PK_W3_S_04, type: pick, pose: {x: 1, y: 16.15, yaw: 3.141593}}
+  - {name: PK_W3_N_01, type: pick, pose: {x: 7, y: 16.85, yaw: 3.141593}}
+  - {name: PK_W3_N_02, type: pick, pose: {x: 5, y: 16.85, yaw: 3.141593}}
+  - {name: PK_W3_N_03, type: pick, pose: {x: 3, y: 16.85, yaw: 3.141593}}
+  - {name: PK_W3_N_04, type: pick, pose: {x: 1, y: 16.85, yaw: 3.141593}}
+  - {name: PK_E3_S_01, type: pick, pose: {x: 13, y: 16.15, yaw: 0.0}}
+  - {name: PK_E3_S_02, type: pick, pose: {x: 15, y: 16.15, yaw: 0.0}}
+  - {name: PK_E3_S_03, type: pick, pose: {x: 17, y: 16.15, yaw: 0.0}}
+  - {name: PK_E3_S_04, type: pick, pose: {x: 19, y: 16.15, yaw: 0.0}}
+  - {name: PK_E3_N_01, type: pick, pose: {x: 13, y: 16.85, yaw: 0.0}}
+  - {name: PK_E3_N_02, type: pick, pose: {x: 15, y: 16.85, yaw: 0.0}}
+  - {name: PK_E3_N_03, type: pick, pose: {x: 17, y: 16.85, yaw: 0.0}}
+  - {name: PK_E3_N_04, type: pick, pose: {x: 19, y: 16.85, yaw: 0.0}}
+  - {name: PK_W4_S_01, type: pick, pose: {x: 7, y: 19.35, yaw: 3.141593}}
+  - {name: PK_W4_S_02, type: pick, pose: {x: 5, y: 19.35, yaw: 3.141593}}
+  - {name: PK_W4_S_03, type: pick, pose: {x: 3, y: 19.35, yaw: 3.141593}}
+  - {name: PK_W4_S_04, type: pick, pose: {x: 1, y: 19.35, yaw: 3.141593}}
+  - {name: PK_W4_N_01, type: pick, pose: {x: 7, y: 20.05, yaw: 3.141593}}
+  - {name: PK_W4_N_02, type: pick, pose: {x: 5, y: 20.05, yaw: 3.141593}}
+  - {name: PK_W4_N_03, type: pick, pose: {x: 3, y: 20.05, yaw: 3.141593}}
+  - {name: PK_W4_N_04, type: pick, pose: {x: 1, y: 20.05, yaw: 3.141593}}
+  - {name: PK_E4_S_01, type: pick, pose: {x: 13, y: 19.35, yaw: 0.0}}
+  - {name: PK_E4_S_02, type: pick, pose: {x: 15, y: 19.35, yaw: 0.0}}
+  - {name: PK_E4_S_03, type: pick, pose: {x: 17, y: 19.35, yaw: 0.0}}
+  - {name: PK_E4_S_04, type: pick, pose: {x: 19, y: 19.35, yaw: 0.0}}
+  - {name: PK_E4_N_01, type: pick, pose: {x: 13, y: 20.05, yaw: 0.0}}
+  - {name: PK_E4_N_02, type: pick, pose: {x: 15, y: 20.05, yaw: 0.0}}
+  - {name: PK_E4_N_03, type: pick, pose: {x: 17, y: 20.05, yaw: 0.0}}
+  - {name: PK_E4_N_04, type: pick, pose: {x: 19, y: 20.05, yaw: 0.0}}
   - {name: DK1, type: dock, pose: {x: 2.0, y: 30.6, yaw: 1.570796}}
-  - {name: Q_DK1_1, type: queue, pose: {x: 2.0, y: 29.0, yaw: 1.570796}, queue_of: DK1, queue_index: 1}
-  - {name: Q_DK1_2, type: queue, pose: {x: 2.0, y: 27.4, yaw: 1.570796}, queue_of: DK1, queue_index: 2}
-  - {name: Q_DK1_3, type: queue, pose: {x: 2.0, y: 25.8, yaw: 1.570796}, queue_of: DK1, queue_index: 3}
+  - {name: Q_DK1_1, type: queue, pose: {x: 2.0, y: 28.8, yaw: 1.570796}, queue_of: DK1, queue_index: 1}
+  - {name: Q_DK1_2, type: queue, pose: {x: 2.0, y: 27.2, yaw: 1.570796}, queue_of: DK1, queue_index: 2}
+  - {name: Q_DK1_3, type: queue, pose: {x: 2.0, y: 25.6, yaw: 1.570796}, queue_of: DK1, queue_index: 3}
   - {name: DK2, type: dock, pose: {x: 6.5, y: 30.6, yaw: 1.570796}}
-  - {name: Q_DK2_1, type: queue, pose: {x: 6.5, y: 29.0, yaw: 1.570796}, queue_of: DK2, queue_index: 1}
-  - {name: Q_DK2_2, type: queue, pose: {x: 6.5, y: 27.4, yaw: 1.570796}, queue_of: DK2, queue_index: 2}
-  - {name: Q_DK2_3, type: queue, pose: {x: 6.5, y: 25.8, yaw: 1.570796}, queue_of: DK2, queue_index: 3}
+  - {name: Q_DK2_1, type: queue, pose: {x: 6.5, y: 28.8, yaw: 1.570796}, queue_of: DK2, queue_index: 1}
+  - {name: Q_DK2_2, type: queue, pose: {x: 6.5, y: 27.2, yaw: 1.570796}, queue_of: DK2, queue_index: 2}
+  - {name: Q_DK2_3, type: queue, pose: {x: 6.5, y: 25.6, yaw: 1.570796}, queue_of: DK2, queue_index: 3}
   - {name: DK3, type: dock, pose: {x: 13.5, y: 30.6, yaw: 1.570796}}
-  - {name: Q_DK3_1, type: queue, pose: {x: 13.5, y: 29.0, yaw: 1.570796}, queue_of: DK3, queue_index: 1}
-  - {name: Q_DK3_2, type: queue, pose: {x: 13.5, y: 27.4, yaw: 1.570796}, queue_of: DK3, queue_index: 2}
-  - {name: Q_DK3_3, type: queue, pose: {x: 13.5, y: 25.8, yaw: 1.570796}, queue_of: DK3, queue_index: 3}
+  - {name: Q_DK3_1, type: queue, pose: {x: 13.5, y: 28.8, yaw: 1.570796}, queue_of: DK3, queue_index: 1}
+  - {name: Q_DK3_2, type: queue, pose: {x: 13.5, y: 27.2, yaw: 1.570796}, queue_of: DK3, queue_index: 2}
+  - {name: Q_DK3_3, type: queue, pose: {x: 13.5, y: 25.6, yaw: 1.570796}, queue_of: DK3, queue_index: 3}
   - {name: DK4, type: dock, pose: {x: 18.0, y: 30.6, yaw: 1.570796}}
-  - {name: Q_DK4_1, type: queue, pose: {x: 18.0, y: 29.0, yaw: 1.570796}, queue_of: DK4, queue_index: 1}
-  - {name: Q_DK4_2, type: queue, pose: {x: 18.0, y: 27.4, yaw: 1.570796}, queue_of: DK4, queue_index: 2}
-  - {name: Q_DK4_3, type: queue, pose: {x: 18.0, y: 25.8, yaw: 1.570796}, queue_of: DK4, queue_index: 3}
+  - {name: Q_DK4_1, type: queue, pose: {x: 18.0, y: 28.8, yaw: 1.570796}, queue_of: DK4, queue_index: 1}
+  - {name: Q_DK4_2, type: queue, pose: {x: 18.0, y: 27.2, yaw: 1.570796}, queue_of: DK4, queue_index: 2}
+  - {name: Q_DK4_3, type: queue, pose: {x: 18.0, y: 25.6, yaw: 1.570796}, queue_of: DK4, queue_index: 3}
   - {name: HM1, type: home, pose: {x: 1.5, y: 1.5, yaw: 1.570796}}
   - {name: HM2, type: home, pose: {x: 3.9, y: 1.5, yaw: 1.570796}}
   - {name: HM3, type: home, pose: {x: 6.3, y: 1.5, yaw: 1.570796}}

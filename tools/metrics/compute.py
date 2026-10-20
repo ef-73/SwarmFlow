@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 import pathlib
 import re
 import sys
@@ -20,9 +21,10 @@ from swarmflow_core.metrics.clearance import count_violations, footprint_distanc
 
 COLUMNS = ["run_id", "scenario", "policy", "seed", "duration_s", "deliveries", "throughput_per_min",
            "mean_latency_s", "total_wait_s", "mean_wait_s", "stuck_events", "failed_orders", "clearance_violations",
-           "min_separation_m", "near_misses", "stuck_episodes", "stuck_by_area"]
+           "min_separation_m", "near_misses", "stuck_episodes", "stuck_by_area", "spin_episodes"]
 SPEED_EPS = 0.05
 NEAR_MISS_M = 0.30   # footprint-to-footprint distance counted as a near miss (v2 criterion, M14)
+SPIN_WINDOW_S, SPIN_MIN_RAD, SPIN_MAX_MOVE_M = 10.0, math.pi, 0.4   # spin episode: turned > 180 deg, moved < 0.4 m
 REPO = pathlib.Path(__file__).resolve().parents[2]
 
 
@@ -114,6 +116,7 @@ def compute(run_dir: pathlib.Path) -> dict:
         "failed_orders": failed, "clearance_violations": count_violations(by_t),
         "min_separation_m": min_sep, "near_misses": near, "stuck_episodes": len(episodes),
         "stuck_by_area": ";".join(f"{a}:{episodes.count(a)}" for a in sorted(set(episodes))),
+        "spin_episodes": spin_episodes(by_robot),
     }
 
 
@@ -146,6 +149,25 @@ def stuck_episodes(by_robot: dict, aisles: list) -> list:
                 out.append(area_of(s["x"], s["y"], aisles))
             prev = s.get("mode")
     return out
+
+
+def spin_episodes(by_robot: dict) -> int:
+    """Turning on the spot (T066): windows of SPIN_WINDOW_S in which a robot turned more than SPIN_MIN_RAD in total
+    while moving less than SPIN_MAX_MOVE_M; one episode per window, the next window starts after it."""
+    count = 0
+    for samples in by_robot.values():
+        rs = sorted(samples, key=lambda r: r["t"])
+        i = 0
+        while i < len(rs):
+            j, turned = i, 0.0
+            while j + 1 < len(rs) and rs[j + 1]["t"] - rs[i]["t"] <= SPIN_WINDOW_S:
+                turned += abs(math.remainder(rs[j + 1]["yaw"] - rs[j]["yaw"], 2 * math.pi))
+                j += 1
+            if turned > SPIN_MIN_RAD and math.hypot(rs[j]["x"] - rs[i]["x"], rs[j]["y"] - rs[i]["y"]) < SPIN_MAX_MOVE_M:
+                count += 1
+                i = j
+            i += 1
+    return count
 
 
 def separation(samples) -> tuple:

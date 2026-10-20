@@ -115,3 +115,16 @@ def test_stuck_episodes_by_area():
     by_robot = {"robot_1": [{"t": float(i), "mode": m, "x": 4.0, "y": 10.0} for i, m in enumerate(modes)],
                 "robot_2": [{"t": 0.0, "mode": "STUCK", "x": 6.5, "y": 29.0}]}
     assert sorted(mod.stuck_episodes(by_robot, aisles)) == ["docks", "storage", "storage"]
+
+
+def test_spin_episodes_count_turning_on_the_spot_only():
+    """T066: a 360 degree turn on the spot is one episode; a drive around a corner and slow wobbling are none."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("compute_spin", COMPUTE)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    spin = [{"t": 0.5 * k, "x": 1.0, "y": 1.0, "yaw": 0.2 * k} for k in range(40)]          # 20 s, 7.8 rad
+    drive = [{"t": 0.5 * k, "x": 0.3 * k, "y": 0.0, "yaw": min(math.pi, 0.2 * k)} for k in range(40)]
+    wobble = [{"t": 0.5 * k, "x": 5.0, "y": 5.0, "yaw": 0.05 * (k % 2)} for k in range(40)]
+    assert mod.spin_episodes({"r1": spin}) >= 1
+    assert mod.spin_episodes({"r2": drive, "r3": wobble}) == 0

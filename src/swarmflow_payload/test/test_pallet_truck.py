@@ -27,10 +27,10 @@ def deliver(core, order, pallet, dock_xy, t0):
 
 
 def test_truck_takes_the_pallet_after_the_delay():
-    assert TRUCK_AFTER_S == 30.0
+    assert TRUCK_AFTER_S == 6.0
     core = PalletCore(SPOTS, pool_origin=(-3.0, 0.0))
-    moved = deliver(core, "p1", "pallet_PL_W1", (2.0, 31.3), 100.0)
-    assert moved["pallet_PL_W1"] == pytest.approx((2.0, 31.3, 0.0, math.pi / 2))      # set down at 111
+    moved = deliver(core, "p1", "pallet_PL_W1", (2.0, 30.6), 100.0)
+    assert moved["pallet_PL_W1"] == pytest.approx((2.0, 30.6, 0.0, math.pi / 2))      # set down at 111
     assert core.tick(111.0 + TRUCK_AFTER_S - 0.1) == {}
     gone = core.tick(111.0 + TRUCK_AFTER_S)
     x, y, z, _ = gone["pallet_PL_W1"]
@@ -40,10 +40,10 @@ def test_truck_takes_the_pallet_after_the_delay():
 
 def test_pool_spots_do_not_overlap():
     core = PalletCore(SPOTS, pool_origin=(-3.0, 0.0))
-    deliver(core, "p1", "pallet_PL_W1", (2.0, 31.3), 0.0)
+    deliver(core, "p1", "pallet_PL_W1", (2.0, 30.6), 0.0)
     a = core.tick(11.0 + TRUCK_AFTER_S)["pallet_PL_W1"]
     core.on_robot_state(st("robot_1", "NAVIGATING", "", 0.0, 0.0), 60.0)
-    deliver(core, "p2", "pallet_PL_E1", (13.5, 31.3), 100.0)
+    deliver(core, "p2", "pallet_PL_E1", (13.5, 30.6), 100.0)
     b = core.tick(111.0 + TRUCK_AFTER_S)["pallet_PL_E1"]
     assert math.hypot(a[0] - b[0], a[1] - b[1]) >= 1.5
 

@@ -19,10 +19,11 @@ from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy
 from swarmflow_core import api
 from swarmflow_core.graph import load_layout
-from swarmflow_interfaces.msg import Order, PayloadState, RobotState
+from swarmflow_interfaces.msg import Order, OrderStatus, PayloadState, RobotState
 
 from .pallet_core import PalletCore
 from .payload_core import PayloadCore
+from .shelf_box_core import ShelfBoxCore
 
 _MODES = list(api.RobotMode)
 _QOS = QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT)  # best-effort subscriber matches either publisher
@@ -78,12 +79,21 @@ def _pallet_spots(layout_file: str) -> Dict[str, tuple]:
             for s in data.get("stations", []) if s.get("type") == "pallet"}
 
 
+def _dock_poses(layout_file: str) -> Dict[str, tuple]:
+    """Truck docks of a v2 layout: name -> (x, y, yaw)."""
+    if not layout_file:
+        return {}
+    data = yaml.safe_load(open(layout_file, encoding="utf-8"))
+    return {s["name"]: (float(s["pose"]["x"]), float(s["pose"]["y"]), float(s["pose"]["yaw"]))
+            for s in data.get("stations", []) if s.get("type") == "dock"}
+
+
 PALLET_SIZE = (1.20, 1.00)
 
 
 class PayloadNode(Node):
     def __init__(self, pose_setter: Optional[object] = None, core: Optional[PayloadCore] = None,
-                 pallet_core: Optional[PalletCore] = None, **kwargs):
+                 pallet_core: Optional[PalletCore] = None, box_core: Optional[ShelfBoxCore] = None, **kwargs):
         super().__init__("payload", **kwargs)
         self.declare_parameter("layout_dir", "")
         self.declare_parameter("layout_file", "")
@@ -102,8 +112,12 @@ class PayloadNode(Node):
             if spots:
                 b = _bounds_and_offsets(self.get_parameter("layout_file").value)[0]
                 pool = (b[0] - 3.0, b[1])
-            pallet_core = PalletCore(spots, pool_origin=pool) if spots else None
+            docks = _dock_poses(self.get_parameter("layout_file").value)
+            pallet_core = PalletCore(spots, pool_origin=pool, docks=docks) if spots else None
         self.pallets = pallet_core
+        if box_core is None and pallet_core is not None and self.get_parameter("layout_file").value:
+            box_core = ShelfBoxCore(_bounds_and_offsets(self.get_parameter("layout_file").value)[0])
+        self.boxes = box_core                        # v2 shelf-order boxes (T066); None in v1 worlds
         self._odom: Dict[str, tuple] = {}            # robot -> latest ground-truth (x, y, yaw)
         self._last_state: Dict[str, dict] = {}       # robot -> latest {robot_id, mode, order_id}
         self.setter = pose_setter if pose_setter is not None else PoseSetter(world)
@@ -117,6 +131,9 @@ class PayloadNode(Node):
         self.create_subscription(RobotState, "/fleet/robot_states", self._on_state, _QOS)
         if self.pallets is not None:
             self.create_subscription(Order, "/fleet/orders", self._on_order,
+                                     QoSProfile(depth=100, reliability=ReliabilityPolicy.RELIABLE))
+        if self.boxes is not None:
+            self.create_subscription(OrderStatus, "/fleet/order_status", self._on_order_status,
                                      QoSProfile(depth=100, reliability=ReliabilityPolicy.RELIABLE))
         self.create_timer(1.0 / float(self.get_parameter("rate_hz").value), self._on_tick)
         self.create_timer(0.2, self._publish_states)
@@ -139,16 +156,26 @@ class PayloadNode(Node):
             return
         x, y, yaw = self._odom[robot]
         self.pallets.on_robot_state(dict(st, x=x, y=y, yaw=yaw), self._now())
+        if self.boxes is not None:
+            self.boxes.on_robot_state(dict(st, x=x, y=y, yaw=yaw), self._now())
 
     def _on_order(self, msg: Order) -> None:
         otype = next((k for k, v in api.ORDER_TYPE_CODES.items() if v == msg.order_type), api.ORDER_TRANSPORT)
         with self._lock:
             self.pallets.on_order(msg.order_id, otype, msg.pallet_id)
+            if self.boxes is not None and otype == api.ORDER_SHELF:
+                self.boxes.on_order(msg.order_id, list(msg.pick_vertices))
+
+    def _on_order_status(self, msg: OrderStatus) -> None:
+        names = ("QUEUED", "ASSIGNED", "PICKING_UP", "IN_TRANSIT", "DELIVERED", "FAILED")
+        if msg.state < len(names):
+            with self._lock:
+                self.boxes.on_order_state(msg.order_id, names[msg.state])
 
     def _on_state(self, msg: RobotState) -> None:
         mode = _MODES[msg.mode].value if 0 <= msg.mode < len(_MODES) else "FAULT"
         with self._lock:
-            st = {"robot_id": msg.robot_id, "mode": mode, "order_id": msg.order_id}
+            st = {"robot_id": msg.robot_id, "mode": mode, "order_id": msg.order_id, "last_vertex": msg.last_vertex}
             self.core.on_robot_state(st, self._now())
             if self.pallets is not None:
                 self._last_state[msg.robot_id] = st
@@ -159,7 +186,9 @@ class PayloadNode(Node):
             poses = self.core.tick(self._now())
             if self.pallets is not None:
                 poses.update(self.pallets.tick(self._now()))
-            warnings = list(self.core.warnings)
+            if self.boxes is not None:
+                poses.update(self.boxes.tick(self._now()))
+            warnings = list(self.core.warnings) + (list(self.boxes.warnings) if self.boxes is not None else [])
         for w in warnings[self._warned:]:
             self.get_logger().warning(w)
         self._warned = len(warnings)
@@ -179,8 +208,11 @@ class PayloadNode(Node):
             with self._lock:
                 d = self.core.payload_state(r)
                 pd = self.pallets.payload_state(r) if self.pallets is not None else None
+                bd = self.boxes.payload_state(r) if self.boxes is not None else None
             if pd is not None and pd["loaded"]:
                 d = dict(pd, size_x=PALLET_SIZE[0], size_y=PALLET_SIZE[1])
+            elif bd is not None and bd["loaded"]:
+                d = bd
             m = PayloadState()
             m.header.stamp = stamp
             m.header.frame_id = "base_footprint"

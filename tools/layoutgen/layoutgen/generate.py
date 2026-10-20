@@ -16,6 +16,7 @@ PAD = 0.05
 PAYLOADS = {"unloaded": (0.0, 0.0), "small": (0.40, 0.40), "medium": (0.65, 0.65), "wide": (0.65, 1.00),
             "long": (1.20, 0.60)}
 POOL = 12
+POOL_V2 = 16                         # v2: up to 3 boxes stacked on each of 5 robots (T066)
 
 
 class LayoutError(Exception):
@@ -373,7 +374,7 @@ def make_world(layout: dict) -> str:
         if s["type"] == "pallet":
             out.append(_pallet_model(f"pallet_{s['name']}", (s["pose"]["x"], s["pose"]["y"], 0, 0, 0,
                                                               s["pose"]["yaw"])))
-    for i in range(POOL):
+    for i in range(POOL_V2 if layout["schema_version"] >= 2 else POOL):
         out.append(_box_model(f"pkg_{i:02d}", (xmin - 3.0, ymin + 0.6 * i, 0.15, 0, 0, 0), (0.40, 0.40, 0.30),
                               "0.55 0.35 0.15 1", static=False, collision=False, gravity=False))
     out.append("  </world>\n</sdf>\n")

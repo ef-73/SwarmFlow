@@ -81,7 +81,7 @@ def test_pick_points_both_faces_every_2m(layout):
         assert hit, p["name"]
         a, y1, y2 = hit
         face_d = min(y - y1, y2 - y)
-        assert 0.40 - TOL <= face_d <= 0.50 + TOL, p["name"]        # off the aisle centre, towards a rack face
+        assert abs(face_d - 0.75) <= TOL, p["name"]     # T066: 0.75 m from the rack face, out of its inflation
         side = "W" if x < 10.0 else "E"
         assert (0.5 <= x <= 7.5) if side == "W" else (12.5 <= x <= 19.5), p["name"]
         face = "S" if y - y1 < y2 - y else "N"
@@ -106,7 +106,8 @@ def test_docks_with_queue_lanes(layout):
         prev = (d["pose"]["x"], d["pose"]["y"])
         for s in q:
             x, y = s["pose"]["x"], s["pose"]["y"]
-            assert abs(x - prev[0]) < TOL and abs((prev[1] - y) - 1.6) < 0.05    # straight lane behind the dock
+            gap = 1.8 if s["queue_index"] == 1 else 1.6                 # T066: first spot 1.8 m behind the dock
+            assert abs(x - prev[0]) < TOL and abs((prev[1] - y) - gap) < 0.05    # straight lane behind the dock
             assert not (8.0 < x < 12.0), "queue lanes stay off the central aisle"
             prev = (x, y)
 
