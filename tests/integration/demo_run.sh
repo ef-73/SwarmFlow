@@ -39,6 +39,12 @@ if [ "${SWARMFLOW_LOCALIZATION:-ground_truth}" = amcl ]; then
   (sleep 60; docker compose cp tests/integration/loc_error.py "$first_robot:/tmp/loc_error.py" >/dev/null 2>&1
    docker compose exec -d -T "$first_robot" /entrypoint.sh python3 /tmp/loc_error.py --robots "$robots"      --duration $(( minutes * 60 - 30 )) --out /tmp/loc_error.json) &
 fi
+# T069: motion smoothness from every robot's wheel odometry (smooth_probe.py), written to the run at the end
+(sleep 45; docker compose cp tests/integration/smooth_probe.py "$first_robot:/tmp/smooth_probe.py" >/dev/null 2>&1
+ docker compose exec -d -T "$first_robot" /entrypoint.sh python3 /tmp/smooth_probe.py --robots "$robots" \
+   --duration $(( minutes * 60 )) --out /tmp/smooth.json) &
+printf 'smooth=%s\nyield=%s\nunjam=%s\n' "${SWARMFLOW_SMOOTH:-}" "${SWARMFLOW_YIELD:-}" "${SWARMFLOW_UNJAM:-}" \
+  >> "runs/$run_id/realism.txt"
 # Run until the scenario window (start + delay + duration, in SIM seconds) is covered: under CPU load the sim runs
 # slower than real time, and a wall-clock stop would cut the window short (X-10 finding). Wall-time cap: 2 x minutes.
 cap=$(( $(date +%s) + minutes * 120 )); end=$(( $(date +%s) + minutes * 60 ))
@@ -74,6 +80,7 @@ fi
 docker compose exec -T orchestrator /entrypoint.sh bash -c 'timeout 5 ros2 topic echo --once /viz/robots visualization_msgs/msg/MarkerArray --field markers 2>/dev/null | grep -c "ns="' 2>/dev/null | head -1 | sed 's/^/viz robot markers seen: /'
 docker ps --format '{{.Names}} {{.Status}}' | sed "s/$COMPOSE_PROJECT_NAME-//" > "runs/$run_id/health.txt"   # X-06
 [ "${SWARMFLOW_LOCALIZATION:-ground_truth}" = amcl ] &&   docker compose cp "$first_robot:/tmp/loc_error.json" "runs/$run_id/loc_error.json" >/dev/null 2>&1
+docker compose cp "$first_robot:/tmp/smooth.json" "runs/$run_id/smooth.json" >/dev/null 2>&1
 docker compose logs > "runs/$run_id/compose.log" 2>&1
 [ "$(sim_left)" -gt 0 ] && echo "WARNING: wall-time cap reached with $(sim_left) sim-s of the window left"
 echo "control loop missed: $(grep -c 'Control loop missed' "runs/$run_id/compose.log")"
