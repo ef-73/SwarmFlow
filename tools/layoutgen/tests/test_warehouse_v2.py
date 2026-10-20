@@ -81,7 +81,7 @@ def test_pick_points_both_faces_every_2m(layout):
         assert hit, p["name"]
         a, y1, y2 = hit
         face_d = min(y - y1, y2 - y)
-        assert abs(face_d - 0.6) <= TOL, p["name"]      # T066: 0.6 m from the rack face (room to turn on the spot)
+        assert abs(face_d - 0.45) <= TOL, p["name"]     # off the aisle centre, towards a rack face
         side = "W" if x < 10.0 else "E"
         assert (0.5 <= x <= 7.5) if side == "W" else (12.5 <= x <= 19.5), p["name"]
         face = "S" if y - y1 < y2 - y else "N"

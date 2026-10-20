@@ -20,7 +20,7 @@ PALLET_Y = 5.5
 DOCK_Y = 30.6
 DOCK_X = {1: 2.0, 2: 6.5, 3: 13.5, 4: 18.0}
 EXIT_X = (4.25, 15.75)
-PICK_FROM_RACK = 0.6      # pick point to rack face (T066; was 0.45: turning on the spot there needs 0.47 m)
+PICK_FROM_RACK = 0.45     # pick point to rack face (T066 tried 0.75 and 0.6: both jammed the aisles, see below)
 QUEUE_FIRST = 1.8         # dock to first queue spot: a robot backing out from under a pallet (0.9 m) stays clear (T066)
 
 
@@ -68,9 +68,9 @@ def build():
                            "x_max": 8.0 if side == "W" else 20.0, "y_max": r(y_hi), "axis": "x", "keep": "right"})
             mouth = node(xm, yc)
             lane(node(10, yc), mouth, 4.0)
-            # pick points 0.6 m from the rack face (T066): at 0.45 m the robot could not turn on the spot (its corners
-            # sweep 0.47 m) and MPPI stalled next to the rack; at 0.75 m a robot at a pick left a passing robot only
-            # 1.05 m and the aisle mouths jammed (b066_1); 0.6 m leaves 1.3 m
+            # pick points 0.45 m from the rack face. T066 moved them out of the rack inflation (0.75 m, then 0.6 m) to
+            # stop the robots stalling and turning on the spot at a pick, but a robot standing nearer the aisle centre
+            # left a passing robot too little room: 5 and 9 deliveries instead of ~13 (runs b066_1, pick06_1)
             for face, fy in (("S", y_lo + PICK_FROM_RACK), ("N", y_hi - PICK_FROM_RACK)):
                 prev = mouth
                 for ss, x in enumerate(xs, start=1):
