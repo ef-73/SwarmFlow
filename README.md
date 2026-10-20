@@ -12,7 +12,7 @@ layout file, so changing the floor plan means regenerating the map, not re-layin
 ![Nav2](https://img.shields.io/badge/Nav2-MPPI_%2B_Smac-3E7CB1)
 ![Docker](https://img.shields.io/badge/Docker-one_command-2496ED)
 ![Python | C++](https://img.shields.io/badge/Python_%7C_C%2B%2B-19k_lines-555)
-![Tests](https://img.shields.io/badge/tests-369_passing-2EA44F)
+![Tests](https://img.shields.io/badge/tests-372_passing-2EA44F)
 ![Release](https://img.shields.io/badge/release-v2.1.0-orange)
 
 [![Five robots in the 3D Gazebo warehouse; one drives under a pallet and lifts it](docs/evidence/swarmflow_3d_preview.gif)](docs/evidence/swarmflow_3d_demo.mp4)
@@ -157,7 +157,7 @@ Built in 8 days, from an empty repository to v2.1, with a contract-first, test-g
 - **Contracts first.** Message types, the layout schema and the fleet-layer API were frozen before parallel work
   began; changes need an explicit, written decision ([decisions](docs/decisions/)).
 - **A referee, not trust.** One CI script ([`scripts/ci.sh`](scripts/ci.sh)) checks frozen contracts, hygiene, the
-  build and **369 tests** on every change. Nothing reaches `main` red.
+  build and **372 tests** on every change. Nothing reaches `main` red.
 - **AI-assisted.** Most code was written by AI coding agents working in parallel against tests written up front; the
   project owner set direction, made the design calls and reviewed every release.
 
