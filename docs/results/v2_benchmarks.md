@@ -260,3 +260,34 @@ container. It costs about 25 % of a core, which matters: the earlier all-off run
 - `y067v1_*`, `y167_*`: stop-in-place yield (above).
 - `r068v0_1`, `u068v0_1`: the breaker build with Nav2 BackUp, which never moved.
 - `s069v0_1`: the first smoothing profile.
+
+## Five robots by default; the dock line advances once the dock is clear (T071, 2026-10-20)
+
+**Defaults.**
+- `docker compose up` (and light mode) now starts the v2 warehouse with five robots and the `v2_demo` orders. v1 is
+  set by variables (USAGE).
+- The 3D video draws each robot's *planned* trajectory ahead of it (its published reservation, recorded by the
+  orchestrator to `trajectories.jsonl`), instead of its past track.
+
+**Dock line.**
+- **What happened.** A robot waiting at the first queue spot did not drive straight onto the dock when the robot in
+  front left. The queue advanced the instant the previous order was delivered, while that robot was still standing on
+  the dock. It then drove off diagonally across the waiting robot's lane, so Nav2 planned around it: about 1 m
+  sideways and back, about 10.5 s for a 1.8 m move.
+- **Fix.** A released dock now stays held by the robot that held it until that robot is 1.5 m away (at most 20 s).
+  Nothing else changed: no new robot behaviour and no Nav2 parameter change.
+- **Moves from the first queue spot onto the dock** (`decisions.jsonl` + `robot_states.jsonl`):
+
+| Runs | Moves | Max sideways deviation | Dispatch to unloading |
+|---|---|---|---|
+| Before (`g068_1`, `g068_2`, `video_t070b`) | 5 | 0.24–1.02 m | 10.3–11.6 s |
+| After (`d071_1..3`) | 14 | 0.04–0.26 m (12 of 14 ≤ 0.13 m) | 5.1–7.0 s |
+
+**The new defaults, 5 robots, 600 s** (`d071_*`: reservations + breaker + smoothing + dock line):
+- Deliveries 15 / 13 / 16 → 14.7 ± 1.5, 0 failed orders. One body contact (−0.119 m padded, in `d071_2`).
+- RMS heading accel 0.30 rad/s² (0.38–0.42 without smoothing).
+- Against the earlier 5-robot runs with reservations + breaker but no smoothing (`g068_*`: 17 / 17, 0 failed, no
+  contact) this is 2.3 deliveries fewer.
+- Smoothing caps acceleration at 1.5 m/s². With 4 robots it cost nothing (13.3 vs 12.0), so the 5-robot difference is
+  a candidate effect worth a dedicated A/B: n = 2–3 per setting, and the queue moves themselves are faster.
+- Still well ahead of coordination off with 5 robots (`f066_*`: 11.0, 7 failed).

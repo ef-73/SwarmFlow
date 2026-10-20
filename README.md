@@ -15,14 +15,14 @@ layout file, so changing the floor plan means regenerating the map, not re-layin
 ![Tests](https://img.shields.io/badge/tests-369_passing-2EA44F)
 ![Release](https://img.shields.io/badge/release-v2.1.0-orange)
 
-[![Four robots in the 3D Gazebo warehouse; one drives under a pallet and lifts it](docs/evidence/swarmflow_3d_preview.gif)](docs/evidence/swarmflow_3d_demo.mp4)
+[![Five robots in the 3D Gazebo warehouse; one drives under a pallet and lifts it](docs/evidence/swarmflow_3d_preview.gif)](docs/evidence/swarmflow_3d_demo.mp4)
 
-*A real Gazebo run, filmed by three cameras in simulation time, with each robot's last 20 s of path drawn in its
-colour: four robots pick shelf orders in the aisles (a box appears on the robot at each pick), and one drives under a
-pallet, lifts it, carries it to a truck dock and sets it down centred on the dock pad. Reserved trajectories, the
-deadlock breaker and the smoothing profile are on.
-**[Watch the full 1080p video](docs/evidence/swarmflow_3d_demo.mp4)** (67 s: 9 orders, one of them a pallet, delivered in
-6 sim minutes; robots never closer than 0.25 m).*
+*A real Gazebo run with the default setup, filmed by three cameras in simulation time. The coloured line ahead of each
+robot is its planned trajectory, the path it has reserved and published to the others. Five robots pick shelf orders in
+the aisles (a box appears on the robot at each pick); one drives under a pallet, lifts it, carries it to a truck dock
+and sets it down centred on the dock pad.
+**[Watch the full 1080p video](docs/evidence/swarmflow_3d_demo.mp4)** (67 s: 10 orders, one of them a pallet, delivered
+in 6 sim minutes, 0 failed, no contact).*
 
 ---
 
@@ -98,12 +98,11 @@ Problems found and solved along the way, each with evidence in the repo:
 
 ## Results
 
-![Top-down replay of a 10-minute run: five robots, 17 deliveries](docs/evidence/swarmflow_demo.gif)
+![Top-down replay of a 10-minute run: five robots, 16 deliveries](docs/evidence/swarmflow_demo.gif)
 
-*Top-down replay of a full 10-minute run at 10×, drawn from the recorded robot states: five robots with reserved
-trajectories and the deadlock breaker (run `g068_1`; smoothing was off in that run), 17 orders unloaded at their
-docks, 0 failed, no physical contact. "yielding" marks a robot waiting clear of an older reservation
-([full-quality video](docs/evidence/v2_demo_replay_g068_1.webm)).*
+*Top-down replay of a full 10-minute run at 10×, drawn from the recorded robot states, with the default setup (run
+`d071_3`): five robots, 16 orders unloaded at their docks, 0 failed, no physical contact. "yielding" marks a robot
+waiting clear of an older reservation ([full-quality video](docs/evidence/v2_demo_replay_d071_3.webm)).*
 
 | Setup | Robots | Deliveries / 10 min | Stuck / failed | Closest approach (padded footprints) |
 |---|---|---|---|---|
@@ -116,6 +115,7 @@ docks, 0 failed, no physical contact. "yielding" marks a robot waiting clear of 
 | v2.2 + reserved trajectories + deadlock breaker | 4 | 12.3 ± 2.3 | 0.7 / 0.7 | −0.06 ± 0.07 m |
 | v2.2, coordination off | 5 | 11.0 | 3.5 / 3.5 | −0.08 m |
 | **v2.2 + reserved trajectories + deadlock breaker** | 5 | **17.0** | **0 / 0** | −0.05 m |
+| **v2.2 defaults** (all of the above + smoothing + dock line advances once the dock is clear) | 5 | 14.7 ± 1.5 | 0 / 0 | −0.09 ± 0.03 m |
 
 v2 deliveries count only orders unloaded at their dock. An agent bug, found and fixed with the dock line (a
 preempted Nav2 goal reported as succeeded), had ended some tasks at their last pick, and the earlier v2 tables counted
