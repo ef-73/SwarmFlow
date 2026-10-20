@@ -96,6 +96,17 @@ Problems found and solved along the way, each with evidence in the repo:
 - **Stalls depend on CPU pressure.** The same code gave 4–21 stuck episodes per run at normal load and 23–49 on an
   overloaded host. Every run now records its CPU load, and only runs at matching load are compared.
 
+## Watch them sort out their own traffic
+
+[![robot_2 waits clear of robot_5's reserved path, then goes](docs/evidence/swarmflow_coordination.jpg)](docs/evidence/swarmflow_coordination.mp4)
+
+*Real moments where robots meet, slowed to 2×, from a Gazebo run with the default setup filmed by a camera over the
+central aisle. Each robot's planned path is drawn ahead of it. The robot whose path meets an earlier reservation
+stops clear of it, then goes as soon as the way is free. The reel ends with a real deadlock break from another run
+(a top-down replay of its recorded robot states): two robots jammed nose to nose, the lower-priority one backs out
+along its own track, and both drive on.
+**[Watch the 50-second highlight reel](docs/evidence/swarmflow_coordination.mp4)**.*
+
 ## Results
 
 ![Top-down replay of a 10-minute run: five robots, 16 deliveries](docs/evidence/swarmflow_demo.gif)

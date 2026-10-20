@@ -24,7 +24,7 @@ for _ in $(seq 1 40); do [ "$(docker inspect -f '{{.State.Health.Status}}' "$COM
 dc exec -d -T gazebo /entrypoint.sh bash -c "python3 /ws/tools/metrics/record_cams.py /ws/runs/$run_id/video > /ws/runs/$run_id/video/record.log 2>&1"
 dc up -d orchestrator scenario_engine payload robot_1 robot_2 robot_3 robot_4 robot_5 >/dev/null 2>&1
 echo "[$(date -u +%H:%M:%S)] up, recording"
-cap=$(( $(date +%s) + 17 * 60 ))
+cap=$(( $(date +%s) + ${REC_CAP_MIN:-17} * 60 ))   # wall-time cap (T072: REC_CAP_MIN for longer recordings)
 sim_info() {  # "<sim seconds left in our window> <pallet delivered 0|1>"
   "$py" - "runs/$run_id" "$sim_min" <<'PY' 2>/dev/null || echo "9999 0"
 import json, pathlib, sys, yaml

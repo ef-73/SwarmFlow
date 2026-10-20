@@ -30,6 +30,9 @@ CAMERAS: Dict[str, Camera] = {
     "pallets": Camera("pallets", (10.0, 0.4, 5.0), (10.0, 7.5, 0.0), 1920, 1080, math.radians(80), 10.0),
     # queue lanes and truck docks, looking north from the end of the racks
     "docks": Camera("docks", (10.0, 22.0, 7.5), (10.0, 28.0, 0.0), 1920, 1080, math.radians(84), 10.0),
+    # T072: the central aisle and the east aisle mouths, where robots meet (yields, deadlock breaks), from above the
+    # east racks looking west
+    "central": Camera("central", (16.5, 17.0, 11.0), (10.0, 17.0, 0.0), 1920, 1080, math.radians(75), 10.0),
 }
 
 
