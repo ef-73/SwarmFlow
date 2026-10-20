@@ -15,70 +15,70 @@ vertices:
   HM6: {x: 13.5, y: 1.5, yaw: 1.571, kind: home}
   HM7: {x: 15.9, y: 1.5, yaw: 1.571, kind: home}
   HM8: {x: 18.3, y: 1.5, yaw: 1.571, kind: home}
-  PK_E1_N_01: {x: 13.0, y: 10.45, yaw: 0.0, kind: pick}
-  PK_E1_N_02: {x: 15.0, y: 10.45, yaw: 0.0, kind: pick}
-  PK_E1_N_03: {x: 17.0, y: 10.45, yaw: 0.0, kind: pick}
-  PK_E1_N_04: {x: 19.0, y: 10.45, yaw: 0.0, kind: pick}
-  PK_E1_S_01: {x: 13.0, y: 9.75, yaw: 0.0, kind: pick}
-  PK_E1_S_02: {x: 15.0, y: 9.75, yaw: 0.0, kind: pick}
-  PK_E1_S_03: {x: 17.0, y: 9.75, yaw: 0.0, kind: pick}
-  PK_E1_S_04: {x: 19.0, y: 9.75, yaw: 0.0, kind: pick}
-  PK_E2_N_01: {x: 13.0, y: 13.65, yaw: 0.0, kind: pick}
-  PK_E2_N_02: {x: 15.0, y: 13.65, yaw: 0.0, kind: pick}
-  PK_E2_N_03: {x: 17.0, y: 13.65, yaw: 0.0, kind: pick}
-  PK_E2_N_04: {x: 19.0, y: 13.65, yaw: 0.0, kind: pick}
-  PK_E2_S_01: {x: 13.0, y: 12.95, yaw: 0.0, kind: pick}
-  PK_E2_S_02: {x: 15.0, y: 12.95, yaw: 0.0, kind: pick}
-  PK_E2_S_03: {x: 17.0, y: 12.95, yaw: 0.0, kind: pick}
-  PK_E2_S_04: {x: 19.0, y: 12.95, yaw: 0.0, kind: pick}
-  PK_E3_N_01: {x: 13.0, y: 16.85, yaw: 0.0, kind: pick}
-  PK_E3_N_02: {x: 15.0, y: 16.85, yaw: 0.0, kind: pick}
-  PK_E3_N_03: {x: 17.0, y: 16.85, yaw: 0.0, kind: pick}
-  PK_E3_N_04: {x: 19.0, y: 16.85, yaw: 0.0, kind: pick}
-  PK_E3_S_01: {x: 13.0, y: 16.15, yaw: 0.0, kind: pick}
-  PK_E3_S_02: {x: 15.0, y: 16.15, yaw: 0.0, kind: pick}
-  PK_E3_S_03: {x: 17.0, y: 16.15, yaw: 0.0, kind: pick}
-  PK_E3_S_04: {x: 19.0, y: 16.15, yaw: 0.0, kind: pick}
-  PK_E4_N_01: {x: 13.0, y: 20.05, yaw: 0.0, kind: pick}
-  PK_E4_N_02: {x: 15.0, y: 20.05, yaw: 0.0, kind: pick}
-  PK_E4_N_03: {x: 17.0, y: 20.05, yaw: 0.0, kind: pick}
-  PK_E4_N_04: {x: 19.0, y: 20.05, yaw: 0.0, kind: pick}
-  PK_E4_S_01: {x: 13.0, y: 19.35, yaw: 0.0, kind: pick}
-  PK_E4_S_02: {x: 15.0, y: 19.35, yaw: 0.0, kind: pick}
-  PK_E4_S_03: {x: 17.0, y: 19.35, yaw: 0.0, kind: pick}
-  PK_E4_S_04: {x: 19.0, y: 19.35, yaw: 0.0, kind: pick}
-  PK_W1_N_01: {x: 7.0, y: 10.45, yaw: 3.142, kind: pick}
-  PK_W1_N_02: {x: 5.0, y: 10.45, yaw: 3.142, kind: pick}
-  PK_W1_N_03: {x: 3.0, y: 10.45, yaw: 3.142, kind: pick}
-  PK_W1_N_04: {x: 1.0, y: 10.45, yaw: 3.142, kind: pick}
-  PK_W1_S_01: {x: 7.0, y: 9.75, yaw: 3.142, kind: pick}
-  PK_W1_S_02: {x: 5.0, y: 9.75, yaw: 3.142, kind: pick}
-  PK_W1_S_03: {x: 3.0, y: 9.75, yaw: 3.142, kind: pick}
-  PK_W1_S_04: {x: 1.0, y: 9.75, yaw: 3.142, kind: pick}
-  PK_W2_N_01: {x: 7.0, y: 13.65, yaw: 3.142, kind: pick}
-  PK_W2_N_02: {x: 5.0, y: 13.65, yaw: 3.142, kind: pick}
-  PK_W2_N_03: {x: 3.0, y: 13.65, yaw: 3.142, kind: pick}
-  PK_W2_N_04: {x: 1.0, y: 13.65, yaw: 3.142, kind: pick}
-  PK_W2_S_01: {x: 7.0, y: 12.95, yaw: 3.142, kind: pick}
-  PK_W2_S_02: {x: 5.0, y: 12.95, yaw: 3.142, kind: pick}
-  PK_W2_S_03: {x: 3.0, y: 12.95, yaw: 3.142, kind: pick}
-  PK_W2_S_04: {x: 1.0, y: 12.95, yaw: 3.142, kind: pick}
-  PK_W3_N_01: {x: 7.0, y: 16.85, yaw: 3.142, kind: pick}
-  PK_W3_N_02: {x: 5.0, y: 16.85, yaw: 3.142, kind: pick}
-  PK_W3_N_03: {x: 3.0, y: 16.85, yaw: 3.142, kind: pick}
-  PK_W3_N_04: {x: 1.0, y: 16.85, yaw: 3.142, kind: pick}
-  PK_W3_S_01: {x: 7.0, y: 16.15, yaw: 3.142, kind: pick}
-  PK_W3_S_02: {x: 5.0, y: 16.15, yaw: 3.142, kind: pick}
-  PK_W3_S_03: {x: 3.0, y: 16.15, yaw: 3.142, kind: pick}
-  PK_W3_S_04: {x: 1.0, y: 16.15, yaw: 3.142, kind: pick}
-  PK_W4_N_01: {x: 7.0, y: 20.05, yaw: 3.142, kind: pick}
-  PK_W4_N_02: {x: 5.0, y: 20.05, yaw: 3.142, kind: pick}
-  PK_W4_N_03: {x: 3.0, y: 20.05, yaw: 3.142, kind: pick}
-  PK_W4_N_04: {x: 1.0, y: 20.05, yaw: 3.142, kind: pick}
-  PK_W4_S_01: {x: 7.0, y: 19.35, yaw: 3.142, kind: pick}
-  PK_W4_S_02: {x: 5.0, y: 19.35, yaw: 3.142, kind: pick}
-  PK_W4_S_03: {x: 3.0, y: 19.35, yaw: 3.142, kind: pick}
-  PK_W4_S_04: {x: 1.0, y: 19.35, yaw: 3.142, kind: pick}
+  PK_E1_N_01: {x: 13.0, y: 10.6, yaw: 0.0, kind: pick}
+  PK_E1_N_02: {x: 15.0, y: 10.6, yaw: 0.0, kind: pick}
+  PK_E1_N_03: {x: 17.0, y: 10.6, yaw: 0.0, kind: pick}
+  PK_E1_N_04: {x: 19.0, y: 10.6, yaw: 0.0, kind: pick}
+  PK_E1_S_01: {x: 13.0, y: 9.6, yaw: 0.0, kind: pick}
+  PK_E1_S_02: {x: 15.0, y: 9.6, yaw: 0.0, kind: pick}
+  PK_E1_S_03: {x: 17.0, y: 9.6, yaw: 0.0, kind: pick}
+  PK_E1_S_04: {x: 19.0, y: 9.6, yaw: 0.0, kind: pick}
+  PK_E2_N_01: {x: 13.0, y: 13.8, yaw: 0.0, kind: pick}
+  PK_E2_N_02: {x: 15.0, y: 13.8, yaw: 0.0, kind: pick}
+  PK_E2_N_03: {x: 17.0, y: 13.8, yaw: 0.0, kind: pick}
+  PK_E2_N_04: {x: 19.0, y: 13.8, yaw: 0.0, kind: pick}
+  PK_E2_S_01: {x: 13.0, y: 12.8, yaw: 0.0, kind: pick}
+  PK_E2_S_02: {x: 15.0, y: 12.8, yaw: 0.0, kind: pick}
+  PK_E2_S_03: {x: 17.0, y: 12.8, yaw: 0.0, kind: pick}
+  PK_E2_S_04: {x: 19.0, y: 12.8, yaw: 0.0, kind: pick}
+  PK_E3_N_01: {x: 13.0, y: 17.0, yaw: 0.0, kind: pick}
+  PK_E3_N_02: {x: 15.0, y: 17.0, yaw: 0.0, kind: pick}
+  PK_E3_N_03: {x: 17.0, y: 17.0, yaw: 0.0, kind: pick}
+  PK_E3_N_04: {x: 19.0, y: 17.0, yaw: 0.0, kind: pick}
+  PK_E3_S_01: {x: 13.0, y: 16.0, yaw: 0.0, kind: pick}
+  PK_E3_S_02: {x: 15.0, y: 16.0, yaw: 0.0, kind: pick}
+  PK_E3_S_03: {x: 17.0, y: 16.0, yaw: 0.0, kind: pick}
+  PK_E3_S_04: {x: 19.0, y: 16.0, yaw: 0.0, kind: pick}
+  PK_E4_N_01: {x: 13.0, y: 20.2, yaw: 0.0, kind: pick}
+  PK_E4_N_02: {x: 15.0, y: 20.2, yaw: 0.0, kind: pick}
+  PK_E4_N_03: {x: 17.0, y: 20.2, yaw: 0.0, kind: pick}
+  PK_E4_N_04: {x: 19.0, y: 20.2, yaw: 0.0, kind: pick}
+  PK_E4_S_01: {x: 13.0, y: 19.2, yaw: 0.0, kind: pick}
+  PK_E4_S_02: {x: 15.0, y: 19.2, yaw: 0.0, kind: pick}
+  PK_E4_S_03: {x: 17.0, y: 19.2, yaw: 0.0, kind: pick}
+  PK_E4_S_04: {x: 19.0, y: 19.2, yaw: 0.0, kind: pick}
+  PK_W1_N_01: {x: 7.0, y: 10.6, yaw: 3.142, kind: pick}
+  PK_W1_N_02: {x: 5.0, y: 10.6, yaw: 3.142, kind: pick}
+  PK_W1_N_03: {x: 3.0, y: 10.6, yaw: 3.142, kind: pick}
+  PK_W1_N_04: {x: 1.0, y: 10.6, yaw: 3.142, kind: pick}
+  PK_W1_S_01: {x: 7.0, y: 9.6, yaw: 3.142, kind: pick}
+  PK_W1_S_02: {x: 5.0, y: 9.6, yaw: 3.142, kind: pick}
+  PK_W1_S_03: {x: 3.0, y: 9.6, yaw: 3.142, kind: pick}
+  PK_W1_S_04: {x: 1.0, y: 9.6, yaw: 3.142, kind: pick}
+  PK_W2_N_01: {x: 7.0, y: 13.8, yaw: 3.142, kind: pick}
+  PK_W2_N_02: {x: 5.0, y: 13.8, yaw: 3.142, kind: pick}
+  PK_W2_N_03: {x: 3.0, y: 13.8, yaw: 3.142, kind: pick}
+  PK_W2_N_04: {x: 1.0, y: 13.8, yaw: 3.142, kind: pick}
+  PK_W2_S_01: {x: 7.0, y: 12.8, yaw: 3.142, kind: pick}
+  PK_W2_S_02: {x: 5.0, y: 12.8, yaw: 3.142, kind: pick}
+  PK_W2_S_03: {x: 3.0, y: 12.8, yaw: 3.142, kind: pick}
+  PK_W2_S_04: {x: 1.0, y: 12.8, yaw: 3.142, kind: pick}
+  PK_W3_N_01: {x: 7.0, y: 17.0, yaw: 3.142, kind: pick}
+  PK_W3_N_02: {x: 5.0, y: 17.0, yaw: 3.142, kind: pick}
+  PK_W3_N_03: {x: 3.0, y: 17.0, yaw: 3.142, kind: pick}
+  PK_W3_N_04: {x: 1.0, y: 17.0, yaw: 3.142, kind: pick}
+  PK_W3_S_01: {x: 7.0, y: 16.0, yaw: 3.142, kind: pick}
+  PK_W3_S_02: {x: 5.0, y: 16.0, yaw: 3.142, kind: pick}
+  PK_W3_S_03: {x: 3.0, y: 16.0, yaw: 3.142, kind: pick}
+  PK_W3_S_04: {x: 1.0, y: 16.0, yaw: 3.142, kind: pick}
+  PK_W4_N_01: {x: 7.0, y: 20.2, yaw: 3.142, kind: pick}
+  PK_W4_N_02: {x: 5.0, y: 20.2, yaw: 3.142, kind: pick}
+  PK_W4_N_03: {x: 3.0, y: 20.2, yaw: 3.142, kind: pick}
+  PK_W4_N_04: {x: 1.0, y: 20.2, yaw: 3.142, kind: pick}
+  PK_W4_S_01: {x: 7.0, y: 19.2, yaw: 3.142, kind: pick}
+  PK_W4_S_02: {x: 5.0, y: 19.2, yaw: 3.142, kind: pick}
+  PK_W4_S_03: {x: 3.0, y: 19.2, yaw: 3.142, kind: pick}
+  PK_W4_S_04: {x: 1.0, y: 19.2, yaw: 3.142, kind: pick}
   PL_E1: {x: 14.5, y: 5.5, yaw: 1.571, kind: pallet}
   PL_E2: {x: 17.5, y: 5.5, yaw: 1.571, kind: pallet}
   PL_W1: {x: 2.5, y: 5.5, yaw: 1.571, kind: pallet}
@@ -267,7 +267,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: false, long: true}
 - from: PK_E1_N_01
   to: X_0_4
-  length_m: 0.61
+  length_m: 0.707
   clear_width_m: 2.2
   bidirectional: true
   zone: null
@@ -323,7 +323,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: false, long: true}
 - from: PK_E1_S_01
   to: X_0_4
-  length_m: 0.61
+  length_m: 0.707
   clear_width_m: 2.2
   bidirectional: true
   zone: null
@@ -379,7 +379,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: false, long: true}
 - from: PK_E2_N_01
   to: X_0_7
-  length_m: 0.61
+  length_m: 0.707
   clear_width_m: 2.2
   bidirectional: true
   zone: null
@@ -435,7 +435,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: false, long: true}
 - from: PK_E2_S_01
   to: X_0_7
-  length_m: 0.61
+  length_m: 0.707
   clear_width_m: 2.2
   bidirectional: true
   zone: null
@@ -491,7 +491,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: false, long: true}
 - from: PK_E3_N_01
   to: X_1_0
-  length_m: 0.61
+  length_m: 0.707
   clear_width_m: 2.2
   bidirectional: true
   zone: null
@@ -547,7 +547,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: false, long: true}
 - from: PK_E3_S_01
   to: X_1_0
-  length_m: 0.61
+  length_m: 0.707
   clear_width_m: 2.2
   bidirectional: true
   zone: null
@@ -603,7 +603,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: false, long: true}
 - from: PK_E4_N_01
   to: X_1_3
-  length_m: 0.61
+  length_m: 0.707
   clear_width_m: 2.2
   bidirectional: true
   zone: null
@@ -659,7 +659,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: false, long: true}
 - from: PK_E4_S_01
   to: X_1_3
-  length_m: 0.61
+  length_m: 0.707
   clear_width_m: 2.2
   bidirectional: true
   zone: null
@@ -715,7 +715,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: false, long: true}
 - from: PK_W1_N_01
   to: X_0_3
-  length_m: 0.61
+  length_m: 0.707
   clear_width_m: 2.2
   bidirectional: true
   zone: null
@@ -771,7 +771,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: false, long: true}
 - from: PK_W1_S_01
   to: X_0_3
-  length_m: 0.61
+  length_m: 0.707
   clear_width_m: 2.2
   bidirectional: true
   zone: null
@@ -827,7 +827,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: false, long: true}
 - from: PK_W2_N_01
   to: X_0_6
-  length_m: 0.61
+  length_m: 0.707
   clear_width_m: 2.2
   bidirectional: true
   zone: null
@@ -883,7 +883,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: false, long: true}
 - from: PK_W2_S_01
   to: X_0_6
-  length_m: 0.61
+  length_m: 0.707
   clear_width_m: 2.2
   bidirectional: true
   zone: null
@@ -939,7 +939,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: false, long: true}
 - from: PK_W3_N_01
   to: X_0_9
-  length_m: 0.61
+  length_m: 0.707
   clear_width_m: 2.2
   bidirectional: true
   zone: null
@@ -995,7 +995,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: false, long: true}
 - from: PK_W3_S_01
   to: X_0_9
-  length_m: 0.61
+  length_m: 0.707
   clear_width_m: 2.2
   bidirectional: true
   zone: null
@@ -1051,7 +1051,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: false, long: true}
 - from: PK_W4_N_01
   to: X_1_2
-  length_m: 0.61
+  length_m: 0.707
   clear_width_m: 2.2
   bidirectional: true
   zone: null
@@ -1107,7 +1107,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: false, long: true}
 - from: PK_W4_S_01
   to: X_1_2
-  length_m: 0.61
+  length_m: 0.707
   clear_width_m: 2.2
   bidirectional: true
   zone: null
@@ -1483,7 +1483,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: true, long: true}
 - from: X_0_3
   to: PK_W1_N_01
-  length_m: 0.61
+  length_m: 0.707
   clear_width_m: 2.2
   bidirectional: true
   zone: null
@@ -1491,7 +1491,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: false, long: true}
 - from: X_0_3
   to: PK_W1_S_01
-  length_m: 0.61
+  length_m: 0.707
   clear_width_m: 2.2
   bidirectional: true
   zone: null
@@ -1507,7 +1507,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: true, long: true}
 - from: X_0_4
   to: PK_E1_N_01
-  length_m: 0.61
+  length_m: 0.707
   clear_width_m: 2.2
   bidirectional: true
   zone: null
@@ -1515,7 +1515,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: false, long: true}
 - from: X_0_4
   to: PK_E1_S_01
-  length_m: 0.61
+  length_m: 0.707
   clear_width_m: 2.2
   bidirectional: true
   zone: null
@@ -1563,7 +1563,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: true, long: true}
 - from: X_0_6
   to: PK_W2_N_01
-  length_m: 0.61
+  length_m: 0.707
   clear_width_m: 2.2
   bidirectional: true
   zone: null
@@ -1571,7 +1571,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: false, long: true}
 - from: X_0_6
   to: PK_W2_S_01
-  length_m: 0.61
+  length_m: 0.707
   clear_width_m: 2.2
   bidirectional: true
   zone: null
@@ -1587,7 +1587,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: true, long: true}
 - from: X_0_7
   to: PK_E2_N_01
-  length_m: 0.61
+  length_m: 0.707
   clear_width_m: 2.2
   bidirectional: true
   zone: null
@@ -1595,7 +1595,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: false, long: true}
 - from: X_0_7
   to: PK_E2_S_01
-  length_m: 0.61
+  length_m: 0.707
   clear_width_m: 2.2
   bidirectional: true
   zone: null
@@ -1643,7 +1643,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: true, long: true}
 - from: X_0_9
   to: PK_W3_N_01
-  length_m: 0.61
+  length_m: 0.707
   clear_width_m: 2.2
   bidirectional: true
   zone: null
@@ -1651,7 +1651,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: false, long: true}
 - from: X_0_9
   to: PK_W3_S_01
-  length_m: 0.61
+  length_m: 0.707
   clear_width_m: 2.2
   bidirectional: true
   zone: null
@@ -1667,7 +1667,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: true, long: true}
 - from: X_1_0
   to: PK_E3_N_01
-  length_m: 0.61
+  length_m: 0.707
   clear_width_m: 2.2
   bidirectional: true
   zone: null
@@ -1675,7 +1675,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: false, long: true}
 - from: X_1_0
   to: PK_E3_S_01
-  length_m: 0.61
+  length_m: 0.707
   clear_width_m: 2.2
   bidirectional: true
   zone: null
@@ -1739,7 +1739,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: true, long: true}
 - from: X_1_2
   to: PK_W4_N_01
-  length_m: 0.61
+  length_m: 0.707
   clear_width_m: 2.2
   bidirectional: true
   zone: null
@@ -1747,7 +1747,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: false, long: true}
 - from: X_1_2
   to: PK_W4_S_01
-  length_m: 0.61
+  length_m: 0.707
   clear_width_m: 2.2
   bidirectional: true
   zone: null
@@ -1763,7 +1763,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: true, long: true}
 - from: X_1_3
   to: PK_E4_N_01
-  length_m: 0.61
+  length_m: 0.707
   clear_width_m: 2.2
   bidirectional: true
   zone: null
@@ -1771,7 +1771,7 @@ edges:
   two_way_ok: {unloaded: true, small: true, medium: true, wide: false, long: true}
 - from: X_1_3
   to: PK_E4_S_01
-  length_m: 0.61
+  length_m: 0.707
   clear_width_m: 2.2
   bidirectional: true
   zone: null

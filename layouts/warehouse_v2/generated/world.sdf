@@ -140,448 +140,448 @@
     </model>
     <model name="station_PK_W1_S_01">
       <static>true</static>
-      <pose>7 9.75 0.005 0 0 0</pose>
+      <pose>7 9.6 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_W1_S_02">
       <static>true</static>
-      <pose>5 9.75 0.005 0 0 0</pose>
+      <pose>5 9.6 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_W1_S_03">
       <static>true</static>
-      <pose>3 9.75 0.005 0 0 0</pose>
+      <pose>3 9.6 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_W1_S_04">
       <static>true</static>
-      <pose>1 9.75 0.005 0 0 0</pose>
+      <pose>1 9.6 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_W1_N_01">
       <static>true</static>
-      <pose>7 10.45 0.005 0 0 0</pose>
+      <pose>7 10.6 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_W1_N_02">
       <static>true</static>
-      <pose>5 10.45 0.005 0 0 0</pose>
+      <pose>5 10.6 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_W1_N_03">
       <static>true</static>
-      <pose>3 10.45 0.005 0 0 0</pose>
+      <pose>3 10.6 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_W1_N_04">
       <static>true</static>
-      <pose>1 10.45 0.005 0 0 0</pose>
+      <pose>1 10.6 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_E1_S_01">
       <static>true</static>
-      <pose>13 9.75 0.005 0 0 0</pose>
+      <pose>13 9.6 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_E1_S_02">
       <static>true</static>
-      <pose>15 9.75 0.005 0 0 0</pose>
+      <pose>15 9.6 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_E1_S_03">
       <static>true</static>
-      <pose>17 9.75 0.005 0 0 0</pose>
+      <pose>17 9.6 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_E1_S_04">
       <static>true</static>
-      <pose>19 9.75 0.005 0 0 0</pose>
+      <pose>19 9.6 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_E1_N_01">
       <static>true</static>
-      <pose>13 10.45 0.005 0 0 0</pose>
+      <pose>13 10.6 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_E1_N_02">
       <static>true</static>
-      <pose>15 10.45 0.005 0 0 0</pose>
+      <pose>15 10.6 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_E1_N_03">
       <static>true</static>
-      <pose>17 10.45 0.005 0 0 0</pose>
+      <pose>17 10.6 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_E1_N_04">
       <static>true</static>
-      <pose>19 10.45 0.005 0 0 0</pose>
+      <pose>19 10.6 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_W2_S_01">
       <static>true</static>
-      <pose>7 12.95 0.005 0 0 0</pose>
+      <pose>7 12.8 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_W2_S_02">
       <static>true</static>
-      <pose>5 12.95 0.005 0 0 0</pose>
+      <pose>5 12.8 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_W2_S_03">
       <static>true</static>
-      <pose>3 12.95 0.005 0 0 0</pose>
+      <pose>3 12.8 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_W2_S_04">
       <static>true</static>
-      <pose>1 12.95 0.005 0 0 0</pose>
+      <pose>1 12.8 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_W2_N_01">
       <static>true</static>
-      <pose>7 13.65 0.005 0 0 0</pose>
+      <pose>7 13.8 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_W2_N_02">
       <static>true</static>
-      <pose>5 13.65 0.005 0 0 0</pose>
+      <pose>5 13.8 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_W2_N_03">
       <static>true</static>
-      <pose>3 13.65 0.005 0 0 0</pose>
+      <pose>3 13.8 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_W2_N_04">
       <static>true</static>
-      <pose>1 13.65 0.005 0 0 0</pose>
+      <pose>1 13.8 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_E2_S_01">
       <static>true</static>
-      <pose>13 12.95 0.005 0 0 0</pose>
+      <pose>13 12.8 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_E2_S_02">
       <static>true</static>
-      <pose>15 12.95 0.005 0 0 0</pose>
+      <pose>15 12.8 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_E2_S_03">
       <static>true</static>
-      <pose>17 12.95 0.005 0 0 0</pose>
+      <pose>17 12.8 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_E2_S_04">
       <static>true</static>
-      <pose>19 12.95 0.005 0 0 0</pose>
+      <pose>19 12.8 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_E2_N_01">
       <static>true</static>
-      <pose>13 13.65 0.005 0 0 0</pose>
+      <pose>13 13.8 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_E2_N_02">
       <static>true</static>
-      <pose>15 13.65 0.005 0 0 0</pose>
+      <pose>15 13.8 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_E2_N_03">
       <static>true</static>
-      <pose>17 13.65 0.005 0 0 0</pose>
+      <pose>17 13.8 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_E2_N_04">
       <static>true</static>
-      <pose>19 13.65 0.005 0 0 0</pose>
+      <pose>19 13.8 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_W3_S_01">
       <static>true</static>
-      <pose>7 16.15 0.005 0 0 0</pose>
+      <pose>7 16 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_W3_S_02">
       <static>true</static>
-      <pose>5 16.15 0.005 0 0 0</pose>
+      <pose>5 16 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_W3_S_03">
       <static>true</static>
-      <pose>3 16.15 0.005 0 0 0</pose>
+      <pose>3 16 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_W3_S_04">
       <static>true</static>
-      <pose>1 16.15 0.005 0 0 0</pose>
+      <pose>1 16 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_W3_N_01">
       <static>true</static>
-      <pose>7 16.85 0.005 0 0 0</pose>
+      <pose>7 17 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_W3_N_02">
       <static>true</static>
-      <pose>5 16.85 0.005 0 0 0</pose>
+      <pose>5 17 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_W3_N_03">
       <static>true</static>
-      <pose>3 16.85 0.005 0 0 0</pose>
+      <pose>3 17 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_W3_N_04">
       <static>true</static>
-      <pose>1 16.85 0.005 0 0 0</pose>
+      <pose>1 17 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_E3_S_01">
       <static>true</static>
-      <pose>13 16.15 0.005 0 0 0</pose>
+      <pose>13 16 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_E3_S_02">
       <static>true</static>
-      <pose>15 16.15 0.005 0 0 0</pose>
+      <pose>15 16 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_E3_S_03">
       <static>true</static>
-      <pose>17 16.15 0.005 0 0 0</pose>
+      <pose>17 16 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_E3_S_04">
       <static>true</static>
-      <pose>19 16.15 0.005 0 0 0</pose>
+      <pose>19 16 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_E3_N_01">
       <static>true</static>
-      <pose>13 16.85 0.005 0 0 0</pose>
+      <pose>13 17 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_E3_N_02">
       <static>true</static>
-      <pose>15 16.85 0.005 0 0 0</pose>
+      <pose>15 17 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_E3_N_03">
       <static>true</static>
-      <pose>17 16.85 0.005 0 0 0</pose>
+      <pose>17 17 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_E3_N_04">
       <static>true</static>
-      <pose>19 16.85 0.005 0 0 0</pose>
+      <pose>19 17 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_W4_S_01">
       <static>true</static>
-      <pose>7 19.35 0.005 0 0 0</pose>
+      <pose>7 19.2 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_W4_S_02">
       <static>true</static>
-      <pose>5 19.35 0.005 0 0 0</pose>
+      <pose>5 19.2 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_W4_S_03">
       <static>true</static>
-      <pose>3 19.35 0.005 0 0 0</pose>
+      <pose>3 19.2 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_W4_S_04">
       <static>true</static>
-      <pose>1 19.35 0.005 0 0 0</pose>
+      <pose>1 19.2 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_W4_N_01">
       <static>true</static>
-      <pose>7 20.05 0.005 0 0 0</pose>
+      <pose>7 20.2 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_W4_N_02">
       <static>true</static>
-      <pose>5 20.05 0.005 0 0 0</pose>
+      <pose>5 20.2 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_W4_N_03">
       <static>true</static>
-      <pose>3 20.05 0.005 0 0 0</pose>
+      <pose>3 20.2 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_W4_N_04">
       <static>true</static>
-      <pose>1 20.05 0.005 0 0 0</pose>
+      <pose>1 20.2 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_E4_S_01">
       <static>true</static>
-      <pose>13 19.35 0.005 0 0 0</pose>
+      <pose>13 19.2 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_E4_S_02">
       <static>true</static>
-      <pose>15 19.35 0.005 0 0 0</pose>
+      <pose>15 19.2 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_E4_S_03">
       <static>true</static>
-      <pose>17 19.35 0.005 0 0 0</pose>
+      <pose>17 19.2 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_E4_S_04">
       <static>true</static>
-      <pose>19 19.35 0.005 0 0 0</pose>
+      <pose>19 19.2 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_E4_N_01">
       <static>true</static>
-      <pose>13 20.05 0.005 0 0 0</pose>
+      <pose>13 20.2 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_E4_N_02">
       <static>true</static>
-      <pose>15 20.05 0.005 0 0 0</pose>
+      <pose>15 20.2 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_E4_N_03">
       <static>true</static>
-      <pose>17 20.05 0.005 0 0 0</pose>
+      <pose>17 20.2 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
     </model>
     <model name="station_PK_E4_N_04">
       <static>true</static>
-      <pose>19 20.05 0.005 0 0 0</pose>
+      <pose>19 20.2 0.005 0 0 0</pose>
       <link name="link">
         <visual name="visual"><geometry><box><size>0.8 0.8 0.01</size></box></geometry><material><ambient>0.9 0.8 0.1 1</ambient><diffuse>0.9 0.8 0.1 1</diffuse></material></visual>
       </link>
