@@ -24,6 +24,7 @@ from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
+from nav_msgs.msg import Path
 from std_msgs.msg import Header
 
 from swarmflow_core import api, decisions
@@ -52,6 +53,7 @@ _RELIABLE10 = QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE)
 _LATCHED100 = QoSProfile(depth=100, reliability=ReliabilityPolicy.RELIABLE,
                          durability=DurabilityPolicy.TRANSIENT_LOCAL)
 _RELIABLE100 = QoSProfile(depth=100, reliability=ReliabilityPolicy.RELIABLE)
+TRAJ_LOG_PERIOD_S = 1.0       #: T071: record each robot's reserved trajectory at most once per second
 
 _MODE_OF_CODE = {code: mode for mode, code in api.MODE_CODES.items()}
 _DIRECTION_OF_CODE = {code: d for d, code in api.DIRECTION_CODES.items()}
@@ -79,7 +81,7 @@ class RunRecord:
     """JSON-lines run record (design §13.5). A non-empty earlier file is moved to ``<name>.prev`` when opened, so a
     reused run id never mixes two runs and never destroys the earlier one. ``run_dir == ""`` disables all files."""
 
-    FILES = ("decisions", "orders", "robot_states", "reservations")
+    FILES = ("decisions", "orders", "robot_states", "reservations", "trajectories")
 
     def __init__(self, run_dir: str):
         self._files: Dict[str, object] = {}
@@ -166,6 +168,10 @@ class OrchestratorNode(Node):
                                  _RELIABLE10, callback_group=cb)
         self.create_subscription(ReservationRelease, "/fleet/reservation_release", self._on_release, _RELIABLE10,
                                  callback_group=cb)
+        # T071: each robot's planned trajectory (reservation) for the run record, at most TRAJ_LOG_PERIOD_S per robot
+        self._traj_logged: Dict[str, float] = {}
+        self.create_subscription(Path, "/fleet/trajectories", self._on_trajectory,
+                                 QoSProfile(depth=20, reliability=ReliabilityPolicy.BEST_EFFORT), callback_group=cb)
         self.create_service(RequestReservation, "/fleet/request_reservation", self._on_request, callback_group=cb)
         self.create_service(ClearZone, "/fleet/clear_zone", self._on_clear_zone, callback_group=cb)
         self.create_timer(1.0 / float(self.get_parameter("tick_hz").value), self._on_tick, callback_group=cb)
@@ -403,6 +409,17 @@ class OrchestratorNode(Node):
         """Report a task result to the core exactly once; ignored for tasks no longer active (cancelled)."""
         if self._active.pop(task_id, None) is not None:
             self.core.task_result(task_id, ok, reason, t)
+
+    def _on_trajectory(self, msg: Path) -> None:
+        """Record a robot's reserved trajectory (frame_id ``<robot>[;pallet]``, pose stamps = predicted times)."""
+        rid = msg.header.frame_id.partition(";")[0]
+        t = self._now()
+        if not rid or t - self._traj_logged.get(rid, -1e9) < TRAJ_LOG_PERIOD_S:
+            return
+        self._traj_logged[rid] = t
+        pts = [[round(p.header.stamp.sec + p.header.stamp.nanosec * 1e-9, 2), round(p.pose.position.x, 2),
+                round(p.pose.position.y, 2)] for p in msg.poses]
+        self.record.write("trajectories", {"t": round(t, 2), "robot_id": rid, "points": pts})
 
     def _log_states(self) -> None:
         with self._lock:

@@ -118,7 +118,7 @@ def plan_cuts(move: Optional[PalletMove], t_start: float, t_end: float) -> List[
     d = min(t_end, move.setdown_end + 8.0)
     cuts = []
     if a - t_start > 1.0:
-        cuts.append(Cut("wide", t_start, a, 6.0, "Four robots fulfil a seeded order stream"))
+        cuts.append(Cut("wide", t_start, a, 6.0, "Five robots fulfil a seeded order stream"))
     cuts.append(Cut("pallets", a, b, 3.0, "Pallet move: drive under, lift"))
     if c - b > 1.0:
         cuts.append(Cut("wide", b, c, 6.0, "Carrying the pallet to a truck dock"))
@@ -180,3 +180,29 @@ def trail(samples: Sequence[Tuple[float, float, float]], t: float, length_s: flo
             out.append((s[1], s[2]))
         prev = s
     return out
+
+
+def planned(records: Sequence[Tuple[float, Sequence[Sequence[float]]]], t: float,
+            max_age: float = 2.0) -> List[Tuple[float, float]]:
+    """The planned path (x, y) still ahead at sim time ``t``, from one robot's recorded reservations (T071).
+
+    ``records``: (recorded time, points) sorted by time, each point (predicted time, x, y). Uses the latest record
+    at or before ``t`` and at most ``max_age`` old, keeps its points from ``t`` on (the first one interpolated), and
+    returns [] for a one-point reservation (a robot standing or yielding) or when nothing fits."""
+    best = None
+    for tr, pts in records:
+        if tr > t:
+            break
+        best = (tr, pts)
+    if best is None or t - best[0] > max_age or len(best[1]) < 2:
+        return []
+    pts = best[1]
+    out: List[Tuple[float, float]] = []
+    for (ta, xa, ya), (tb, xb, yb) in zip(pts, pts[1:]):
+        if tb < t:
+            continue
+        if not out:
+            k = 0.0 if tb <= ta or t <= ta else (t - ta) / (tb - ta)
+            out.append((xa + k * (xb - xa), ya + k * (yb - ya)))
+        out.append((xb, yb))
+    return out if len(out) >= 2 else []

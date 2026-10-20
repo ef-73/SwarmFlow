@@ -1,5 +1,5 @@
 #!/bin/bash
-# Record the 3D demo video material (takes the sim lock): v2 warehouse, 4 robots, the v2_demo order stream plus one
+# Record the 3D demo video material (takes the sim lock): v2 warehouse, 5 robots, the v2_demo order stream plus one
 # pallet order at the start, three Gazebo cameras rendering on the GPU (docker/compose.record.yaml).
 # Usage: tools/metrics/record_demo.sh <run_id> [sim_minutes=6] [pallet_spot=PL_W2] [dock=DK2]
 # Then:  docker compose run --rm --no-deps -T --entrypoint python3 viz /ws/tools/metrics/make_demo_video.py /ws/runs/<id>
@@ -10,7 +10,7 @@ cd "$(git rev-parse --show-toplevel)"
 run_id="${1:?run_id}"; sim_min="${2:-6}"; spot="${3:-PL_W2}"; dock="${4:-DK2}"
 export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-swarmflow-$(basename "$(pwd)" | tr A-Z a-z)}"
 export SWARMFLOW_RUN_ID="$run_id" SWARMFLOW_SCENARIO=v2_demo SWARMFLOW_POLICY=assign SWARMFLOW_AGENT=true
-export SWARMFLOW_LAYOUT=warehouse_v2 SWARMFLOW_ROBOTS=robot_1,robot_2,robot_3,robot_4 SWARMFLOW_TRAFFIC_CONTROL=false
+export SWARMFLOW_LAYOUT=warehouse_v2 SWARMFLOW_ROBOTS=robot_1,robot_2,robot_3,robot_4,robot_5 SWARMFLOW_TRAFFIC_CONTROL=false
 export SWARMFLOW_GUI=none SWARMFLOW_GIT_SHA="$(git rev-parse HEAD)"
 dc() { docker compose -f compose.yaml -f docker/compose.record.yaml "$@"; }
 py="$(command -v python3 || command -v python)"
@@ -22,7 +22,7 @@ dc --profile extra_robots --profile gui down >/dev/null 2>&1
 dc up -d --force-recreate gazebo >/dev/null 2>&1
 for _ in $(seq 1 40); do [ "$(docker inspect -f '{{.State.Health.Status}}' "$COMPOSE_PROJECT_NAME-gazebo-1" 2>/dev/null)" = healthy ] && break; sleep 3; done
 dc exec -d -T gazebo /entrypoint.sh bash -c "python3 /ws/tools/metrics/record_cams.py /ws/runs/$run_id/video > /ws/runs/$run_id/video/record.log 2>&1"
-dc up -d orchestrator scenario_engine payload robot_1 robot_2 robot_3 robot_4 >/dev/null 2>&1
+dc up -d orchestrator scenario_engine payload robot_1 robot_2 robot_3 robot_4 robot_5 >/dev/null 2>&1
 echo "[$(date -u +%H:%M:%S)] up, recording"
 cap=$(( $(date +%s) + 17 * 60 ))
 sim_info() {  # "<sim seconds left in our window> <pallet delivered 0|1>"

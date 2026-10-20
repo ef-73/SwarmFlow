@@ -17,7 +17,7 @@ from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 COLORS = {"robot_1": "0.10 0.45 0.85 1", "robot_2": "0.95 0.55 0.10 1", "robot_3": "0.20 0.70 0.30 1",
-          "robot_4": "0.75 0.20 0.70 1"}
+          "robot_4": "0.75 0.20 0.70 1", "robot_5": "0.10 0.70 0.75 1"}
 
 
 def robot_xacro(robot_id: str, lidar: str = "front") -> str:

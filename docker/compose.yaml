@@ -51,8 +51,8 @@ services:
       <<: *ros-env
       SWARMFLOW_LIDAR_NOISE: ${SWARMFLOW_LIDAR_NOISE:-0.01}
       SWARMFLOW_LIDAR_RANGE: ${SWARMFLOW_LIDAR_RANGE:-8.0}
-    command: ["ros2", "launch", "swarmflow_gazebo", "sim.launch.py", "layout:=${SWARMFLOW_LAYOUT:-standard}",
-              "robots:=${SWARMFLOW_ROBOTS:-robot_1,robot_2,robot_3}", "rtf:=${SWARMFLOW_RTF:-1.0}"]
+    command: ["ros2", "launch", "swarmflow_gazebo", "sim.launch.py", "layout:=${SWARMFLOW_LAYOUT:-warehouse_v2}",
+              "robots:=${SWARMFLOW_ROBOTS:-robot_1,robot_2,robot_3,robot_4,robot_5}", "rtf:=${SWARMFLOW_RTF:-1.0}"]
     healthcheck:   # world loaded and sim time advancing
       test: ["CMD", "/entrypoint.sh", "bash", "-c", "timeout 5 gz topic -e -n 1 -t /clock >/dev/null"]
       interval: 5s
@@ -108,7 +108,7 @@ services:
       <<: *ros-env
       ROBOT_ID: robot_1
     cap_add: [NET_ADMIN]          # tc netem for SWARMFLOW_NETEM (realism ladder)
-    command: ["bash", "-c", "if [ -n \"$$SWARMFLOW_NETEM\" ]; then tc qdisc replace dev eth0 root netem $$SWARMFLOW_NETEM && echo netem: $$SWARMFLOW_NETEM; fi; ros2 launch swarmflow_nav robot.launch.py robot_id:=$$ROBOT_ID layout:=${SWARMFLOW_LAYOUT:-standard} localization:=${SWARMFLOW_LOCALIZATION:-ground_truth} agent:=${SWARMFLOW_AGENT:-true} traffic_control:=${SWARMFLOW_TRAFFIC_CONTROL:-true}"]
+    command: ["bash", "-c", "if [ -n \"$$SWARMFLOW_NETEM\" ]; then tc qdisc replace dev eth0 root netem $$SWARMFLOW_NETEM && echo netem: $$SWARMFLOW_NETEM; fi; ros2 launch swarmflow_nav robot.launch.py robot_id:=$$ROBOT_ID layout:=${SWARMFLOW_LAYOUT:-warehouse_v2} localization:=${SWARMFLOW_LOCALIZATION:-ground_truth} agent:=${SWARMFLOW_AGENT:-true} traffic_control:=${SWARMFLOW_TRAFFIC_CONTROL:-false}"]
     # X-06: restart a crashed service (not one stopped by `down`); cheap process check, no ROS CLI
     restart: on-failure:3
     healthcheck:
@@ -131,17 +131,15 @@ services:
       <<: *ros-env
       ROBOT_ID: robot_3
 
-  # v2 runs with 4-5 robots (L-04): started only when named (demo_run.sh) or with --profile extra_robots
+  # T071: five robots by default (v2). v1 (standard layout, 3 robots): name the services to start, see USAGE.md
   robot_4:
     <<: *robot
-    profiles: ["extra_robots"]
     environment:
       <<: *ros-env
       ROBOT_ID: robot_4
 
   robot_5:
     <<: *robot
-    profiles: ["extra_robots"]
     environment:
       <<: *ros-env
       ROBOT_ID: robot_5
@@ -153,13 +151,13 @@ services:
         condition: service_healthy
     environment:
       <<: *ros-env
-      SWARMFLOW_POLICY: ${SWARMFLOW_POLICY:-fcfs}
-      SWARMFLOW_ROBOTS: ${SWARMFLOW_ROBOTS:-robot_1,robot_2,robot_3}
+      SWARMFLOW_POLICY: ${SWARMFLOW_POLICY:-assign}
+      SWARMFLOW_ROBOTS: ${SWARMFLOW_ROBOTS:-robot_1,robot_2,robot_3,robot_4,robot_5}
       SWARMFLOW_RUN_ID: ${SWARMFLOW_RUN_ID:-}
-      SWARMFLOW_SCENARIO: ${SWARMFLOW_SCENARIO:-v1_demo}
+      SWARMFLOW_SCENARIO: ${SWARMFLOW_SCENARIO:-v2_demo}
     volumes:
       - ../runs:/ws/runs
-    command: ["ros2", "launch", "swarmflow_orchestrator", "orchestrator.launch.py", "layout:=${SWARMFLOW_LAYOUT:-standard}"]
+    command: ["ros2", "launch", "swarmflow_orchestrator", "orchestrator.launch.py", "layout:=${SWARMFLOW_LAYOUT:-warehouse_v2}"]
     # X-06: restart a crashed service (not one stopped by `down`); cheap process check, no ROS CLI
     restart: on-failure:3
     healthcheck:
@@ -177,14 +175,14 @@ services:
         condition: service_started
     environment:
       <<: *ros-env
-      SWARMFLOW_POLICY: ${SWARMFLOW_POLICY:-fcfs}
+      SWARMFLOW_POLICY: ${SWARMFLOW_POLICY:-assign}
       SWARMFLOW_RUN_ID: ${SWARMFLOW_RUN_ID:-}
-      SWARMFLOW_SCENARIO: ${SWARMFLOW_SCENARIO:-v1_demo}
+      SWARMFLOW_SCENARIO: ${SWARMFLOW_SCENARIO:-v2_demo}
       SWARMFLOW_GIT_SHA: ${SWARMFLOW_GIT_SHA:-}
       SWARMFLOW_IMAGE_DIGESTS: ${SWARMFLOW_IMAGE_DIGESTS:-}
     volumes:
       - ../runs:/ws/runs
-    command: ["ros2", "launch", "swarmflow_scenarios", "scenario_engine.launch.py", "layout:=${SWARMFLOW_LAYOUT:-standard}"]
+    command: ["ros2", "launch", "swarmflow_scenarios", "scenario_engine.launch.py", "layout:=${SWARMFLOW_LAYOUT:-warehouse_v2}"]
     # X-06: restart a crashed service (not one stopped by `down`); cheap process check, no ROS CLI
     restart: on-failure:3
     healthcheck:
@@ -202,8 +200,8 @@ services:
         condition: service_healthy
     environment:
       <<: *ros-env
-      SWARMFLOW_ROBOTS: ${SWARMFLOW_ROBOTS:-robot_1,robot_2,robot_3}
-    command: ["ros2", "launch", "swarmflow_payload", "payload.launch.py", "layout:=${SWARMFLOW_LAYOUT:-standard}"]
+      SWARMFLOW_ROBOTS: ${SWARMFLOW_ROBOTS:-robot_1,robot_2,robot_3,robot_4,robot_5}
+    command: ["ros2", "launch", "swarmflow_payload", "payload.launch.py", "layout:=${SWARMFLOW_LAYOUT:-warehouse_v2}"]
     # X-06: restart a crashed service (not one stopped by `down`); cheap process check, no ROS CLI
     restart: on-failure:3
     healthcheck:
@@ -219,8 +217,8 @@ services:
     environment:
       <<: *ros-env
       SWARMFLOW_LAYOUTS_ROOT: /ws/layouts
-      SWARMFLOW_ROBOTS: ${SWARMFLOW_ROBOTS:-robot_1,robot_2,robot_3}
-    command: ["ros2", "launch", "swarmflow_viz", "viz.launch.py", "layout:=${SWARMFLOW_LAYOUT:-standard}"]
+      SWARMFLOW_ROBOTS: ${SWARMFLOW_ROBOTS:-robot_1,robot_2,robot_3,robot_4,robot_5}
+    command: ["ros2", "launch", "swarmflow_viz", "viz.launch.py", "layout:=${SWARMFLOW_LAYOUT:-warehouse_v2}"]
     # X-06: restart a crashed service (not one stopped by `down`); cheap process check, no ROS CLI
     restart: on-failure:3
     healthcheck:

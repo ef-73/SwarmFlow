@@ -143,10 +143,9 @@ cd SwarmFlow
 docker compose up
 ```
 
-Then open Foxglove on `ws://localhost:8765`. To run the v2 warehouse with 4 robots, set `SWARMFLOW_LAYOUT=warehouse_v2`,
-`SWARMFLOW_POLICY=assign`, `SWARMFLOW_SCENARIO=v2_demo`, `SWARMFLOW_ROBOTS=robot_1,robot_2,robot_3,robot_4` and
-`SWARMFLOW_TRAFFIC_CONTROL=false`. Headless measured run:
-`tests/integration/demo_run.sh <id> 10 v2_demo assign 0`.
+This starts the v2 warehouse with five robots and the demo order stream; open Foxglove on `ws://localhost:8765`.
+Headless measured run: `tests/integration/demo_run.sh <id> 10 v2_demo assign 0`. The v1 setup (standard layout,
+three robots, central reservations) is in the [usage guide](docs/USAGE.md#quick-start-windows).
 
 Everything else (Gazebo window, configuration, experiments, architecture, limitations) is in the
 **[full usage guide](docs/USAGE.md)**.

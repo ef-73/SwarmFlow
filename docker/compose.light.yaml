@@ -1,6 +1,6 @@
 # Light mode (T025): kinematic robots + the real orchestrator/agents, no Gazebo. About one core for 10 robots.
 #   docker compose -f docker/compose.light.yaml up
-# Env: SWARMFLOW_SCENARIO (v1_demo), SWARMFLOW_ROBOTS, SWARMFLOW_RTF (1.0), SWARMFLOW_RUN_ID, SWARMFLOW_LAYOUT.
+# Env: SWARMFLOW_SCENARIO (v2_demo), SWARMFLOW_ROBOTS (5), SWARMFLOW_RTF (1.0), SWARMFLOW_RUN_ID, SWARMFLOW_LAYOUT (warehouse_v2).
 # Nothing here starts Gazebo, so no service carries the swarmflow.sim=1 label.
 
 x-ros-env: &ros-env
@@ -17,9 +17,9 @@ services:
       - ../sim2d:/ws/sim2d:ro
       - ../runs:/ws/runs
     command: ["python3", "-m", "sim2d.light",
-              "--layout-dir", "/ws/layouts/${SWARMFLOW_LAYOUT:-standard}/generated",
-              "--robots", "${SWARMFLOW_ROBOTS:-robot_1,robot_2,robot_3}",
-              "--scenario", "/ws/scenarios/${SWARMFLOW_SCENARIO:-v1_demo}.yaml",
+              "--layout-dir", "/ws/layouts/${SWARMFLOW_LAYOUT:-warehouse_v2}/generated",
+              "--robots", "${SWARMFLOW_ROBOTS:-robot_1,robot_2,robot_3,robot_4,robot_5}",
+              "--scenario", "/ws/scenarios/${SWARMFLOW_SCENARIO:-v2_demo}.yaml",
               "--run-dir", "/ws/runs/${SWARMFLOW_RUN_ID:-light-latest}",
               "--rtf", "${SWARMFLOW_RTF:-1.0}"]
     networks: [swarmflow]
@@ -29,8 +29,8 @@ services:
     environment:
       <<: *ros-env
       SWARMFLOW_LAYOUTS_ROOT: /ws/layouts
-      SWARMFLOW_ROBOTS: ${SWARMFLOW_ROBOTS:-robot_1,robot_2,robot_3}
-    command: ["ros2", "launch", "swarmflow_viz", "viz.launch.py", "layout:=${SWARMFLOW_LAYOUT:-standard}"]
+      SWARMFLOW_ROBOTS: ${SWARMFLOW_ROBOTS:-robot_1,robot_2,robot_3,robot_4,robot_5}
+    command: ["ros2", "launch", "swarmflow_viz", "viz.launch.py", "layout:=${SWARMFLOW_LAYOUT:-warehouse_v2}"]
     networks: [swarmflow]
 
   foxglove_bridge:

@@ -26,15 +26,14 @@ import yaml
 from PIL import Image, ImageDraw, ImageFont
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from video_cams import CAMERAS, deliveries_until, frames_for, pallet_moves, plan_cuts, project, trail  # noqa: E402
+from video_cams import CAMERAS, deliveries_until, frames_for, pallet_moves, plan_cuts, planned, project, trail  # noqa: E402
 
 FPS = 30
 W, H = 1920, 1080
-TRAIL_S = 20.0           #: each robot's trail: its last 20 s of motion (T066)
-TRAIL_Z = 0.03
+PATH_Z = 0.03            #: planned paths are drawn just above the floor (T071)
 # robot colours as in src/swarmflow_gazebo/launch/sim.launch.py COLORS (RGB 0-255)
 ROBOT_RGB = {"robot_1": (26, 115, 217), "robot_2": (242, 140, 26), "robot_3": (51, 179, 77), "robot_4": (191, 51, 179),
-             "robot_5": (128, 128, 128)}
+             "robot_5": (26, 179, 191)}
 FONT_DIRS = ["/usr/share/fonts/truetype/open-sans", "/usr/share/fonts/truetype/dejavu"]
 
 
@@ -93,20 +92,33 @@ def robot_tracks(states):
     return {r: sorted(v) for r, v in out.items()}
 
 
-def draw_trails(frame, cam, tracks, t):
-    """Each robot's last TRAIL_S of motion as a line in its colour, fading towards the tail (drawn over the scene:
-    racks do not hide it)."""
+def robot_plans(rows):
+    """robot -> [(recorded time, points)] from trajectories.jsonl rows, sorted by time."""
+    out = {}
+    for r in rows:
+        out.setdefault(r["robot_id"], []).append((float(r["t"]), r["points"]))
+    return {k: sorted(v, key=lambda e: e[0]) for k, v in out.items()}
+
+
+def draw_paths(frame, cam, tracks, plans, t):
+    """Each robot's planned path ahead of it (its reserved trajectory, T071) as a line in its colour, strong at the
+    robot and fading towards the end of the plan; robots standing or yielding have none. Drawn over the scene."""
     layer = frame.copy()
-    for rid, samples in sorted(tracks.items()):
-        pts = [project(cam, x, y, TRAIL_Z) for x, y in trail(samples, t, TRAIL_S)]
+    for rid, recs in sorted(plans.items()):
+        ahead = planned(recs, t)
+        if not ahead:
+            continue
+        here = trail(tracks.get(rid, []), t, 0.5)
+        pts = ([here[-1]] if here else []) + ahead
+        pts = [project(cam, x, y, PATH_Z) for x, y in pts]
         pts = [(int(round(u * 8)), int(round(v * 8))) for u, v in (p for p in pts if p is not None)]
         if len(pts) < 2:
             continue
         r, g, b = ROBOT_RGB.get(rid, (128, 128, 128))
         n = len(pts)
         for k, (a, c) in enumerate(zip(pts, pts[1:])):
-            w = (k + 1) / n                                   # 0 at the tail .. 1 at the robot
-            col = tuple(int(255 + (v - 255) * (0.35 + 0.65 * w)) for v in (b, g, r))
+            w = 1.0 - k / n                                   # 1 at the robot .. 0 at the end of the plan
+            col = tuple(int(255 + (v - 255) * (0.3 + 0.7 * w)) for v in (b, g, r))
             cv2.line(layer, a, c, col, 6, cv2.LINE_AA, shift=3)
     return cv2.addWeighted(layer, 0.85, frame, 0.15, 0)
 
@@ -131,7 +143,9 @@ def main():
     gif = pathlib.Path(args[2]) if len(args) > 2 else run / "swarmflow_3d_preview.gif"
     vdir = run / "video"
     states, orders = read_jsonl(run / "robot_states.jsonl"), read_jsonl(run / "orders.jsonl")
-    tracks = {} if "--no-trails" in sys.argv else robot_tracks(states)
+    tracks = robot_tracks(states)
+    traj = run / "trajectories.jsonl"
+    plans = {} if "--no-paths" in sys.argv or not traj.exists() else robot_plans(read_jsonl(traj))
     cfg = yaml.safe_load((run / "config.yaml").read_text())
     t_scn = cfg["start_time_sim_s"] + (cfg.get("start_delay_s") or 0)
     stamps = {c: stamps_of(vdir, c) for c in ("wide", "pallets", "docks")}
@@ -155,7 +169,7 @@ def main():
     cap.release()
     first = overlay(first, "", 0, "sim 00:00")
     for k in range(intro):   # title over the still opening shot, then the run starts
-        writer.write(card(first, "SwarmFlow", ["A real Gazebo run: 4 robots, Nav2, shelf orders and a pallet move",
+        writer.write(card(first, "SwarmFlow", [f"A real Gazebo run: {len(robot_tracks(states))} robots, Nav2, shelf orders and a pallet move",
                                                "recorded in simulation time"], 1.0 if k < intro - fade else (intro - k) / fade))
     n_out, last = intro, first
     for ci, c in enumerate(cuts):
@@ -173,7 +187,7 @@ def main():
             if frame is None:
                 continue
             t = stamps[c.cam][i]
-            shot = draw_trails(frame, CAMERAS[c.cam], tracks, t) if tracks else frame
+            shot = draw_paths(frame, CAMERAS[c.cam], tracks, plans, t) if plans else frame
             mins, secs = divmod(max(0.0, t - t_scn), 60)
             hud = f"sim {int(mins):02d}:{int(secs):02d}   ×{c.speed:g}   {deliveries_until(orders, t)} delivered"
             img = overlay(shot, c.caption, min(1.0, k / fade) if k < 4 * FPS else max(0.0, 1 - (k - 4 * FPS) / fade),

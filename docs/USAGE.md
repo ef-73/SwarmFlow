@@ -25,11 +25,9 @@ universally; it is an extensible, measurable implementation of warehouse coordin
   and breaks them one robot at a time; realistic acceleration limits smooth the motion.
 - Light mode (no Gazebo, ~0.6 core for 8 robots), manual orders (CLI and Foxglove), a realism ladder (AMCL, network
   delay/loss, lidar noise).
-- Run it: with `SWARMFLOW_LAYOUT=warehouse_v2 SWARMFLOW_POLICY=assign SWARMFLOW_SCENARIO=v2_steady
-  SWARMFLOW_ROBOTS=robot_1,robot_2,robot_3,robot_4 SWARMFLOW_TRAFFIC_CONTROL=false` set,
-  `docker compose up gazebo orchestrator scenario_engine payload viz foxglove_bridge robot_1 robot_2 robot_3 robot_4`, or
-  `tests/integration/demo_run.sh <id> 10 v2_steady assign 0` (headless, with metrics). Light mode:
-  `docker compose -f docker/compose.light.yaml up` (see `sim2d/README.md`).
+- Run it: `docker compose up` (the default since T071: v2 warehouse, five robots, `v2_demo` orders), or
+  `tests/integration/demo_run.sh <id> 10 v2_demo assign 0` (headless, with metrics). Light mode:
+  `docker compose -f docker/compose.light.yaml up` (also v2 and five robots; see `sim2d/README.md`).
 
 **v1 scope** (design sections 2.1 and 4.1):
 
@@ -69,7 +67,15 @@ What appears:
 - No Gazebo window by default: **Foxglove is the main view** (see [Foxglove](#foxglove)), with data on
   `ws://localhost:8765`. To also open the Gazebo window, add the `gui` profile (next section).
 - Ports 8765 and 6080 are published on `127.0.0.1` only (the bridge and the noVNC view have no authentication).
-- With the default scenario `v1_demo`, orders are released by the scenario engine and the robots deliver them.
+- With the default scenario `v2_demo` (five robots, v2 warehouse), orders are released by the scenario engine and
+  the robots deliver them.
+
+To run **v1** instead (standard layout, three robots, central reservations), set the v1 variables and name the
+services, so robot_4 and robot_5 stay down:
+
+```powershell
+$env:SWARMFLOW_LAYOUT="standard"; $env:SWARMFLOW_ROBOTS="robot_1,robot_2,robot_3"; $env:SWARMFLOW_POLICY="fcfs"; $env:SWARMFLOW_SCENARIO="v1_demo"; $env:SWARMFLOW_TRAFFIC_CONTROL="true"; docker compose up gazebo orchestrator scenario_engine payload viz foxglove_bridge robot_1 robot_2 robot_3
+```
 
 Stop with Ctrl+C in the terminal, then `docker compose down` to remove the containers.
 
@@ -184,8 +190,8 @@ quick start.
 |---|---|---|
 | `SWARMFLOW_GUI` | `wslg` | Gazebo GUI route when started with `--profile gui`: `wslg`, `vnc` or `none`. |
 | `SWARMFLOW_GPU_ADAPTER` | `NVIDIA` | Mesa d3d12 adapter name for the WSLg GUI. |
-| `SWARMFLOW_LAYOUT` | `standard` | Layout name under `layouts/` used by the sim, robots, orchestrator, scenario engine, payload and viz. |
-| `SWARMFLOW_ROBOTS` | `robot_1,robot_2,robot_3` | Robot ids the sim spawns and the orchestrator and payload nodes manage. The `robot_N` compose services are fixed to three; for a scenario with fewer robots start only those services (as `tests/integration/demo_run.sh` does). |
+| `SWARMFLOW_LAYOUT` | `warehouse_v2` | Layout name under `layouts/` used by the sim, robots, orchestrator, scenario engine, payload and viz. |
+| `SWARMFLOW_ROBOTS` | `robot_1,…,robot_5` | Robot ids the sim spawns and the orchestrator and payload nodes manage. There are five `robot_N` compose services; for a scenario with fewer robots start only those services (as `tests/integration/demo_run.sh` does). |
 | `SWARMFLOW_RTF` | `1.0` | Real-time-factor cap for Gazebo (lower it if the CPU is hot; metrics are in sim time). |
 | `SWARMFLOW_PREDICTION_HORIZON` | `2.0` | v2: seconds of other-robot prediction in the costmaps; `0` = current footprints only. 5 s was tried in v2.1 and lost ([v2_benchmarks](results/v2_benchmarks.md#v21-anti-jamming-m18-2026-10-15)). |
 | `SWARMFLOW_PREDICT_ALONG_PLAN` | off | v2.1 experiment: `1` predicts other robots along their published Nav2 plans instead of a straight line. Off: it did not reduce stuck episodes. |
@@ -195,9 +201,9 @@ quick start.
 | `SWARMFLOW_SMOOTH` | on | v2.2: acceleration limits 1.5 m/s², 2.5 rad/s² in MPPI and the velocity smoother, MPPI turn-rate noise 0.3; `0` = the v2.1 profile. Results in [v2_benchmarks](results/v2_benchmarks.md#reservations-deadlock-breaker-smoother-motion-t066t070-2026-10-1920). |
 | `SWARMFLOW_LOCALIZATION` | `ground_truth` | Robot localization: `ground_truth` (Gazebo pose) or `amcl` (tuned on v2 layouts; see limitations and the [realism ladder](results/v2_realism_ladder.md)). |
 | `SWARMFLOW_AGENT` | `true` | Start the robot agent inside each robot container. |
-| `SWARMFLOW_TRAFFIC_CONTROL` | `true` | Robot agent honours zone reservations. `false` makes robots drive straight into aisles. |
-| `SWARMFLOW_POLICY` | `fcfs` | Orchestrator policy: `fcfs` (Baseline B) or `independent` (Baseline A). |
-| `SWARMFLOW_SCENARIO` | `v1_demo` | Scenario file name in `scenarios/` (`v1_demo`, `v1_corridor`). |
+| `SWARMFLOW_TRAFFIC_CONTROL` | `false` | Robot agent honours zone reservations. `false` makes robots drive straight into aisles. |
+| `SWARMFLOW_POLICY` | `assign` | Orchestrator policy: `assign` (v2 fleet core), `fcfs` (v1 Baseline B) or `independent` (v1 Baseline A). |
+| `SWARMFLOW_SCENARIO` | `v2_demo` | Scenario file name in `scenarios/` (`v2_demo`, `v2_steady`, `v1_demo`, `v1_corridor`). |
 | `SWARMFLOW_RUN_ID` | empty | Run directory name under `runs/`. Empty: both the orchestrator and the scenario engine use `<scenario>-<policy>-latest` (overwritten by the next run); set a unique id for measured runs, as `demo_run.sh` does. |
 | `SWARMFLOW_GIT_SHA` | empty | Recorded in `runs/<run_id>/config.yaml`. |
 | `SWARMFLOW_IMAGE_DIGESTS` | empty | Recorded in `runs/<run_id>/config.yaml`. |
@@ -206,7 +212,7 @@ quick start.
 **Baseline A** (independent Nav2 with stuck timeout, no reservations) is:
 
 ```powershell
-$env:SWARMFLOW_SCENARIO="v1_corridor"; $env:SWARMFLOW_POLICY="independent"; $env:SWARMFLOW_TRAFFIC_CONTROL="false"; docker compose up
+$env:SWARMFLOW_LAYOUT="standard"; $env:SWARMFLOW_ROBOTS="robot_1,robot_2,robot_3"; $env:SWARMFLOW_SCENARIO="v1_corridor"; $env:SWARMFLOW_POLICY="independent"; $env:SWARMFLOW_TRAFFIC_CONTROL="false"; docker compose up gazebo orchestrator scenario_engine payload viz foxglove_bridge robot_1 robot_2 robot_3
 ```
 
 Variables used only by the scripts: `SWARMFLOW_LOCK_DIR` (lock directory, `scripts/lock.sh`).

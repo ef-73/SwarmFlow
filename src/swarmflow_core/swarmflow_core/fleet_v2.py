@@ -14,7 +14,10 @@ Design notes
   its task is replaced by one to that place. Orders are only assigned while holder + queued + inbound orders leave a
   place for them, so an arriving robot always finds one. A dock without a queue lane is claimed at dispatch.
 - Dock holding: ``_holder[dock]`` is the order whose last goal is the dock, from its claim until the result of that
-  task (a follow-up task of the same order keeps the hold); queue spots are owned in ``_spot_owner``. When a dock frees, the
+  task (a follow-up task of the same order keeps the hold), and then the robot that held it until that robot is
+  ``DOCK_CLEAR_M`` away (at most ``DOCK_CLEAR_TIMEOUT_S``): the next robot in the line only moves up once the dock
+  is physically clear, so it drives straight on instead of around the robot leaving (T071); queue spots are owned
+  in ``_spot_owner``. When a dock frees, the
   queue owners in index order each move up (first -> dock, k-th remaining -> k-th lowest spot); an order whose target
   changes has its running task cancelled (``TickOutput.cancels``) and a follow-up dispatched in the same tick.
   Task ids the core cancelled itself are remembered; their results change nothing.
@@ -51,6 +54,9 @@ _RANK = {s: i for i, s in enumerate(_FORWARD)}
 _ACTIVE = (OrderState.ASSIGNED, OrderState.PICKING_UP, OrderState.IN_TRANSIT)
 BAD_HOME_TTL_S = 120.0   #: a failed home slot is avoided for this long (cleared earlier by any success)
 LINE_CLAIM_RADIUS_M = 3.0   #: a loaded robot this close to its dock's lane entry claims its place in the line
+DOCK_CLEAR_M = 1.5          #: a released dock stays held until the robot that held it is this far from it ...
+DOCK_CLEAR_TIMEOUT_S = 20.0  #: ... or this long has passed (T071)
+_LEAVING = "leaving:"       #: _holder value while the robot that held a dock leaves it: "leaving:<robot_id>"
 _QUEUE_NAME = re.compile(r"Q_(.+)_(\d+)")
 
 
@@ -120,7 +126,8 @@ class FleetCoreV2:
         self._home_target: Dict[str, str] = {}             # home task id -> slot
         self._home_seq: Dict[str, int] = {}
         self._bad_home: Dict[str, Dict[str, float]] = {}    # robot -> slot -> time its home task failed
-        self._holder: Dict[str, str] = {}                  # dock -> order
+        self._holder: Dict[str, str] = {}                  # dock -> order, or _LEAVING + robot while it leaves
+        self._leaving_since: Dict[str, float] = {}         # dock -> time its holder's claim was released
         self._spot_owner: Dict[str, str] = {}              # queue spot -> order
         self._blocked_since: Dict[str, float] = {}
 
@@ -196,7 +203,8 @@ class FleetCoreV2:
     def _release_claims(self, rec: _Order) -> None:
         oid = rec.spec.order_id
         for dock in [d for d, o in self._holder.items() if o == oid]:
-            del self._holder[dock]
+            self._holder[dock] = _LEAVING + rec.robot_id    # held until the robot has left it (_clear_docks)
+            self._leaving_since[dock] = self._now
         for spot in [v for v, o in self._spot_owner.items() if o == oid]:
             del self._spot_owner[spot]
         rec.target, rec.inbound, rec.near_line_since = "", "", -1.0
@@ -281,7 +289,8 @@ class FleetCoreV2:
         self._observe(out, t)                                          # (2) snapshot transitions
         self._results_step(out, t, forced_home)                        # (3) task results
         self._blocked_step(out, t, forced_home)                        # (4) blocked robots
-        self._advance_queues(out)                                      # (5) dock freed -> queue moves up
+        self._clear_docks(t)                                           # (5) robot left a freed dock ->
+        self._advance_queues(out)                                      #     the queue moves up
         self._claim_line(out, t)                                       # (5b) arrived at a dock line -> claim
         self._followups(out, t)                                        # (6) follow-up tasks
         self._plan(out, t, forced_home)                                # (7) new assignments
@@ -405,6 +414,19 @@ class FleetCoreV2:
                 self._requeue(out, t, rec, trigger, forced_home, api.FAULT_BLOCKED)
 
     # ---- (5) dock queues ------------------------------------------------------------------------------------------
+
+    def _clear_docks(self, t: float) -> None:
+        """Release a dock its robot has left: DOCK_CLEAR_M away, no known pose, or DOCK_CLEAR_TIMEOUT_S passed."""
+        for dock, held in list(self._holder.items()):
+            if not held.startswith(_LEAVING):
+                continue
+            s = self._robots.get(held[len(_LEAVING):])
+            v = self.graph.vertices[dock]
+            near = s is not None and math.hypot(s.x - v.x, s.y - v.y) < DOCK_CLEAR_M
+            if near and t - self._leaving_since.get(dock, t) < DOCK_CLEAR_TIMEOUT_S:
+                continue
+            del self._holder[dock]
+            self._leaving_since.pop(dock, None)
 
     def _advance_queues(self, out: TickOutput) -> None:
         for dock in sorted(self._spots):

@@ -124,3 +124,13 @@ def test_trail_is_the_last_seconds_and_ends_at_the_interpolated_position():
     pts = vc.trail(samples, 10.5, 5.0)
     assert pts[0] == (6.0, 0.0) and pts[-1] == (10.5, 0.0) and len(pts) == 6
     assert vc.trail(samples, -1.0, 5.0) == []
+
+
+def test_planned_path_is_the_part_of_the_latest_reservation_still_ahead():
+    recs = [(10.0, [[10.0, 0.0, 0.0], [11.0, 1.0, 0.0], [12.0, 2.0, 0.0]]),
+            (11.0, [[11.0, 1.0, 0.0], [12.0, 1.0, 1.0], [13.0, 1.0, 2.0]])]
+    assert vc.planned(recs, 10.5) == [(0.5, 0.0), (1.0, 0.0), (2.0, 0.0)]    # first record, cut at t
+    assert vc.planned(recs, 11.5) == [(1.0, 0.5), (1.0, 1.0), (1.0, 2.0)]    # the latest record wins
+    assert vc.planned(recs, 9.0) == []                                       # nothing recorded yet
+    assert vc.planned(recs, 14.0) == []                                      # stale (and all behind)
+    assert vc.planned([(5.0, [[5.0, 3.0, 3.0]])], 5.5) == []                 # standing / yielding: no line

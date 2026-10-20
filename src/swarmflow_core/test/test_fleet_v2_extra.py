@@ -47,7 +47,9 @@ def test_two_docks_with_queues_at_once():
     # free DK2 only: DK1's queue must not move
     c.task_result(fol["c"].task_id, True, "", 8.0)
     c.update_robot(snap(fol["c"].robot_id, "DK2"))
-    out = c.tick(8.0)
+    assert not [d for d in c.tick(8.0).dispatches if d.order_id == "d"]   # T071: c's robot still on DK2
+    c.update_robot(snap(fol["c"].robot_id, "PK_A_2"))
+    out = c.tick(8.5)
     moved = {d.order_id: tuple(d.route) for d in out.dispatches if d.order_id}
     assert moved == {"d": ("DK2",)}
     assert c.order_state("c") == OrderState.DELIVERED

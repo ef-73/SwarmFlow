@@ -9,6 +9,7 @@ run_id="${1:?run_id}"; timeout_s="${2:-300}"
 export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-swarmflow-$(basename "$(pwd)")}"
 export SWARMFLOW_RUN_ID="$run_id" SWARMFLOW_AGENT=true SWARMFLOW_GUI="${SWARMFLOW_GUI:-none}"
 export SWARMFLOW_ROBOTS=robot_1,robot_2,robot_3
+export SWARMFLOW_LAYOUT=standard SWARMFLOW_POLICY=fcfs SWARMFLOW_SCENARIO=v1_demo SWARMFLOW_TRAFFIC_CONTROL=true   # v1 gate (T071: compose defaults are v2)
 rm -rf "runs/$run_id"
 scripts/sim_lock.sh acquire "gate:$run_id" 15 >/dev/null || exit 2
 cleanup() { docker compose --profile extra_robots --profile gui down >/dev/null 2>&1; scripts/sim_lock.sh release >/dev/null; }

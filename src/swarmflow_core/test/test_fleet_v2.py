@@ -275,6 +275,9 @@ def test_queue_advances_when_dock_frees_after_arrival(core):
     core.task_result(f1.task_id, True, "", 10.0)
     core.update_robot(snap("robot_1", "DK1"))
     out = core.tick(10.0)
+    assert not [d for d in out.dispatches if d.robot_id == "robot_2"]  # T071: robot_1 still on the dock
+    core.update_robot(snap("robot_1", "PK_B_2"))                     # 2.2 m away: the dock is clear
+    out = core.tick(11.0)
     f = only(out.dispatches, "robot_2")
     assert f.order_id == "s2" and tuple(f.route) == ("DK1",)
     core.task_result(f.task_id, True, "", 20.0)
@@ -291,6 +294,8 @@ def test_queue_advance_cancels_a_running_queue_task_without_failing_the_order(co
     f2 = to_line(core, a2, "robot_2", "s2", 2.5)                    # driving to Q_DK1_1
     core.task_result(f1.task_id, True, "", 5.0)
     core.update_robot(snap("robot_1", "DK1"))
+    assert f2.task_id not in core.tick(4.9).cancels                  # T071: waits while robot_1 is on the dock
+    core.update_robot(snap("robot_1", "PK_B_2"))
     out = core.tick(5.0)
     assert f2.task_id in out.cancels
     f = only([d for d in out.dispatches if d.order_id == "s2"], "robot_2")
@@ -370,7 +375,9 @@ def test_three_robots_one_dock_queue_moves_up():
     c.tick(8.0)
     c.task_result(fol["s1"].task_id, True, "", 9.0)
     c.update_robot(snap(fol["s1"].robot_id, "DK1"))
-    out = c.tick(9.0)
+    assert not [d for d in c.tick(9.0).dispatches if d.order_id in ("s2", "s3")]   # T071: dock not clear yet
+    c.update_robot(snap(fol["s1"].robot_id, "PK_B_2"))
+    out = c.tick(9.5)
     moves = {d.robot_id: tuple(d.route) for d in out.dispatches if d.order_id}
     assert moves[fol["s2"].robot_id] == ("DK1",)
     assert moves[fol["s3"].robot_id] == ("Q_DK1_1",)
@@ -471,3 +478,39 @@ def test_blocked_robot_is_not_given_v1_stuck_recovery(core):
     out = _blocked(core, "robot_1", "X_0_2", a.task_id, "s1", 10.0, "DK2")
     out2 = _blocked(core, "robot_1", "X_0_2", a.task_id, "s1", 10.0 + api.BLOCKED_REQUEUE_S - 1.0, "DK2")
     assert not out.dispatches and not out2.dispatches and not out2.cancels
+
+
+def test_a_freed_dock_is_released_after_the_timeout_or_without_a_pose(core):
+    """T071: a robot that stays on its dock cannot block the line for longer than DOCK_CLEAR_TIMEOUT_S."""
+    from swarmflow_core.fleet_v2 import DOCK_CLEAR_TIMEOUT_S
+    a1, a2 = _two_to_dk1(core)
+    core.update_robot(snap("robot_1", "PK_B_1", RobotMode.NAVIGATING, a1.task_id, "s1", nxt="X_0_5"))
+    core.update_robot(snap("robot_2", "PK_A_1", RobotMode.NAVIGATING, a2.task_id, "s2", nxt="X_0_5"))
+    core.tick(1.5)
+    f1 = to_line(core, a1, "robot_1", "s1", 2.0)
+    to_line(core, a2, "robot_2", "s2", 2.5)
+    core.task_result(f1.task_id, True, "", 10.0)
+    core.update_robot(snap("robot_1", "DK1"))
+    assert not [d for d in core.tick(10.0).dispatches if d.order_id == "s2"]
+    assert not [d for d in core.tick(10.0 + DOCK_CLEAR_TIMEOUT_S - 0.5).dispatches if d.order_id == "s2"]
+    out = core.tick(10.0 + DOCK_CLEAR_TIMEOUT_S)
+    assert tuple(only([d for d in out.dispatches if d.order_id == "s2"], "robot_2").route) == ("DK1",)
+
+
+def test_an_arriving_robot_queues_behind_a_dock_still_being_left(core):
+    """T071: while the robot that held the dock is still on it, a robot arriving at the line takes the queue spot."""
+    core.update_robot(snap("robot_1", "HM3"))
+    core.add_order(shelf("s1", ["PK_B_1"], "DK1"))
+    a = only(core.tick(1.0).dispatches, "robot_1")
+    core.update_robot(snap("robot_1", "PK_B_1", RobotMode.NAVIGATING, a.task_id, "s1", nxt="X_0_5"))
+    core.tick(1.5)
+    f = to_line(core, a, "robot_1", "s1", 2.0)
+    core.task_result(f.task_id, True, "", 5.0)
+    core.update_robot(snap("robot_1", "DK1"))
+    core.tick(5.0)
+    core.update_robot(snap("robot_2", "PK_B_1"))                     # next to the pick: robot_2 gets the order
+    core.add_order(shelf("s2", ["PK_B_2"], "DK1", t=5.0))
+    b = only(core.tick(5.5).dispatches, "robot_2")
+    core.update_robot(snap("robot_2", "PK_B_2", RobotMode.NAVIGATING, b.task_id, "s2", nxt="X_0_5"))
+    core.tick(6.0)
+    assert tuple(to_line(core, b, "robot_2", "s2", 6.5).route) == ("Q_DK1_1",)

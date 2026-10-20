@@ -158,3 +158,43 @@ def test_independent_policy_never_grants(ros, tmp_path):
         ex.shutdown()
         orch.destroy_node()
         t.destroy_node()
+
+
+def test_planned_trajectories_are_recorded_once_per_second(ros, tmp_path):
+    """T071: /fleet/trajectories goes to runs/<id>/trajectories.jsonl (the 3D video draws the planned paths)."""
+    from geometry_msgs.msg import PoseStamped
+    from nav_msgs.msg import Path
+
+    orch = OrchestratorNode(parameter_overrides=[
+        Parameter("layout_dir", value=str(FIX)), Parameter("robots", value=["robot_1"]),
+        Parameter("policy", value="fcfs"), Parameter("run_dir", value=str(tmp_path))])
+    t = rclpy.create_node("orch_traj_test")
+    pub = t.create_publisher(Path, "/fleet/trajectories", 10)
+    ex = MultiThreadedExecutor(num_threads=2)
+    ex.add_node(orch)
+    ex.add_node(t)
+    threading.Thread(target=ex.spin, daemon=True).start()
+    try:
+        m = Path()
+        m.header.frame_id = "robot_1;pallet"
+        for k in range(3):
+            p = PoseStamped()
+            p.header.stamp.sec = 10 + k
+            p.pose.position.x, p.pose.position.y = 1.004 + k, 2.0
+            m.poses.append(p)
+        f = tmp_path / "trajectories.jsonl"
+
+        def rows():
+            return [json.loads(x) for x in f.read_text().splitlines()] if f.exists() else []
+
+        assert wait(lambda: (pub.publish(m), time.sleep(0.1), rows())[2], 10.0)
+        for _ in range(5):                                            # within the same second: not recorded again
+            pub.publish(m)
+        time.sleep(0.3)
+        r = rows()
+        assert len(r) == 1 and r[0]["robot_id"] == "robot_1"
+        assert r[0]["points"] == [[10.0, 1.0, 2.0], [11.0, 2.0, 2.0], [12.0, 3.0, 2.0]]
+    finally:
+        ex.shutdown()
+        orch.destroy_node()
+        t.destroy_node()
