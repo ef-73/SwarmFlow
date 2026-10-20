@@ -101,11 +101,17 @@ def main(argv: Optional[List[str]] = None) -> int:
     try:
         qos = QoSProfile(depth=100, reliability=ReliabilityPolicy.RELIABLE)
         pub = node.create_publisher(Order, "/fleet/orders", qos)
-        end = time.monotonic() + 5.0
-        while pub.get_subscription_count() == 0 and time.monotonic() < end:
+        # wait until the set of subscribers (orchestrator, payload, viz, ...) has stopped growing for 1 s: publishing on
+        # the first match lost the order for slower subscribers (T070: the payload node missed a pallet order, so the
+        # pallet model stayed on its stand while the robot carried the order)
+        end = time.monotonic() + 10.0
+        count, since = pub.get_subscription_count(), time.monotonic()
+        while time.monotonic() < end and (count == 0 or time.monotonic() - since < 1.0):
             rclpy.spin_once(node, timeout_sec=0.1)
-        if pub.get_subscription_count() == 0:
-            print("warning: no subscriber on /fleet/orders after 5 s; publishing anyway", file=sys.stderr)
+            if pub.get_subscription_count() != count:
+                count, since = pub.get_subscription_count(), time.monotonic()
+        if count == 0:
+            print("warning: no subscriber on /fleet/orders after 10 s; publishing anyway", file=sys.stderr)
         msg = Order()
         msg.order_id = spec.order_id
         msg.release_time = node.get_clock().now().to_msg()
@@ -118,7 +124,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         msg.pick_vertices = list(spec.pick_vertices)
         msg.pallet_id = spec.pallet_id
         pub.publish(msg)
-        rclpy.spin_once(node, timeout_sec=0.2)
+        end = time.monotonic() + 1.0                       # let reliable delivery finish before the node goes away
+        while time.monotonic() < end:
+            rclpy.spin_once(node, timeout_sec=0.1)
         print(spec.order_id)
     finally:
         node.destroy_node()
