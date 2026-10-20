@@ -142,3 +142,41 @@ def frames_for(stamps: Sequence[float], t0: float, t1: float, speed: float, fps:
             j += 1
         out.append(j)
     return out
+
+
+# ---- trails: map points into a camera image (T066) ------------------------------------------------------------
+
+def project(cam: Camera, x: float, y: float, z: float = 0.0) -> Optional[Tuple[float, float]]:
+    """Pixel (u, v) of map point (x, y, z) in ``cam``'s image (pinhole, square pixels, as Gazebo renders a camera of
+    ``hfov`` with roll 0 looking from ``eye`` at ``target``), or None when the point is behind the camera."""
+    fx, fy, fz = (cam.target[0] - cam.eye[0], cam.target[1] - cam.eye[1], cam.target[2] - cam.eye[2])
+    n = math.sqrt(fx * fx + fy * fy + fz * fz)
+    fx, fy, fz = fx / n, fy / n, fz / n
+    rx, ry = fy, -fx                                   # right = forward x world up (0, 0, 1)
+    rn = math.hypot(rx, ry)
+    rx, ry = rx / rn, ry / rn
+    ux, uy, uz = ry * fz, -rx * fz, rx * fy - ry * fx  # up = right x forward (right has no z)
+    px, py, pz = x - cam.eye[0], y - cam.eye[1], z - cam.eye[2]
+    depth = px * fx + py * fy + pz * fz
+    if depth <= 1e-6:
+        return None
+    f = (cam.width / 2.0) / math.tan(cam.hfov / 2.0)
+    return (cam.width / 2.0 + f * (px * rx + py * ry) / depth,
+            cam.height / 2.0 - f * (px * ux + py * uy + pz * uz) / depth)
+
+
+def trail(samples: Sequence[Tuple[float, float, float]], t: float, length_s: float) -> List[Tuple[float, float]]:
+    """Positions (x, y) of one robot over the last ``length_s`` up to sim time ``t``, oldest first, ending at the
+    position interpolated at ``t``. ``samples`` are (t, x, y) sorted by time."""
+    out: List[Tuple[float, float]] = []
+    prev = None
+    for s in samples:
+        if s[0] > t:
+            if prev is not None and s[0] > prev[0]:
+                k = (t - prev[0]) / (s[0] - prev[0])
+                out.append((prev[1] + k * (s[1] - prev[1]), prev[2] + k * (s[2] - prev[2])))
+            break
+        if s[0] >= t - length_s:
+            out.append((s[1], s[2]))
+        prev = s
+    return out

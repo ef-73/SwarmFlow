@@ -412,7 +412,7 @@ class OrchestratorNode(Node):
                 self.record.write("robot_states", {
                     "t": t, "robot_id": rid, "x": s.x, "y": s.y, "yaw": s.yaw, "mode": s.mode.value,
                     "linear_speed": s.linear_speed, "task_id": s.task_id, "order_id": s.order_id,
-                    "held_lease_ids": list(s.held_lease_ids)})
+                    "held_lease_ids": list(s.held_lease_ids), "fault_reason": s.fault_reason})
 
     # -- DispatchTask --------------------------------------------------------------------------------------------
     def _goal_of(self, a: api.Assignment):

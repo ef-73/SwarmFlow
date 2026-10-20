@@ -24,6 +24,8 @@ from swarmflow_core import api
 from swarmflow_core.api import ReleaseReason, RobotMode
 from swarmflow_core.graph import WarehouseGraph, point_in_polygon
 
+from .yield_policy import YIELD_COOLDOWN_S, Body, keep_yielding, should_yield
+
 ZONE_SPEED_MPS = 0.5          #: assumed speed through a zone when estimating ``expected_exit_t``
 POSE_STALE_S = 1.0            #: a pose older than this makes ``state()`` report FAULT / STALE_POSE
 ENTERED_MARGIN_M = 0.2        #: "entered" needs the pose this far inside the polygon (entry vertices lie on it)
@@ -34,6 +36,8 @@ GOAL_RETRY_MIN_S = 1.0        #: v2 goal mode: a failed Navigate is re-sent afte
 GOAL_RETRY_MAX_S = 3.0
 GOAL_PROGRESS_MOVE_M = 0.5    #: v2 goal mode: displacement this far from the last reference also counts as progress
 GOAL_PROGRESS_TURN_RAD = 0.5  #: v2 goal mode: so does turning this much closer to facing the goal (T066)
+YIELD_STATE_MAX_AGE_S = 1.0   #: T067: another robot's state older than this is ignored for yielding
+YIELD_REASON_PREFIX = "YIELD:"  #: fault_reason while yielding: YIELD:<other robot>, mode WAITING_RESERVATION
 PREDOCK_M = 1.2               #: pallet docking (T042): Nav2 goal this far in front of the pallet, along its yaw
 NAV_SUCCESS_MAX_M = 1.0      #: v2 goal mode: a Nav2 success this far from the goal is spurious and the goal is re-sent
 DOCK_AHEAD_M = 0.0            #: drop: drive this far past the dock vertex along the dock yaw (T066: 0, the pallet
@@ -217,8 +221,15 @@ def drive_command(pose, target, reverse: bool):
 
 
 class AgentCore:
-    def __init__(self, robot_id: str, graph: WarehouseGraph, traffic_control: bool = True, rng_seed: int = 0):
+    def __init__(self, robot_id: str, graph: WarehouseGraph, traffic_control: bool = True, rng_seed: int = 0,
+                 yield_to_others: bool = False):
         self.robot_id = robot_id
+        # T067 yield (switch SWARMFLOW_YIELD): stop and wait for another robot about to meet this one (yield_policy)
+        self.yield_to_others = yield_to_others
+        self._others: Dict[str, Tuple[Body, float]] = {}       #: other robot -> (latest state, time received)
+        self._yield: Optional[Tuple[str, float, str]] = None    #: (other robot, since, reason) while yielding
+        self._yield_cool: Dict[str, float] = {}                 #: other robot -> no yielding to it before this time
+        self.yield_events: List[dict] = []                      #: yield start / end, drained by the node
         self.graph = graph
         self.traffic_control = traffic_control
         self._rng = random.Random(rng_seed)
@@ -308,6 +319,9 @@ class AgentCore:
             return self._holds[self._reach].zone
         return ""
 
+    def yielding_to(self) -> str:
+        return self._yield[0] if self._yield is not None else ""
+
     def state(self) -> api.RobotSnapshot:
         active = bool(self._route)
         mode = RobotMode.FAULT if self._fault else self._mode
@@ -322,7 +336,8 @@ class AgentCore:
             last_vertex=self._route[self._reach] if active and not self._goal_mode else self._last_vertex,
             task_id=self._task_id, order_id=self._order_id,
             held_lease_ids=tuple(self.heartbeat_lease_ids()), linear_speed=self._speed,
-            fault_reason=overlay or self._fault or (self._fault_reason_stuck if self._mode == RobotMode.STUCK else ""),
+            fault_reason=overlay or self._fault or (self._fault_reason_stuck if self._mode == RobotMode.STUCK else "")
+            or (f"{YIELD_REASON_PREFIX}{self._yield[0]}" if self._yield is not None else ""),
             next_vertex=self._next_vertex(), remaining_route=self._remaining_route())
 
     def _next_vertex(self) -> str:
@@ -411,6 +426,11 @@ class AgentCore:
             if math.hypot(v.x - x, v.y - y) <= REACH_RADIUS_M:
                 self._last_vertex = near
         return []
+
+    def on_other(self, robot_id: str, x: float, y: float, yaw: float, speed: float, mode: str, t: float) -> None:
+        """Another robot's published state (``/fleet/robot_states``), for the yield decision (T067)."""
+        if robot_id != self.robot_id:
+            self._others[robot_id] = (Body(robot_id, x, y, yaw, speed, getattr(mode, "value", mode)), t)
 
     def on_nav_result(self, success: bool, t: float) -> List[object]:
         if self._goal_mode and self._route:
@@ -785,6 +805,10 @@ class AgentCore:
         self._goal_retry_at = None
         self._gref_d = None
         self._dock = None
+        if self._yield is not None:
+            self.yield_events.append({"type": "yield_end", "t": self._pose_t, "robot_id": self.robot_id,
+                                      "other": self._yield[0], "waited_s": None})
+        self._yield = None
         for lease in self._leases:
             lease.exit_idx = None
         self._route = []
@@ -980,6 +1004,12 @@ class AgentCore:
     def _goal_tick(self, t: float) -> List[object]:
         if self._dock is not None:
             return self._dock_tick(t)
+        if self._yield is not None:
+            return self._yield_tick(t)
+        if self.yield_to_others:
+            acts = self._yield_check(t)
+            if acts is not None:
+                return acts
         if self._mode in (RobotMode.LOADING, RobotMode.UNLOADING, RobotMode.LIFTING):
             if t < self._dwell_until:
                 return []
@@ -1008,6 +1038,57 @@ class AgentCore:
             self._nav_inflight = True
             return [self._goal_navigate(self._route[self._goal_i])]
         return []
+
+    # -- yield (T067) ----------------------------------------------------------------------------------------------
+    def _me(self) -> Body:
+        return Body(self.robot_id, self._x, self._y, self._yaw, self._speed, self._mode.value)
+
+    def _fresh_others(self, t: float):
+        return [(rid, b) for rid, (b, tr) in sorted(self._others.items()) if t - tr <= YIELD_STATE_MAX_AGE_S]
+
+    def _yield_check(self, t: float) -> Optional[List[object]]:
+        """Start yielding when another robot is about to meet this one and has the right of way."""
+        if (self._mode != RobotMode.NAVIGATING or self._goal_i >= len(self._route) or not self._have_pose
+                or t - self._pose_t > POSE_STALE_S or self._carrying or self._pallet_on_board):
+            return None
+        goal = self.graph.vertices[self._route[self._goal_i]]
+        if goal.kind in ("dock", "queue") or self._goal_dwell(goal.name) is not None and self._near_goal(goal.name, t):
+            return None                                   # the dock line has its own order; never stop on a goal
+        me = self._me()
+        for rid, other in self._fresh_others(t):
+            if t < self._yield_cool.get(rid, -math.inf):
+                continue
+            reason = should_yield(me, other)
+            if reason is None:
+                continue
+            acts: List[object] = [CancelNav()] if self._nav_inflight else []
+            self._nav_inflight = False
+            self._goal_retry_at = None
+            self._mode = RobotMode.WAITING_RESERVATION
+            self._yield = (rid, t, reason)
+            self.yield_events.append({"type": "yield_start", "t": t, "robot_id": self.robot_id, "other": rid,
+                                      "reason": reason, "x": round(self._x, 2), "y": round(self._y, 2)})
+            return acts
+        return None
+
+    def _yield_tick(self, t: float) -> List[object]:
+        rid, since, _reason = self._yield
+        entry = self._others.get(rid)
+        other = entry[0] if entry is not None and t - entry[1] <= YIELD_STATE_MAX_AGE_S else None
+        if keep_yielding(self._me(), other, since, t):
+            return []
+        self._yield = None
+        self._yield_cool[rid] = t + YIELD_COOLDOWN_S
+        self.yield_events.append({"type": "yield_end", "t": t, "robot_id": self.robot_id, "other": rid,
+                                  "waited_s": round(t - since, 2)})
+        if self._goal_i >= len(self._route):
+            return []
+        self._mode = self._moving_mode()
+        self._gref_t, self._gref_d = t, self._goal_dist()
+        self._gref_xy = (self._x, self._y)
+        self._gref_h = self._goal_heading_err()
+        self._nav_inflight = True
+        return [self._goal_navigate(self._route[self._goal_i])]
 
     # -- pallet docking (T042) -------------------------------------------------------------------------------------
     # Nav2 cannot plan between pallet legs, so the last metre in and out is a straight DockDrive. The drive runs only

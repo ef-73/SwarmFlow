@@ -191,7 +191,10 @@ def setup(context):
     if agent:
         actions.append(Node(package="swarmflow_robot_agent", executable="agent_node", namespace=rid, output="screen",
                             remappings=TF, parameters=[sim, {"robot_id": rid, "layout_dir": gen,
-                                                             "traffic_control": traffic_control}]))
+                                                             "traffic_control": traffic_control,
+                                                             # T067: yield to other robots (off by default)
+                                                             "yield_to_others": os.environ.get(
+                                                                 "SWARMFLOW_YIELD", "") in ("1", "true")}]))
     return actions
 
 

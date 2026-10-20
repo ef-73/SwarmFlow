@@ -101,3 +101,26 @@ def test_frames_for_speed_up_skips_frames():
     stamps = [i / 10 for i in range(100)]
     idx = vc.frames_for(stamps, 0.0, 9.0, 3.0, 10)
     assert len(idx) == 30 and idx[1] == 3 and idx[-1] == 87
+
+
+def test_project_target_to_the_image_centre_and_behind_to_none():
+    cam = vc.Camera("t", (0.0, -10.0, 10.0), (0.0, 0.0, 0.0), 1920, 1080, math.radians(60), 1.0)
+    u, v = vc.project(cam, 0.0, 0.0, 0.0)
+    assert math.isclose(u, 960.0, abs_tol=1e-6) and math.isclose(v, 540.0, abs_tol=1e-6)
+    assert vc.project(cam, 0.0, -20.0, 10.0) is None                      # behind the camera
+    ur, _ = vc.project(cam, 2.0, 0.0, 0.0)                                 # +x (east) is to the right
+    _, vf = vc.project(cam, 0.0, 2.0, 0.0)                                 # further north is higher in the image
+    assert ur > 960.0 and vf < 540.0
+
+
+def test_project_matches_the_horizontal_field_of_view():
+    cam = vc.Camera("t", (0.0, 0.0, 0.0), (10.0, 0.0, 0.0), 1000, 500, math.radians(90), 1.0)
+    u, v = vc.project(cam, 10.0, -10.0, 0.0)                               # 45 deg to the right: the image edge
+    assert math.isclose(u, 1000.0, abs_tol=1e-6) and math.isclose(v, 250.0, abs_tol=1e-6)
+
+
+def test_trail_is_the_last_seconds_and_ends_at_the_interpolated_position():
+    samples = [(float(t), float(t), 0.0) for t in range(0, 30)]           # 1 m/s along x
+    pts = vc.trail(samples, 10.5, 5.0)
+    assert pts[0] == (6.0, 0.0) and pts[-1] == (10.5, 0.0) and len(pts) == 6
+    assert vc.trail(samples, -1.0, 5.0) == []

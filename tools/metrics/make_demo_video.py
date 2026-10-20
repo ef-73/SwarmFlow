@@ -26,10 +26,15 @@ import yaml
 from PIL import Image, ImageDraw, ImageFont
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from video_cams import deliveries_until, frames_for, pallet_moves, plan_cuts  # noqa: E402
+from video_cams import CAMERAS, deliveries_until, frames_for, pallet_moves, plan_cuts, project, trail  # noqa: E402
 
 FPS = 30
 W, H = 1920, 1080
+TRAIL_S = 20.0           #: each robot's trail: its last 20 s of motion (T066)
+TRAIL_Z = 0.03
+# robot colours as in src/swarmflow_gazebo/launch/sim.launch.py COLORS (RGB 0-255)
+ROBOT_RGB = {"robot_1": (26, 115, 217), "robot_2": (242, 140, 26), "robot_3": (51, 179, 77), "robot_4": (191, 51, 179),
+             "robot_5": (128, 128, 128)}
 FONT_DIRS = ["/usr/share/fonts/truetype/open-sans", "/usr/share/fonts/truetype/dejavu"]
 
 
@@ -80,6 +85,32 @@ def overlay(frame, caption, cap_alpha, hud):
     return cv2.cvtColor(np.array(Image.alpha_composite(img, layer).convert("RGB")), cv2.COLOR_RGB2BGR)
 
 
+def robot_tracks(states):
+    """robot -> [(t, x, y)] sorted by time."""
+    out = {}
+    for s in states:
+        out.setdefault(s["robot_id"], []).append((float(s["t"]), float(s["x"]), float(s["y"])))
+    return {r: sorted(v) for r, v in out.items()}
+
+
+def draw_trails(frame, cam, tracks, t):
+    """Each robot's last TRAIL_S of motion as a line in its colour, fading towards the tail (drawn over the scene:
+    racks do not hide it)."""
+    layer = frame.copy()
+    for rid, samples in sorted(tracks.items()):
+        pts = [project(cam, x, y, TRAIL_Z) for x, y in trail(samples, t, TRAIL_S)]
+        pts = [(int(round(u * 8)), int(round(v * 8))) for u, v in (p for p in pts if p is not None)]
+        if len(pts) < 2:
+            continue
+        r, g, b = ROBOT_RGB.get(rid, (128, 128, 128))
+        n = len(pts)
+        for k, (a, c) in enumerate(zip(pts, pts[1:])):
+            w = (k + 1) / n                                   # 0 at the tail .. 1 at the robot
+            col = tuple(int(255 + (v - 255) * (0.35 + 0.65 * w)) for v in (b, g, r))
+            cv2.line(layer, a, c, col, 6, cv2.LINE_AA, shift=3)
+    return cv2.addWeighted(layer, 0.85, frame, 0.15, 0)
+
+
 def card(frame, title, sub, dim):
     img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)).convert("RGBA")
     layer = Image.new("RGBA", img.size, (10, 12, 16, int(200 * dim)))
@@ -94,11 +125,13 @@ def card(frame, title, sub, dim):
 
 
 def main():
-    run = pathlib.Path(sys.argv[1])
-    out = pathlib.Path(sys.argv[2]) if len(sys.argv) > 2 else run / "swarmflow_3d_demo.mp4"
-    gif = pathlib.Path(sys.argv[3]) if len(sys.argv) > 3 else run / "swarmflow_3d_preview.gif"
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    run = pathlib.Path(args[0])
+    out = pathlib.Path(args[1]) if len(args) > 1 else run / "swarmflow_3d_demo.mp4"
+    gif = pathlib.Path(args[2]) if len(args) > 2 else run / "swarmflow_3d_preview.gif"
     vdir = run / "video"
     states, orders = read_jsonl(run / "robot_states.jsonl"), read_jsonl(run / "orders.jsonl")
+    tracks = {} if "--no-trails" in sys.argv else robot_tracks(states)
     cfg = yaml.safe_load((run / "config.yaml").read_text())
     t_scn = cfg["start_time_sim_s"] + (cfg.get("start_delay_s") or 0)
     stamps = {c: stamps_of(vdir, c) for c in ("wide", "pallets", "docks")}
@@ -140,9 +173,10 @@ def main():
             if frame is None:
                 continue
             t = stamps[c.cam][i]
+            shot = draw_trails(frame, CAMERAS[c.cam], tracks, t) if tracks else frame
             mins, secs = divmod(max(0.0, t - t_scn), 60)
             hud = f"sim {int(mins):02d}:{int(secs):02d}   ×{c.speed:g}   {deliveries_until(orders, t)} delivered"
-            img = overlay(frame, c.caption, min(1.0, k / fade) if k < 4 * FPS else max(0.0, 1 - (k - 4 * FPS) / fade),
+            img = overlay(shot, c.caption, min(1.0, k / fade) if k < 4 * FPS else max(0.0, 1 - (k - 4 * FPS) / fade),
                           hud)
             if k < fade:
                 img = cv2.addWeighted(last, 1 - k / fade, img, k / fade, 0)

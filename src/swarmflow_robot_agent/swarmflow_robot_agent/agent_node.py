@@ -41,6 +41,7 @@ POSE_STALE_S = 1.0
 MAX_ANGULAR_RADPS = 3.0
 FOOTPRINT_NORMAL = "[[0.35, 0.30], [0.35, -0.30], [-0.35, -0.30], [-0.35, 0.30]]"   #: nav2_params.yaml 0.70 x 0.60
 FOOTPRINT_CARRY = "[[0.625, 0.525], [0.625, -0.525], [-0.625, -0.525], [-0.625, 0.525]]"   #: padded 1.25 x 1.05
+_MODE_NAMES = {code: mode.value for mode, code in api.MODE_CODES.items()}   #: RobotState.mode code -> mode name
 _QOS10 =QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE)
 _QOS_LATCHED = QoSProfile(depth=100, reliability=ReliabilityPolicy.RELIABLE,
                           durability=DurabilityPolicy.TRANSIENT_LOCAL)
@@ -77,11 +78,13 @@ class AgentNode(Node):
         self.declare_parameter("map_frame", "map")
         self.declare_parameter("base_frame", "base_footprint")
         self.declare_parameter("tick_hz", 10.0)
+        self.declare_parameter("yield_to_others", False)     # T067 (SWARMFLOW_YIELD)
         self.robot_id = self.get_parameter("robot_id").value
         self._map_frame = self.get_parameter("map_frame").value
         self._base_frame = self.get_parameter("base_frame").value
         graph = load_layout(self.get_parameter("layout_dir").value)
-        self.core = AgentCore(self.robot_id, graph, traffic_control=bool(self.get_parameter("traffic_control").value))
+        self.core = AgentCore(self.robot_id, graph, traffic_control=bool(self.get_parameter("traffic_control").value),
+                              yield_to_others=bool(self.get_parameter("yield_to_others").value))
 
         self._lock = threading.RLock()
         self._cb = ReentrantCallbackGroup()
@@ -120,6 +123,10 @@ class AgentNode(Node):
                                  callback_group=cb)
         self.create_subscription(ZoneReservation, "/fleet/reservations", self._on_lease_event, _QOS_LATCHED,
                                  callback_group=cb)
+        if self.core.yield_to_others:
+            self.create_subscription(RobotState, "/fleet/robot_states", self._on_other_state,
+                                     QoSProfile(depth=20, reliability=ReliabilityPolicy.BEST_EFFORT),
+                                     callback_group=cb)
         self._server = ActionServer(self, DispatchTask, "dispatch_task", self._execute,
                                     goal_callback=self._on_goal, cancel_callback=lambda _h: CancelResponse.ACCEPT,
                                     callback_group=cb)
@@ -333,6 +340,13 @@ class AgentNode(Node):
         with self._lock:
             self._run(self.core.on_lease_event(msg.lease_id, st, self._now()))
 
+    def _on_other_state(self, msg: RobotState) -> None:
+        if msg.robot_id == self.robot_id:
+            return
+        mode = _MODE_NAMES.get(msg.mode, "FAULT")
+        with self._lock:
+            self.core.on_other(msg.robot_id, msg.x, msg.y, msg.yaw, msg.linear_speed, mode, self._now())
+
     def _on_tick(self) -> None:
         with self._lock:
             t = self._now()
@@ -365,6 +379,9 @@ class AgentNode(Node):
             if t - self._last_pose_t > POSE_STALE_S:
                 self._angular = 0.0                   # no fresh pose: do not keep publishing an old turn rate
             self._run(self.core.tick(t))
+            for e in self.core.yield_events:
+                self.get_logger().info(f"YIELD {e}")
+            self.core.yield_events.clear()
 
     def _publish_state(self) -> None:
         with self._lock:
