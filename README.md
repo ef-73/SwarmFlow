@@ -14,8 +14,9 @@ anticipate each other instead of waiting for a traffic controller.**
 [![Four robots in the 3D Gazebo warehouse; one drives under a pallet and lifts it](docs/evidence/swarmflow_3d_preview.gif)](docs/evidence/swarmflow_3d_demo.mp4)
 
 *A real Gazebo run, filmed by three cameras in simulation time: four robots pick shelf orders in the aisles, and one
-drives under a pallet, lifts it, carries it to a truck dock and sets it down.
-**[Watch the full 1080p video](docs/evidence/swarmflow_3d_demo.mp4)** (66 s: 9 orders, one of them a pallet, delivered in
+drives under a pallet, lifts it, carries it to a truck dock and sets it down; each robot claims its place in a dock's
+line when it arrives there.
+**[Watch the full 1080p video](docs/evidence/swarmflow_3d_demo.mp4)** (67 s: 9 orders, one of them a pallet, delivered in
 6 sim minutes, no contact).*
 
 ---
@@ -33,8 +34,8 @@ starts from fresh containers, and every metric is computed from the recorded rob
 | | |
 |---|---|
 | **2× throughput from coordination** | In a shared narrow corridor, coordinated robots delivered **7.0** orders vs **3.3** for independent navigation (v1, n = 3). |
-| **No jams with prediction** | Robots that predict where the others will be in 2 s: **0** stuck robots and **0** failed orders in every busy 10-minute run; without prediction, one run jammed four robots at once. |
-| **Zero collisions** | No physical contact in any v2 demo run (4 robots, saturating order stream). |
+| **Prediction prevents jams** | Robots that predict where the others will be in 2 s delivered **13.3** orders per busy 10 minutes vs **11.0** without, with **0** failed orders in all 3 runs; without prediction, one run jammed four robots at once. |
+| **Almost no contact** | Robots keep apart with no traffic controller: across 6 busy 10-minute runs with 4 robots, two bodies touched once, by 2 cm. |
 | **Precise pallet handling** | Robots drive under pallets, lift, carry and set them down: **8 / 8** deliveries, **0.0 cm** sideways docking error. |
 | **Runs on a laptop** | `docker compose up` on Windows brings up Gazebo, 4 Nav2 robots, the fleet layer and a Foxglove dashboard. A light mode runs **8 robots in 0.6 of a CPU core**. |
 | **Honest science** | Three anti-jamming ideas were tested against a decision rule fixed before the first run. None passed, and the results, including why, are published. |
@@ -76,16 +77,20 @@ Problems found and solved along the way, each with evidence in the repo:
 
 ![Top-down replay of a 10-minute run: four robots, 16 deliveries](docs/evidence/swarmflow_demo.gif)
 
-*Top-down replay of a full 10-minute run at 10×, drawn from the recorded robot states: 16 deliveries, no physical
-contact ([full-quality video](docs/evidence/v2_demo_replay_g7_gt_1.webm)).*
+*Top-down replay of a full 10-minute run at 10×, drawn from the recorded robot states: 16 orders unloaded at their
+docks, no physical contact ([full-quality video](docs/evidence/v2_demo_replay_dl_3.webm)).*
 
 | Setup | Robots | Deliveries / 10 min | Stuck / failed | Closest approach (padded footprints) |
 |---|---|---|---|---|
 | v1: central reservations, standard layout | 3 | 15.0 ± 0.0 | 0 / 0 | −0.05 ± 0.15 m |
-| v2: robots coordinate locally, with prediction | 4 | 14.7 ± 1.5 | 0 / 0 | −0.02 ± 0.04 m |
-| v2: robots coordinate locally, without prediction | 4 | 12.7 ± 3.5 | 1.3 / 1.3 | −0.07 ± 0.04 m |
+| v2: robots coordinate locally, with prediction | 4 | 13.3 ± 2.1 | 0 / 0 | −0.02 ± 0.04 m |
+| v2: robots coordinate locally, without prediction | 4 | 11.0 ± 2.0 | 1.3 / 1.3 | −0.07 ± 0.04 m |
+| v2 + dock line (places claimed on arrival at the line) | 4 | 13.3 ± 3.8 | 1.0 / 1.0 | −0.06 ± 0.05 m |
 
-Footprints are padded 5 cm per side, so bodies touch only below −0.10 m. v2 orders are harder (1–3 picks plus a dock 20–30 m away; about 1 in 9 is a pallet move), and v2 robots wait 21–31 s
+v2 deliveries count only orders unloaded at their dock. An agent bug, found and fixed with the dock line (a
+preempted Nav2 goal reported as succeeded), had ended some tasks at their last pick, and the earlier v2 tables counted
+1–2 such orders per run as delivered; the rows above are recounted from the raw runs (published before: 14.7 and
+12.7). Footprints are padded 5 cm per side, so bodies touch only below −0.10 m. v2 orders are harder (1–3 picks plus a dock 20–30 m away; about 1 in 9 is a pallet move), and v2 robots wait 21–31 s
 per run instead of 55 s behind v1's aisle holds. Full tables: [v2 benchmarks](docs/results/v2_benchmarks.md),
 [realism ladder](docs/results/v2_realism_ladder.md) (localisation error, network delay and loss, lidar noise),
 [v1 baseline](docs/results/v1_baseline.md).

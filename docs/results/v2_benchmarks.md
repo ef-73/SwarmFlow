@@ -128,3 +128,34 @@ tested against rclpy's own deserialization) and builds the scene once (T062). Ch
 **viz 0.36 core**, at the same high host load as `ctl_1`/`ctl_2` (robot CPU ~148 %), where the old node used 0.39 and
 0.50. The 0.30 target is **not met**; what remains is rclpy's executor overhead and the C++ TF/scan relay in the same
 container. (`x01b_1` itself covered 427 of 600 sim-s: 10 deliveries, 42 stuck episodes, the overloaded host again; not counted above. CPU is sampled over wall time, so the viz figure still holds.)
+
+## Dock line: places claimed on arrival (2026-10-19)
+
+**Change.** A robot used to reserve its dock or queue spot the moment its order was assigned, so places in a dock's
+line went by dispatch order. Now its route ends at the lane entry in front of the dock's queue (`X_1_5` for DK1), and
+it claims the dock (if free) or the lowest free queue spot only when its picks are done and it is within 3 m of that
+entry, in order of arrival (`FleetCoreV2._claim_line`). Capacity is unchanged (dock + 3 queue spots per dock), so an
+arriving robot always finds a place. Every claim is checked by `tools/metrics/dock_line_check.py`.
+
+**Agent bug found on the way.** When the agent sends the next goal to Nav2 just as the previous one finishes, Nav2 can
+report the *new* goal as succeeded while the robot is still at the old one. The agent skipped its last goal and ended
+the task at its last pick; the old fleet core then counted the order as delivered 20+ m from its dock. The agent now
+treats a Nav2 success more than 1 m from the goal as spurious and re-sends the goal. Every earlier v2 run had 1–2 such
+orders; the v2 rows below are recounted from the raw runs, counting only orders unloaded at their dock.
+
+| Setup (v2_demo, 4 robots, 600 s) | Runs | Deliveries at the dock | Counted before but not at the dock | Stuck / failed | Min footprint distance |
+|---|---|---|---|---|---|
+| v2.0, prediction on (`e01_pred_r1_*`) | 3 | 11 / 14 / 15 → **13.3 ± 2.1** (published 14.7) | 2 / 1 / 1 | 0 / 0 | −0.02 ± 0.04 m |
+| v2.0, prediction off (`e01_nopred_r1_*`) | 3 | 11 / 9 / 13 → **11.0 ± 2.0** (published 12.7) | 2 / 0 / 3 | 1.3 / 1.3 | −0.07 ± 0.04 m |
+| Dock line + agent fix (`dl_*`) | 3 | 9 / 15 / 16 → **13.3 ± 3.8** | 0 / 0 / 0 | 1.0 / 1.0 | −0.06 ± 0.05 m |
+
+Claim check on the three `dl_*` runs: 42 claims, every one 2.9–3.4 m from its lane entry, no delivery without a
+claim. Throughput is unchanged within run-to-run spread. `dl_1` had two long jams that the other two runs did not: a
+robot that reached DK1 0.33 m off the dock pose after a queue advance and whose controller could not close the gap
+(Nav2 needs 0.25 m; 150 s, then the order failed), and two robots nose to nose at the mouth of aisle E1 for the rest
+of the run; it also had the only body contact of these runs (−0.12 m padded, 2 cm). `dl_2` and `dl_3` had 0 failed
+orders and 7 and 9 stuck episodes, none at the docks. Robot CPU was 93–110 % per robot (an idle host).
+
+**Not counted.** `dlbug_1`, `dlbug_2`: the first build, which could claim a place from a task that ended away from the
+line (the agent bug above); `dlbug_2` claimed DK1 from 18 m away and jammed. `dlrace_1`: the second build, without the
+agent fix: a task ended at its last pick, the robot was sent back out of a dead-end aisle and jammed at its mouth.
