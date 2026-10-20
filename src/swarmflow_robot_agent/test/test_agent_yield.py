@@ -8,7 +8,7 @@ import pytest
 
 from swarmflow_core import api
 from swarmflow_core.api import RobotMode
-from swarmflow_robot_agent.agent_core import (YIELD_MAX_S, AgentCore, BackUp, CancelBackUp, CancelNav, Navigate,
+from swarmflow_robot_agent.agent_core import (YIELD_MAX_S, AgentCore, CancelNav, DockDrive, Navigate, StopDrive,
                                               TaskFinished)
 from swarmflow_robot_agent.deadlock import HOLD_S
 from swarmflow_robot_agent.trajectory import Reservation
@@ -142,57 +142,74 @@ def test_cancel_while_waiting_ends_the_task_and_the_wait():
     assert a.reservation(3.0) is None                                     # no task: no reservation
 
 
-# -- deadlock breaker -------------------------------------------------------------------------------------------
+# -- deadlock breaker ----------------------------------------------------------------------------------------------
 
-def blocked_head_on(unjam=True, my_reserved_later=True):
-    """robot_2 blocked at (0, 0) facing east, robot_1 blocked 0.8 m ahead facing west."""
-    a = agent(yield_on=False, unjam=unjam, start=(0.0, 0.0))
+def blocked_head_on(unjam=True):
+    """robot_2 drove east from (-1.5, 0) to (0, 0) and is blocked there; robot_1 is blocked 0.8 m ahead."""
+    a = agent(yield_on=False, unjam=unjam, start=(-1.5, 0.0))
+    for k in range(16):
+        a.on_pose(-1.5 + 0.1 * k, 0.0, 0.0, 0.3, 1.0 + 0.05 * k)
     a.on_pose(0.0, 0.0, 0.0, 0.0, 2.0)
     a.on_nav_result(False, 2.0)                                           # Nav2 gave up: STUCK / BLOCKED
     assert a.state().mode == RobotMode.STUCK and a.state().fault_reason == api.FAULT_BLOCKED
     return a
 
 
-def other_blocked(a, t, reserved=0.5):
+def other_blocked(a, t, reserved=0.5, behind=False):
     a.on_other("robot_1", 0.8, 0.0, math.pi, 0.0, "STUCK", t, fault_reason="BLOCKED")
     a.on_reservation(Reservation("robot_1", reserved, False, ((t, 0.8, 0.0),)), t)
+    if behind:
+        a.on_other("robot_3", -1.0, 0.1, 0.0, 0.0, "IDLE", t)
 
 
-def test_the_lower_ranked_member_of_a_cycle_backs_up_then_replans():
-    a = blocked_head_on()
-    for k in range(int(HOLD_S) + 1):
+def hold(a, n, **kw):
+    acts = []
+    for k in range(n):
         t = 2.0 + k
         a.on_pose(0.0, 0.0, 0.0, 0.0, t)
-        other_blocked(a, t)
+        other_blocked(a, t, **kw)
         acts = a.tick(t)
-        if k < HOLD_S:
-            assert not of(acts, BackUp)
-    assert of(acts, BackUp) and a.state().fault_reason == "UNJAM"
+    return acts, 2.0 + n - 1
+
+
+def test_the_lower_ranked_member_backs_out_along_its_own_track_then_replans():
+    a = blocked_head_on()
+    acts, t = hold(a, int(HOLD_S))
+    assert not of(acts, DockDrive)
+    acts, t = hold(a, int(HOLD_S) + 1)
+    dd = of(acts, DockDrive)
+    assert dd and dd[0].reverse and -0.8 <= dd[0].target[0] <= -0.6 and dd[0].target[1:] == pytest.approx((0, 0))
+    assert a.state().fault_reason == "UNJAM" and a.driving()                 # the node publishes the reverse drive
     assert any(e["type"] == "deadlock_cycle" and e["cycle"] == ["robot_1", "robot_2"] for e in a.yield_events)
-    nav = of(a.on_backup_result(True, 12.0), Navigate)
-    assert nav and nav[0].vertices == ("PK_A_2",) and a.state().mode == RobotMode.NAVIGATING
+    acts = a.on_pose(dd[0].target[0], 0.0, 0.0, -0.1, t + 3.0)         # backed out
+    nav = of(acts, Navigate)
+    assert of(acts, StopDrive) and nav and nav[0].vertices == ("PK_A_2",)
+    assert a.state().mode == RobotMode.NAVIGATING and a.yield_events[-1]["backed_up"]
+
+
+def test_no_back_out_with_a_robot_behind_and_no_progress_stops_the_drive():
+    a = blocked_head_on()
+    acts, _ = hold(a, int(HOLD_S) + 1, behind=True)
+    assert not of(acts, DockDrive) and a.yield_events[-1]["type"] == "unjam_skip"
+    b = blocked_head_on()
+    hold(b, int(HOLD_S) + 1)
+    acts = []
+    for k in range(10):                                                   # stuck while reversing
+        b.on_pose(0.0, 0.0, 0.0, 0.0, 12.0 + k)
+        acts += b.tick(12.0 + k)
+    assert of(acts, StopDrive) and of(acts, Navigate) and not b.yield_events[-1]["backed_up"]
 
 
 def test_the_higher_ranked_member_waits_its_turn():
     a = blocked_head_on()
-    acts = []
-    for k in range(int(HOLD_S) + 2):
-        t = 2.0 + k
-        a.on_pose(0.0, 0.0, 0.0, 0.0, t)
-        other_blocked(a, t, reserved=5.0)                                 # robot_1 reserved later: it goes first
-        acts += a.tick(t)
-    assert not of(acts, BackUp)
+    acts, _ = hold(a, int(HOLD_S) + 2, reserved=5.0)                      # robot_1 reserved later: it goes first
+    assert not of(acts, DockDrive)
 
 
-def test_no_breaker_when_switched_off_and_cancel_stops_a_backup():
+def test_no_breaker_when_switched_off_and_cancel_stops_a_back_out():
     a = blocked_head_on(unjam=False)
-    for k in range(int(HOLD_S) + 2):
-        a.on_pose(0.0, 0.0, 0.0, 0.0, 2.0 + k)
-        other_blocked(a, 2.0 + k)
-        assert not of(a.tick(2.0 + k), BackUp)
+    acts, _ = hold(a, int(HOLD_S) + 2)
+    assert not of(acts, DockDrive)
     b = blocked_head_on()
-    for k in range(int(HOLD_S) + 1):
-        b.on_pose(0.0, 0.0, 0.0, 0.0, 2.0 + k)
-        other_blocked(b, 2.0 + k)
-        b.tick(2.0 + k)
-    assert of(b.cancel(20.0), CancelBackUp)
+    hold(b, int(HOLD_S) + 1)
+    assert of(b.cancel(20.0), StopDrive)

@@ -47,8 +47,14 @@ YIELD_CHECK_S = 0.5           #: reservations are compared at 2 Hz
 CORRIDOR_AFTER = 4            #: the corridor checked before resuming reaches this many samples past the conflict
 AHEAD_SAMPLES = 5             #: deadlock graph: the first samples of a reservation (2 m at 0.5 m/s, 0.5 s)
 UNJAM_REASON = "UNJAM"        #: fault_reason while backing out of a deadlock cycle
-UNJAM_BACKUP_M = 0.6
-UNJAM_TIMEOUT_S = 15.0
+UNJAM_BACKUP_M = 0.6          #: back this far along the robot's own recent track
+UNJAM_MAX_ANGLE = math.radians(35)   #: the track point must lie this close to straight behind (a straight reverse)
+UNJAM_CLEAR_M = 0.9           #: no other robot this close to the back-up point ...
+UNJAM_BEHIND_M = 1.2          #: ... or this close behind the robot (within 60 degrees of straight back)
+UNJAM_TIMEOUT_S = 8.0         #: reverse drive without progress this long: stop and go on
+UNJAM_TOL_LAT_M = 0.15        #: reverse drive reached: across-track tolerance (no docking precision needed)
+TRAIL_STEP_M = 0.1            #: own track: a point every 0.1 m ...
+TRAIL_LEN = 40                #: ... the last 40 (>= 4 m)
 PREDOCK_M = 1.2               #: pallet docking (T042): Nav2 goal this far in front of the pallet, along its yaw
 NAV_SUCCESS_MAX_M = 1.0      #: v2 goal mode: a Nav2 success this far from the goal is spurious and the goal is re-sent
 DOCK_AHEAD_M = 0.0            #: drop: drive this far past the dock vertex along the dock yaw (T066: 0, the pallet
@@ -80,18 +86,6 @@ class DockDrive:
     """Straight closed-loop drive to ``target`` (x, y, yaw) along the target heading; ``reverse`` backs up."""
     target: Tuple[float, float, float]
     reverse: bool = False
-
-
-@dataclass(frozen=True)
-class BackUp:
-    """Nav2's collision-checked BackUp behaviour (deadlock breaker, T068)."""
-    dist: float
-    speed: float = 0.15
-
-
-@dataclass(frozen=True)
-class CancelBackUp:
-    pass
 
 
 @dataclass(frozen=True)
@@ -260,7 +254,7 @@ class AgentCore:
         self._yield_cool: Dict[str, float] = {}                 #: other robot -> no yielding to it before this time
         self._yield_next_check = -math.inf
         self._breaker = Breaker(robot_id)
-        self._unjam_since: Optional[float] = None               #: backing out of a deadlock cycle since
+        self._trail: deque = deque(maxlen=TRAIL_LEN)            #: own recent track (x, y), for backing out
         self.yield_events: List[dict] = []                      #: yield / unjam events, drained by the node
         self.graph = graph
         self.traffic_control = traffic_control
@@ -332,7 +326,7 @@ class AgentCore:
 
     def driving(self) -> bool:
         """True while a straight dock drive is commanded (the node must keep publishing velocity only then)."""
-        return self._dock in ("pick_drive", "drop_drive", "back_drive")
+        return self._dock in ("pick_drive", "drop_drive", "back_drive", "unjam_drive")
 
     def has_pose(self) -> bool:
         return self._have_pose
@@ -452,6 +446,8 @@ class AgentCore:
     def on_pose(self, x: float, y: float, yaw: float, speed: float, t: float,
                 angular_speed: float = 0.0) -> List[object]:
         self._x, self._y, self._yaw, self._speed = x, y, yaw, speed
+        if not self._trail or math.hypot(x - self._trail[-1][0], y - self._trail[-1][1]) >= TRAIL_STEP_M:
+            self._trail.append((x, y))
         self._angular_speed = angular_speed
         self._have_pose = True
         self._pose_t = t
@@ -489,13 +485,7 @@ class AgentCore:
         """This robot's Nav2 plan (``plan``, map frame)."""
         self._plan, self._plan_t = tuple((float(x), float(y)) for x, y in points), t
 
-    def on_backup_result(self, success: bool, t: float) -> List[object]:
-        """Nav2 BackUp finished (deadlock breaker): plan to the current goal again."""
-        if self._unjam_since is None:
-            return []
-        self.yield_events.append({"type": "unjam_end", "t": t, "robot_id": self.robot_id, "backed_up": success})
-        self._unjam_since = None
-        return self._resume_goal(t)
+
 
     def on_nav_result(self, success: bool, t: float) -> List[object]:
         if self._goal_mode and self._route:
@@ -662,8 +652,6 @@ class AgentCore:
         acts: List[object] = []
         if self._mode == RobotMode.NAVIGATING or (self._goal_mode and self._nav_inflight):
             acts.append(CancelNav())
-        if self._unjam_since is not None:
-            acts.append(CancelBackUp())
         acts += self._dock_abort()
         acts += self._release_all(ReleaseReason.TASK_CANCELLED)
         task = self._task_id
@@ -876,7 +864,6 @@ class AgentCore:
             self.yield_events.append({"type": "yield_end", "t": self._pose_t, "robot_id": self.robot_id,
                                       "other": self._yield["other"], "waited_s": None})
         self._yield = None
-        self._unjam_since = None
         self._res_t = None
         for lease in self._leases:
             lease.exit_idx = None
@@ -1075,10 +1062,6 @@ class AgentCore:
     def _goal_tick(self, t: float) -> List[object]:
         if self._dock is not None:
             return self._dock_tick(t)
-        if self._unjam_since is not None:
-            if t - self._unjam_since < UNJAM_TIMEOUT_S:
-                return []                                 # backing up: wait for the BackUp result
-            return [CancelBackUp()] + self.on_backup_result(False, t)
         if self.unjam:
             acts = self._unjam_check(t)
             if acts is not None:
@@ -1216,14 +1199,47 @@ class AgentCore:
             self._yield_cool[other] = t + 2 * YIELD_COOLDOWN_S
             return self._resume_goal(t)
         if self._mode == RobotMode.STUCK and self._fault_reason_stuck == BLOCKED:
+            target = self._unjam_target(t)
+            if target is None:                            # no safe way back: the next member's turn
+                self.yield_events.append({"type": "unjam_skip", "t": t, "robot_id": self.robot_id})
+                return None
             acts: List[object] = [CancelNav()] if self._nav_inflight else []
             self._nav_inflight = False
             self._goal_retry_at = None
-            self._unjam_since = t
+            self.yield_events.append({"type": "unjam_start", "t": t, "robot_id": self.robot_id,
+                                      "to_x": round(target[0], 2), "to_y": round(target[1], 2)})
+            acts += self._dock_begin_drive("unjam_drive", RobotMode.STUCK, target, True, t)
             self._fault_reason_stuck = UNJAM_REASON
-            self.yield_events.append({"type": "unjam_start", "t": t, "robot_id": self.robot_id})
-            return acts + [BackUp(UNJAM_BACKUP_M)]
+            return acts
         return None
+
+    def _unjam_target(self, t: float) -> Optional[Tuple[float, float, float]]:
+        """Where to back up to: UNJAM_BACKUP_M back along this robot's own recent track (the space it just drove
+        through), if that is roughly straight behind it and no other robot is there or behind it; else None."""
+        back = self._yaw + math.pi
+        d, px, py = 0.0, self._x, self._y
+        target = None
+        for qx, qy in reversed(self._trail):
+            d += math.hypot(qx - px, qy - py)
+            px, py = qx, qy
+            if d >= UNJAM_BACKUP_M:
+                target = (qx, qy)
+                break
+        if target is None:
+            return None
+        ang = abs(_wrap(math.atan2(target[1] - self._y, target[0] - self._x) - back))
+        if ang > UNJAM_MAX_ANGLE:
+            return None
+        for st, tr in self._others.values():
+            if t - tr > OTHER_MAX_AGE_S:
+                continue
+            ox, oy = st["x"], st["y"]
+            if math.hypot(ox - target[0], oy - target[1]) < UNJAM_CLEAR_M:
+                return None
+            dist = math.hypot(ox - self._x, oy - self._y)
+            if dist < UNJAM_BEHIND_M and abs(_wrap(math.atan2(oy - self._y, ox - self._x) - back)) <= math.radians(60):
+                return None
+        return (target[0], target[1], self._yaw)
 
     # -- pallet docking (T042) -------------------------------------------------------------------------------------
     # Nav2 cannot plan between pallet legs, so the last metre in and out is a straight DockDrive. The drive runs only
@@ -1254,10 +1270,14 @@ class AgentCore:
         return self._dock_begin_drive("drop_drive", RobotMode.CARRYING, target, False, t)
 
     def _dock_on_pose(self, t: float) -> List[object]:
-        if self._dock not in ("pick_drive", "drop_drive", "back_drive"):
+        if self._dock not in ("pick_drive", "drop_drive", "back_drive", "unjam_drive"):
             return []
         lat, lon = self._dock_geometry(self._dock_target)
         remaining = -lon if self._dock_reverse else lon        # distance still to drive (<= 0: reached or passed)
+        if self._dock == "unjam_drive":                         # deadlock breaker: backed out far enough
+            if remaining > DOCK_TOL_LON_M or abs(lat) > UNJAM_TOL_LAT_M:
+                return []
+            return self._unjam_done(t, True)
         if abs(lat) > DOCK_TOL_LAT_M or remaining > DOCK_TOL_LON_M:
             # Fail-safe: a lateral error above tolerance at the stop distance is never "reached". The node's control
             # law commands zero speed there (it only rotates), so the robot stalls and the DOCK_TIMEOUT_S progress
@@ -1282,7 +1302,19 @@ class AgentCore:
             acts += self._goal_begin(t)
         return acts
 
+    def _unjam_done(self, t: float, reached: bool) -> List[object]:
+        self._dock = None
+        self.yield_events.append({"type": "unjam_end", "t": t, "robot_id": self.robot_id, "backed_up": reached})
+        return [StopDrive()] + self._resume_goal(t)
+
     def _dock_tick(self, t: float) -> List[object]:
+        if self._dock == "unjam_drive":
+            d = math.hypot(self._dock_target[0] - self._x, self._dock_target[1] - self._y)
+            if self._dock_ref_d - d >= api.STUCK_MIN_PROGRESS_M / 2:
+                self._dock_ref_d, self._dock_ref_t = d, t
+            elif t - self._dock_ref_t >= UNJAM_TIMEOUT_S:
+                return self._unjam_done(t, False)
+            return []
         if self._dock in ("lift", "unload"):
             if t < self._dwell_until:
                 return []
@@ -1312,7 +1344,7 @@ class AgentCore:
         """The task ends while a dock phase is active: stop the drive; once the pallet was set down the normal
         footprint applies again. Called before the task state is cleared."""
         phase, self._dock = self._dock, None
-        acts: List[object] = [StopDrive()] if phase in ("pick_drive", "drop_drive", "back_drive") else []
+        acts: List[object] = [StopDrive()] if phase in ("pick_drive", "drop_drive", "back_drive", "unjam_drive") else []
         if phase in ("unload", "back_drive"):             # the pallet is already down
             self._pallet_on_board = False
             acts.append(SetFootprint("normal"))

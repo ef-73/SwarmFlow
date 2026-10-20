@@ -28,7 +28,7 @@ NOMINAL_MPS = 0.5       #: planned speed used to time a plan (the robots cruise 
 MEET_M = 1.0            #: two robots closer than this (centres) meet: footprints 0.7 x 0.6 plus a margin
 TIME_TOL_S = 1.5        #: "at a similar time": |t_mine - t_theirs| within this ...
 TIME_TOL_GROWTH = 0.15  #: ... plus this fraction of how far ahead the meeting is (timing grows less certain)
-YIELD_WITHIN_S = 12.0   #: only conflicts this soon count
+YIELD_WITHIN_S = 8.0    #: only conflicts this soon count (12 s made robots wait 10-15 s each: r068v0_1)
 CLEAR_M = 1.3           #: a wait point keeps this far from every point of the other robot's reservation
 
 Point = Tuple[float, float, float]      #: (t, x, y), t absolute (sim seconds)

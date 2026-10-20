@@ -14,7 +14,6 @@ from typing import Iterable, Optional
 import rclpy
 import tf2_ros
 from geometry_msgs.msg import PoseStamped, Twist
-from nav2_msgs.action import BackUp as BackUpAction
 from nav2_msgs.action import NavigateThroughPoses
 from nav_msgs.msg import Path
 from rcl_interfaces.msg import Parameter as ParameterMsg
@@ -34,9 +33,9 @@ from swarmflow_interfaces.action import DispatchTask
 from swarmflow_interfaces.msg import ReservationHeartbeat, ReservationRelease, RobotState, ZoneReservation
 from swarmflow_interfaces.srv import RequestReservation as RequestReservationSrv
 
-from .agent_core import (DRIVE_HZ, DRIVE_MAX_MPS, DRIVE_MAX_RADPS, DRIVE_POSE_MAX_AGE_S, AgentCore, BackUp,
-                         CancelBackUp, CancelNav, DockDrive, FootprintSync, drive_command, Navigate, Release,
-                         RequestReservation, SetFootprint, StopDrive, TaskFinished)
+from .agent_core import (DRIVE_HZ, DRIVE_MAX_MPS, DRIVE_MAX_RADPS, DRIVE_POSE_MAX_AGE_S, AgentCore, CancelNav,
+                         DockDrive, FootprintSync, drive_command, Navigate, Release, RequestReservation, SetFootprint,
+                         StopDrive, TaskFinished)
 from .trajectory import Reservation
 
 MAX_POSE_AGE_S = 1.0
@@ -92,8 +91,6 @@ class AgentNode(Node):
         self.core = AgentCore(self.robot_id, graph, traffic_control=bool(self.get_parameter("traffic_control").value),
                               yield_to_others=bool(self.get_parameter("yield_to_others").value),
                               unjam=bool(self.get_parameter("unjam").value))
-        self._backup_goal = None
-        self._backup_seq = 0
 
         self._lock = threading.RLock()
         self._cb = ReentrantCallbackGroup()
@@ -140,7 +137,6 @@ class AgentNode(Node):
             self.create_subscription(Path, "plan", self._on_plan, QoSProfile(depth=1), callback_group=cb)
             self._traj_pub = self.create_publisher(Path, "/fleet/trajectories", _QOS10)   # reliable: any reader
             self.create_timer(TRAJ_PERIOD_S, self._publish_trajectory, callback_group=cb)
-            self._backup_client = ActionClient(self, BackUpAction, "backup", callback_group=cb)
         self._server = ActionServer(self, DispatchTask, "dispatch_task", self._execute,
                                     goal_callback=self._on_goal, cancel_callback=lambda _h: CancelResponse.ACCEPT,
                                     callback_group=cb)
@@ -160,10 +156,7 @@ class AgentNode(Node):
                 self._send_nav(a)
             elif isinstance(a, CancelNav):
                 self._cancel_nav()
-            elif isinstance(a, BackUp):
-                self._start_backup(a)
-            elif isinstance(a, CancelBackUp):
-                self._cancel_backup()
+
             elif isinstance(a, DockDrive):
                 self._start_drive(a)
             elif isinstance(a, StopDrive):
@@ -397,48 +390,6 @@ class AgentNode(Node):
             p.pose.orientation.w = 1.0
             m.poses.append(p)
         self._traj_pub.publish(m)
-
-    # -- deadlock breaker: Nav2 BackUp (T068) --------------------------------------------------------------------
-    def _start_backup(self, b: BackUp) -> None:
-        self._backup_seq += 1
-        seq = self._backup_seq
-        if not self._backup_client.server_is_ready():
-            self.get_logger().warn("backup behaviour not available")
-            self._run(self.core.on_backup_result(False, self._now()))
-            return
-        goal = BackUpAction.Goal()
-        goal.target.x = float(b.dist)
-        goal.speed = float(b.speed)
-        goal.time_allowance.sec = 10
-        self._backup_client.send_goal_async(goal).add_done_callback(lambda f, s=seq: self._on_backup_accepted(f, s))
-
-    def _on_backup_accepted(self, fut, seq: int) -> None:
-        with self._lock:
-            handle = fut.result()
-            if seq != self._backup_seq:
-                if handle is not None and handle.accepted:
-                    handle.cancel_goal_async()
-                return
-            if handle is None or not handle.accepted:
-                self._run(self.core.on_backup_result(False, self._now()))
-                return
-            self._backup_goal = handle
-            handle.get_result_async().add_done_callback(lambda f, s=seq: self._on_backup_result(f, s))
-
-    def _on_backup_result(self, fut, seq: int) -> None:
-        with self._lock:
-            if seq != self._backup_seq:
-                return
-            self._backup_goal = None
-            res = fut.result()
-            ok = res is not None and res.status == GoalStatus.STATUS_SUCCEEDED
-            self._run(self.core.on_backup_result(ok, self._now()))
-
-    def _cancel_backup(self) -> None:
-        self._backup_seq += 1
-        if self._backup_goal is not None:
-            self._backup_goal.cancel_goal_async()
-            self._backup_goal = None
 
     def _on_tick(self) -> None:
         with self._lock:
