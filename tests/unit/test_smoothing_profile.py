@@ -25,7 +25,7 @@ def _merged(mod):
     return base
 
 
-def test_smoothing_limits_acceleration_in_controller_and_smoother_and_adds_twirling():
+def test_smoothing_limits_acceleration_in_controller_and_smoother_only():
     mod = _launch()
     base = _merged(mod)
     before = dict(base["controller_server"]["ros__parameters"]["FollowPath"])
@@ -34,10 +34,7 @@ def test_smoothing_limits_acceleration_in_controller_and_smoother_and_adds_twirl
     a, aw = mod.SMOOTH_ACCEL
     assert (fp["ax_max"], fp["ax_min"], fp["az_max"]) == (a, -a, aw)
     assert a < before["ax_max"] and aw < before["az_max"] and fp["wz_std"] < before["wz_std"]
-    assert fp["critics"].count("TwirlingCritic") == 1 and fp["TwirlingCritic"]["enabled"]
-    assert set(before["critics"]) <= set(fp["critics"])                       # nothing else removed
+    assert fp["critics"] == before["critics"] and "TwirlingCritic" not in fp["critics"]   # s069_1: no U-turns
     vs = base["velocity_smoother"]["ros__parameters"]
     assert vs["max_accel"] == [a, 0.0, aw] and vs["max_decel"] == [-a, 0.0, -aw]
-    assert base["planner_server"]["ros__parameters"]["GridBased"]["smoother"]["w_smooth"] == mod.SMOOTH_PATH_W
-    mod.apply_smoothing(base)                                                  # idempotent
-    assert fp["critics"].count("TwirlingCritic") == 1
+    assert base["planner_server"]["ros__parameters"]["GridBased"]["smoother"]["w_smooth"] == 0.3   # unchanged

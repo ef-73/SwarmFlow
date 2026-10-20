@@ -93,9 +93,10 @@ def setup(context):
             for cm in ("local_costmap", "global_costmap"):
                 base[cm][cm]["ros__parameters"]["other_robots"]["use_plans"] = True
         # T069: SWARMFLOW_SMOOTH=1 smooths the motion: realistic acceleration limits in MPPI and in the velocity
-        # smoother (the 3 m/s^2, 3.5 rad/s^2 limits let every MPPI correction reach the wheels at once), less turn-rate
-        # sampling noise, a critic against turn-rate changes (Twirling), and a stronger path smoother so the 1 Hz
-        # re-plans shift the path less
+        # smoother (the 3 m/s^2, 3.5 rad/s^2 limits let every MPPI correction reach the wheels at once) and less
+        # turn-rate sampling noise. Not used (run s069_1, 0 deliveries): Nav2's TwirlingCritic penalises the turn rate
+        # itself (meant for omnidirectional robots), so robots could not U-turn at the aisle ends and cut rack corners;
+        # a stronger Smac path smoother (w_smooth 0.5) also lets the path cut corners.
         if os.environ.get("SWARMFLOW_SMOOTH", "") in ("1", "true"):
             apply_smoothing(base)
         source = os.path.join(tempfile.gettempdir(), f"swarmflow_{rid}_nav2_params_v2.yaml")
@@ -206,10 +207,8 @@ def setup(context):
     return actions
 
 
-SMOOTH_ACCEL = (1.0, 2.0)        #: T069: m/s^2, rad/s^2 (MPPI and velocity smoother)
+SMOOTH_ACCEL = (1.5, 2.5)        #: T069: m/s^2, rad/s^2 (MPPI and velocity smoother; were 3.0 / 3.5 and 2.5 / 3.2)
 SMOOTH_WZ_STD = 0.3               #: T069: MPPI turn-rate sampling noise (was 0.4)
-SMOOTH_TWIRLING_WEIGHT = 10.0     #: T069: Nav2's default TwirlingCritic weight
-SMOOTH_PATH_W = 0.5               #: T069: Smac smoother w_smooth (was 0.3)
 
 
 def apply_smoothing(base: dict) -> None:
@@ -217,13 +216,9 @@ def apply_smoothing(base: dict) -> None:
     fp = base["controller_server"]["ros__parameters"]["FollowPath"]
     a, aw = SMOOTH_ACCEL
     fp.update({"ax_max": a, "ax_min": -a, "az_max": aw, "wz_std": SMOOTH_WZ_STD})
-    if "TwirlingCritic" not in fp["critics"]:
-        fp["critics"] = list(fp["critics"]) + ["TwirlingCritic"]
-    fp["TwirlingCritic"] = {"enabled": True, "cost_power": 1, "cost_weight": SMOOTH_TWIRLING_WEIGHT}
     vs = base["velocity_smoother"]["ros__parameters"]
     vs["max_accel"] = [a, 0.0, aw]
     vs["max_decel"] = [-a, 0.0, -aw]
-    base["planner_server"]["ros__parameters"]["GridBased"]["smoother"]["w_smooth"] = SMOOTH_PATH_W
 
 
 def generate_launch_description():
