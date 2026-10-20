@@ -119,3 +119,11 @@ def test_cancel_while_yielding_ends_the_task_and_the_yield():
     acts = a.cancel(3.0)
     assert of(acts, TaskFinished) and not of(acts, CancelNav)          # nothing in flight any more
     assert a.yielding_to() == "" and a.state().mode == RobotMode.IDLE and a.state().fault_reason == ""
+
+
+def test_no_yield_inside_a_storage_aisle():
+    """y067_3: robots that stopped inside a dead-end aisle blocked it; next to a pick point, never yield."""
+    a = agent()
+    a.on_pose(2.0, 3.6, math.pi / 2, 0.5, 2.0)                        # in the aisle, nearest vertex PK_A_1
+    a.on_other("robot_1", 2.0, 5.6, -math.pi / 2, 0.5, "NAVIGATING", 2.0)
+    assert not of(a.tick(2.0), CancelNav) and a.state().mode == RobotMode.NAVIGATING

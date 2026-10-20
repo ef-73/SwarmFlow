@@ -1061,6 +1061,11 @@ class AgentCore:
             reason = should_yield(me, other)
             if reason is None:
                 continue
+            if self.graph.vertices[self.graph.nearest_vertex(self._x, self._y)].kind == "pick":
+                # inside a storage aisle (nearest vertex a pick point): a robot standing there blocks the dead-end
+                # aisle for the robot it waits for (y067_3: two robots face to face for 5 min). Wait only outside,
+                # e.g. at the aisle mouth before entering.
+                return None
             acts: List[object] = [CancelNav()] if self._nav_inflight else []
             self._nav_inflight = False
             self._goal_retry_at = None

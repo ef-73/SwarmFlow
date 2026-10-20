@@ -5,6 +5,8 @@ to meet head-on or crossing, the one that would reach the meeting point later st
 mode ``WAITING_RESERVATION`` with fault reason ``YIELD:<other>`` and zero speed. The other robot then knows this one
 will not move: it never yields back to a waiting robot (no mutual yields), and its costmap sees a static robot.
 
+The agent never yields inside a storage aisle (next to a pick point): stopping there blocks the dead-end aisle.
+
 Rules (``should_yield``): never while carrying a pallet (pallets have right of way), never to a robot that is
 waiting, stuck or standing still (that is an obstacle for the planner, not an encounter), never to a robot driving the
 same way (following). The wait ends (``keep_yielding``) when the other robot no longer closes in on this one, stops,
