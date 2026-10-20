@@ -32,6 +32,12 @@ class _NoAliasDumper(yaml.SafeDumper):
         return True
 
 
+def switch_on(name: str) -> bool:
+    """T070: coordination switches (SWARMFLOW_YIELD, SWARMFLOW_UNJAM, SWARMFLOW_SMOOTH) are on unless set to 0 / false
+    (adopted 2026-10-20 after the Gazebo A/B in docs/results/v2_benchmarks.md)."""
+    return os.environ.get(name, "").strip().lower() not in ("0", "false", "off")
+
+
 def _deep_merge(base: dict, over: dict) -> None:
     """Overlay values win; nested dicts merge; lists and scalars are replaced."""
     for k, v in over.items():
@@ -92,12 +98,12 @@ def setup(context):
         if os.environ.get("SWARMFLOW_PREDICT_ALONG_PLAN", "") in ("1", "true"):
             for cm in ("local_costmap", "global_costmap"):
                 base[cm][cm]["ros__parameters"]["other_robots"]["use_plans"] = True
-        # T069: SWARMFLOW_SMOOTH=1 smooths the motion: realistic acceleration limits in MPPI and in the velocity
+        # T069: SWARMFLOW_SMOOTH (on by default, 0 = off) smooths the motion: realistic acceleration limits in MPPI and in the velocity
         # smoother (the 3 m/s^2, 3.5 rad/s^2 limits let every MPPI correction reach the wheels at once) and less
         # turn-rate sampling noise. Not used (run s069_1, 0 deliveries): Nav2's TwirlingCritic penalises the turn rate
         # itself (meant for omnidirectional robots), so robots could not U-turn at the aisle ends and cut rack corners;
         # a stronger Smac path smoother (w_smooth 0.5) also lets the path cut corners.
-        if os.environ.get("SWARMFLOW_SMOOTH", "") in ("1", "true"):
+        if switch_on("SWARMFLOW_SMOOTH"):
             apply_smoothing(base)
         source = os.path.join(tempfile.gettempdir(), f"swarmflow_{rid}_nav2_params_v2.yaml")
         with open(source, "w", encoding="utf-8") as f:
@@ -200,10 +206,8 @@ def setup(context):
                             remappings=TF, parameters=[sim, {"robot_id": rid, "layout_dir": gen,
                                                              "traffic_control": traffic_control,
                                                              # T068: reserved trajectories / deadlock breaker
-                                                             "yield_to_others": os.environ.get(
-                                                                 "SWARMFLOW_YIELD", "") in ("1", "true"),
-                                                             "unjam": os.environ.get(
-                                                                 "SWARMFLOW_UNJAM", "") in ("1", "true")}]))
+                                                             "yield_to_others": switch_on("SWARMFLOW_YIELD"),
+                                                             "unjam": switch_on("SWARMFLOW_UNJAM")}]))
     return actions
 
 

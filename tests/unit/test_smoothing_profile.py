@@ -38,3 +38,15 @@ def test_smoothing_limits_acceleration_in_controller_and_smoother_only():
     vs = base["velocity_smoother"]["ros__parameters"]
     assert vs["max_accel"] == [a, 0.0, aw] and vs["max_decel"] == [-a, 0.0, -aw]
     assert base["planner_server"]["ros__parameters"]["GridBased"]["smoother"]["w_smooth"] == 0.3   # unchanged
+
+
+def test_coordination_switches_are_on_unless_set_to_0(monkeypatch):
+    mod = _launch()
+    for name in ("SWARMFLOW_YIELD", "SWARMFLOW_UNJAM", "SWARMFLOW_SMOOTH"):
+        monkeypatch.delenv(name, raising=False)
+        assert mod.switch_on(name)
+        for off in ("0", "false", "OFF"):
+            monkeypatch.setenv(name, off)
+            assert not mod.switch_on(name)
+        monkeypatch.setenv(name, "1")
+        assert mod.switch_on(name)
